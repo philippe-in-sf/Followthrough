@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -137,18 +137,22 @@ function setupAppFetch() {
     if (url.pathname === "/api/tasks" && method === "GET") return json({ tasks });
 
     if (url.pathname === "/api/tasks" && method === "POST") {
-      const task = {
+      const task: TaskDto = {
         publicId: "T100",
         description: body.description,
         assignee: avery,
         status: body.status,
         dueDate: body.dueDate,
-        originMeetingPublicId: null,
-        seriesPublicId: null,
+        originMeetingPublicId: body.originMeetingPublicId ?? null,
+        seriesPublicId: body.seriesPublicId ?? null,
         alert: null,
         archived: false,
       };
       tasks.push(task);
+      if (body.originMeetingPublicId) {
+        const meeting = meetings.find((item) => item.publicId === body.originMeetingPublicId);
+        meeting?.tasks.push(task);
+      }
       return json({ task }, 201);
     }
 
@@ -220,6 +224,22 @@ function setupAppFetch() {
       return json({ meeting }, 201);
     }
 
+    if (url.pathname === "/api/meetings/M010" && method === "PATCH") {
+      meetings[0] = {
+        ...meetings[0],
+        title: body.title,
+        startsAt: body.startsAt,
+        meetingType: body.meetingType,
+        seriesPublicId: body.seriesPublicId,
+        summary: body.summary,
+        attendees: [avery],
+        tasks: body.taskPublicIds
+          .map((publicId: string) => tasks.find((task) => task.publicId === publicId))
+          .filter(Boolean) as TaskDto[],
+      };
+      return json({ meeting: meetings[0] });
+    }
+
     return json({});
   }) as typeof fetch;
 }
@@ -287,5 +307,42 @@ describe("dashboard and workspace flows", () => {
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Carry roadmap").length).toBeGreaterThan(1));
+  });
+
+  it("creates tasks inside a meeting and edits meeting details", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+
+    await userEvent.type(
+      within(meetingCard).getByLabelText("New task description for M010"),
+      "Capture action items",
+    );
+    await userEvent.selectOptions(
+      within(meetingCard).getByLabelText("New task assignee for M010"),
+      "P001",
+    );
+    await userEvent.selectOptions(
+      within(meetingCard).getByLabelText("New task status for M010"),
+      "In Progress",
+    );
+    await userEvent.type(within(meetingCard).getByLabelText("New task due date for M010"), "2026-06-20");
+    await userEvent.click(within(meetingCard).getByRole("button", { name: "Add task to M010" }));
+
+    expect(await screen.findByText("Capture action items")).toBeInTheDocument();
+
+    await userEvent.click(within(meetingCard).getByRole("button", { name: "Edit details for M010" }));
+    expect(await screen.findByRole("heading", { name: "Edit meeting M010" })).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText("Meeting title"));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Updated leadership sync");
+    await userEvent.clear(screen.getByLabelText("Meeting summary"));
+    await userEvent.type(screen.getByLabelText("Meeting summary"), "Updated summary");
+    await userEvent.click(screen.getByRole("button", { name: "Update meeting" }));
+
+    expect(await screen.findByText("Updated leadership sync")).toBeInTheDocument();
+    expect(screen.getByText("Updated summary")).toBeInTheDocument();
   });
 });

@@ -387,6 +387,20 @@ textarea {
   gap: 8px;
 }
 
+.meeting-card {
+  display: grid;
+  gap: 0;
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.meeting-card .record-row {
+  border: 0;
+  border-radius: 0;
+}
+
 .record-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
@@ -414,6 +428,22 @@ textarea {
 .task-links {
   display: grid;
   gap: 4px;
+}
+
+.meeting-task-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(150px, auto));
+  align-items: end;
+  gap: 12px;
+  border-top: 1px solid #d9dee7;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+
+.meeting-task-form h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .status-badge {
@@ -490,6 +520,7 @@ textarea {
 
   .record-row,
   .meeting-row,
+  .meeting-task-form,
   .compact-list li {
     grid-template-columns: 1fr;
   }

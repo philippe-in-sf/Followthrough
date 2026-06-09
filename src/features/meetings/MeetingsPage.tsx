@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type {
   MeetingDto,
   MeetingSeriesDto,
@@ -36,6 +36,13 @@ type OccurrenceFormState = {
   attendeePublicIds: string[];
 };
 
+type MeetingTaskFormState = {
+  description: string;
+  assigneePublicId: string;
+  status: TaskDto["status"];
+  dueDate: string;
+};
+
 const emptyMeetingForm: MeetingFormState = {
   publicId: "",
   title: "",
@@ -59,6 +66,13 @@ const emptyOccurrenceForm: OccurrenceFormState = {
   title: "",
   summary: "",
   attendeePublicIds: [],
+};
+
+const emptyMeetingTaskForm: MeetingTaskFormState = {
+  description: "",
+  assigneePublicId: "",
+  status: "Open",
+  dueDate: "",
 };
 
 function toApiDateTime(value: string) {
@@ -117,6 +131,8 @@ export function MeetingsPage() {
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
+  const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
+  const meetingEditorRef = useRef<HTMLFormElement | null>(null);
 
   async function load() {
     const [meetingResult, seriesResult, peopleResult, taskResult] = await Promise.all([
@@ -185,6 +201,48 @@ export function MeetingsPage() {
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
     });
+    requestAnimationFrame(() => {
+      const editor = meetingEditorRef.current;
+      if (typeof editor?.scrollIntoView === "function") {
+        editor.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      editor?.querySelector("input")?.focus();
+    });
+  }
+
+  function getMeetingTaskForm(meetingPublicId: string) {
+    return meetingTaskForms[meetingPublicId] ?? emptyMeetingTaskForm;
+  }
+
+  function updateMeetingTaskForm(
+    meetingPublicId: string,
+    changes: Partial<MeetingTaskFormState>,
+  ) {
+    setMeetingTaskForms((current) => ({
+      ...current,
+      [meetingPublicId]: {
+        ...(current[meetingPublicId] ?? emptyMeetingTaskForm),
+        ...changes,
+      },
+    }));
+  }
+
+  async function submitMeetingTask(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
+    event.preventDefault();
+    const form = getMeetingTaskForm(meeting.publicId);
+    await api.tasks.create({
+      description: form.description,
+      assigneePublicId: form.assigneePublicId || null,
+      status: form.status,
+      dueDate: form.dueDate || null,
+      originMeetingPublicId: meeting.publicId,
+      seriesPublicId: meeting.seriesPublicId,
+    });
+    setMeetingTaskForms((current) => ({
+      ...current,
+      [meeting.publicId]: emptyMeetingTaskForm,
+    }));
+    await load();
   }
 
   return (
@@ -282,8 +340,13 @@ export function MeetingsPage() {
           </button>
         </form>
       </div>
-      <form className="editor-form" onSubmit={submitMeeting}>
-        <h3>{meetingForm.publicId ? "Edit meeting" : "Add meeting"}</h3>
+      <form
+        className="editor-form"
+        id="meeting-editor"
+        onSubmit={submitMeeting}
+        ref={meetingEditorRef}
+      >
+        <h3>{meetingForm.publicId ? `Edit meeting ${meetingForm.publicId}` : "Add meeting"}</h3>
         <FormField label="Meeting title">
           <input
             value={meetingForm.title}
@@ -374,38 +437,104 @@ export function MeetingsPage() {
       ) : (
         <div className="record-list">
           {meetings.map((meeting) => (
-            <article className="record-row meeting-row" key={meeting.publicId}>
-              <div>
-                <strong>{meeting.title}</strong>
-                <span>{meeting.publicId}</span>
+            <article
+              aria-label={`Meeting ${meeting.publicId}`}
+              className="meeting-card"
+              key={meeting.publicId}
+            >
+              <div className="record-row meeting-row">
+                <div>
+                  <strong>{meeting.title}</strong>
+                  <span>{meeting.publicId}</span>
+                </div>
+                <StatusBadge label={meeting.meetingType} />
+                <span>{new Date(meeting.startsAt).toLocaleString()}</span>
+                <span>{meeting.summary || "No summary"}</span>
+                <span>
+                  {meeting.attendees.length > 0
+                    ? meeting.attendees.map((attendee) => attendee.name).join(", ")
+                    : "No attendees"}
+                </span>
+                <div className="task-links">
+                  {meeting.tasks.length === 0 ? (
+                    <span>No tasks</span>
+                  ) : (
+                    meeting.tasks.map((task) => (
+                      <span key={task.publicId}>
+                        <strong>{task.publicId}</strong> {task.description}
+                      </span>
+                    ))
+                  )}
+                </div>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => editMeeting(meeting)}
+                  aria-label={`Edit details for ${meeting.publicId}`}
+                >
+                  Edit details
+                </button>
               </div>
-              <StatusBadge label={meeting.meetingType} />
-              <span>{new Date(meeting.startsAt).toLocaleString()}</span>
-              <span>{meeting.summary || "No summary"}</span>
-              <span>
-                {meeting.attendees.length > 0
-                  ? meeting.attendees.map((attendee) => attendee.name).join(", ")
-                  : "No attendees"}
-              </span>
-              <div className="task-links">
-                {meeting.tasks.length === 0 ? (
-                  <span>No tasks</span>
-                ) : (
-                  meeting.tasks.map((task) => (
-                    <span key={task.publicId}>
-                      <strong>{task.publicId}</strong> {task.description}
-                    </span>
-                  ))
-                )}
-              </div>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => editMeeting(meeting)}
-                aria-label={`Edit ${meeting.publicId}`}
-              >
-                Edit
-              </button>
+              <form className="meeting-task-form" onSubmit={(event) => submitMeetingTask(event, meeting)}>
+                <h3>Add task to {meeting.publicId}</h3>
+                <FormField label={`New task description for ${meeting.publicId}`}>
+                  <input
+                    value={getMeetingTaskForm(meeting.publicId).description}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        description: event.target.value,
+                      })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField label={`New task assignee for ${meeting.publicId}`}>
+                  <select
+                    value={getMeetingTaskForm(meeting.publicId).assigneePublicId}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        assigneePublicId: event.target.value,
+                      })
+                    }
+                  >
+                    <option value="">Unassigned</option>
+                    {people.map((person) => (
+                      <option key={person.publicId} value={person.publicId}>
+                        {person.name}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label={`New task status for ${meeting.publicId}`}>
+                  <select
+                    value={getMeetingTaskForm(meeting.publicId).status}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        status: event.target.value as TaskDto["status"],
+                      })
+                    }
+                  >
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Blocked">Blocked</option>
+                    <option value="Done">Done</option>
+                  </select>
+                </FormField>
+                <FormField label={`New task due date for ${meeting.publicId}`}>
+                  <input
+                    type="date"
+                    value={getMeetingTaskForm(meeting.publicId).dueDate}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        dueDate: event.target.value,
+                      })
+                    }
+                  />
+                </FormField>
+                <button className="primary-button" type="submit">
+                  Add task to {meeting.publicId}
+                </button>
+              </form>
             </article>
           ))}
         </div>
