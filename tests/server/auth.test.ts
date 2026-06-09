@@ -1,0 +1,87 @@
+import request from "supertest";
+import { afterEach, describe, expect, it } from "vitest";
+import { createApp } from "../../server/app";
+import { createTestDatabase, migrateDatabase } from "../../server/db/database";
+
+const dbs: ReturnType<typeof createTestDatabase>[] = [];
+
+function appWithInvite(code = "join-team") {
+  const db = createTestDatabase();
+  dbs.push(db);
+  migrateDatabase(db);
+  db.prepare("INSERT INTO invite_codes (code, label, usage_limit) VALUES (?, ?, ?)").run(
+    code,
+    "Test invite",
+    5,
+  );
+  return createApp({ db });
+}
+
+afterEach(() => {
+  for (const db of dbs.splice(0)) db.close();
+});
+
+describe("auth", () => {
+  it("signs up with an active invite code and returns the current user", async () => {
+    const app = appWithInvite();
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Philippe",
+      email: "philippe@example.com",
+      password: "long-enough-password",
+      inviteCode: "join-team",
+    });
+
+    expect(signup.status).toBe(201);
+    expect(signup.headers["set-cookie"]?.[0]).toContain("tm_session=");
+    expect(signup.body.user).toMatchObject({
+      name: "Philippe",
+      email: "philippe@example.com",
+    });
+
+    const me = await request(app)
+      .get("/api/auth/me")
+      .set("Cookie", signup.headers["set-cookie"]);
+
+    expect(me.status).toBe(200);
+    expect(me.body.user.email).toBe("philippe@example.com");
+  });
+
+  it("rejects signup with a bad invite code", async () => {
+    const app = appWithInvite();
+
+    const response = await request(app).post("/api/auth/signup").send({
+      name: "Nope",
+      email: "nope@example.com",
+      password: "long-enough-password",
+      inviteCode: "wrong",
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("logs in and logs out", async () => {
+    const app = appWithInvite();
+
+    await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join-team",
+    });
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: "casey@example.com",
+      password: "long-enough-password",
+    });
+
+    expect(login.status).toBe(200);
+    expect(login.headers["set-cookie"]?.[0]).toContain("tm_session=");
+
+    const logout = await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", login.headers["set-cookie"]);
+
+    expect(logout.status).toBe(204);
+  });
+});
