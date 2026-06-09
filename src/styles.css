@@ -69,14 +69,19 @@ textarea {
 }
 
 .topbar {
-  height: 56px;
+  min-height: 56px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   padding: 0 24px;
   border-bottom: 1px solid #d9dee7;
   background: #ffffff;
+}
+
+.user-name {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .page {
@@ -149,6 +154,7 @@ textarea {
 }
 
 .primary-button,
+.secondary-button,
 .link-button,
 .icon-button {
   border: 0;
@@ -160,6 +166,12 @@ textarea {
   background: #2563eb;
   color: #ffffff;
   padding: 10px 14px;
+}
+
+.secondary-button {
+  background: #eef2f7;
+  color: #1d2433;
+  padding: 9px 12px;
 }
 
 .link-button {
@@ -178,10 +190,53 @@ textarea {
   color: #1d2433;
 }
 
+.global-search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 560px;
+}
+
 .global-search {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(560px, 80vw);
+  display: grid;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid #c8d0dc;
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+}
+
+.search-results button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #1d2433;
+  cursor: pointer;
+  padding: 8px;
+  text-align: left;
+}
+
+.search-results button:hover {
+  background: #eef2f7;
+}
+
+.search-results small {
+  color: #5b6475;
 }
 
 .summary-grid {
@@ -210,6 +265,47 @@ textarea {
   margin-top: 8px;
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.dashboard-section {
+  min-width: 0;
+}
+
+.dashboard-section h3,
+.editor-form h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.compact-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.compact-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.compact-list small,
+.muted {
+  color: #5b6475;
+}
+
 .inline-form,
 .filter-bar {
   display: flex;
@@ -232,6 +328,60 @@ textarea {
   padding: 9px 10px;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.editor-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.editor-form h3 {
+  grid-column: 1 / -1;
+}
+
+.editor-form textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-group {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.checkbox-group legend {
+  padding: 0 4px;
+  color: #3b4354;
+  font-size: 0.9rem;
+}
+
+.checkbox-group label,
+.checkbox-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .record-list {
   display: grid;
   gap: 8px;
@@ -239,7 +389,7 @@ textarea {
 
 .record-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) repeat(4, auto);
+  grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
   align-items: center;
   gap: 12px;
   background: #ffffff;
@@ -255,6 +405,15 @@ textarea {
 
 .record-row span {
   color: #5b6475;
+}
+
+.meeting-row {
+  grid-template-columns: minmax(180px, 1fr) auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto;
+}
+
+.task-links {
+  display: grid;
+  gap: 4px;
 }
 
 .status-badge {
@@ -310,5 +469,28 @@ textarea {
   .sidebar button {
     text-align: center;
     padding-inline: 6px;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 12px;
+  }
+
+  .global-search-wrap {
+    order: 2;
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .search-results {
+    width: 100%;
+  }
+
+  .record-row,
+  .meeting-row,
+  .compact-list li {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import type { User } from "../api/types";
+import { GlobalSearch } from "./GlobalSearch";
 
 const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People"] as const;
 
@@ -38,7 +39,8 @@ export function AppShell({
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <span>{user.name}</span>
+          <GlobalSearch onOpenSection={onSectionChange} />
+          <span className="user-name">{user.name}</span>
           <button className="icon-button" onClick={onLogout} aria-label="Sign out" type="button">
             <LogOut size={18} />
           </button>
