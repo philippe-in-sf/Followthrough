@@ -2,12 +2,14 @@ import express from "express";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
 import { loadConfig, type AppConfig } from "./config.js";
+import { dashboardRoutes } from "./dashboard/routes.js";
 import { decisionRoutes } from "./decisions/routes.js";
 import type { AppDatabase } from "./db/database.js";
 import { openDatabase } from "./db/database.js";
 import { HttpError } from "./errors.js";
 import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
+import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 
 export type AppDependencies = {
@@ -33,10 +35,12 @@ export function createApp(deps: AppDependencies = {}) {
   const protectedApi = express.Router();
   protectedApi.use(requireAuth(db, config));
   const meetings = meetingRoutes(db, config);
+  protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db));
   protectedApi.use("/meetings", meetings.meetingsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/people", peopleRoutes(db));
+  protectedApi.use("/search", searchRoutes(db));
   protectedApi.use("/tasks", taskRoutes(db, config));
   app.use("/api", protectedApi);
 
