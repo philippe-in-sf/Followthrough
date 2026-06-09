@@ -87,6 +87,18 @@ textarea {
   margin: 0 0 18px;
 }
 
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -196,6 +208,53 @@ textarea {
   display: block;
   font-size: 2rem;
   margin-top: 8px;
+}
+
+.inline-form,
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.inline-form .form-field {
+  min-width: min(220px, 100%);
+}
+
+.filter-bar select {
+  min-width: 180px;
+  border: 1px solid #c8d0dc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1d2433;
+  padding: 9px 10px;
+}
+
+.record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) repeat(4, auto);
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.record-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.record-row span {
+  color: #5b6475;
 }
 
 .status-badge {

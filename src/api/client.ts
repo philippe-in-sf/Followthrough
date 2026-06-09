@@ -52,6 +52,37 @@ export const api = {
       recentDecisions: unknown[];
       activeSeries: unknown[];
     }>("/api/dashboard"),
+  people: {
+    list: () => request<{ people: import("../../shared/types").PersonDto[] }>("/api/people"),
+    create: (body: { name: string; email?: string }) =>
+      request<{ person: import("../../shared/types").PersonDto }>("/api/people", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+  tasks: {
+    list: (query = "") =>
+      request<{ tasks: import("../../shared/types").TaskDto[] }>(`/api/tasks${query}`),
+    create: (body: unknown) =>
+      request<{ task: import("../../shared/types").TaskDto }>("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (publicId: string, body: unknown) =>
+      request<{ task: import("../../shared/types").TaskDto }>(`/api/tasks/${publicId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+  },
+  decisions: {
+    list: () =>
+      request<{ decisions: import("../../shared/types").DecisionDto[] }>("/api/decisions"),
+    create: (body: unknown) =>
+      request<{ decision: import("../../shared/types").DecisionDto }>("/api/decisions", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
   get: request,
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
