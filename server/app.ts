@@ -5,6 +5,7 @@ import { loadConfig, type AppConfig } from "./config.js";
 import type { AppDatabase } from "./db/database.js";
 import { openDatabase } from "./db/database.js";
 import { HttpError } from "./errors.js";
+import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 
@@ -30,6 +31,9 @@ export function createApp(deps: AppDependencies = {}) {
 
   const protectedApi = express.Router();
   protectedApi.use(requireAuth(db, config));
+  const meetings = meetingRoutes(db, config);
+  protectedApi.use("/meetings", meetings.meetingsRouter);
+  protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/people", peopleRoutes(db));
   protectedApi.use("/tasks", taskRoutes(db, config));
   app.use("/api", protectedApi);
