@@ -95,4 +95,61 @@ describe("record pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "Decisions" }));
     expect(await screen.findByText("Use SQLite")).toBeInTheDocument();
   });
+
+  it("adds people from the shared people form", async () => {
+    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> =
+      [];
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/me")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: { id: 1, name: "Editor", email: "editor@example.com" },
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            alerts: { overdue: [], dueSoon: [] },
+            openTasksByAssignee: [],
+            recentMeetings: [],
+            recentDecisions: [],
+            activeSeries: [],
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ people: [...people] }) } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "POST") {
+        const body = JSON.parse(String(init?.body));
+        people.push({
+          publicId: "P001",
+          name: body.name,
+          email: body.email || null,
+          archived: false,
+        });
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: async () => ({ person: people[0] }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "People" }));
+    await userEvent.type(await screen.findByLabelText("Name"), "Morgan");
+    await userEvent.type(screen.getByLabelText("Email"), "morgan@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Add person" }));
+
+    expect(await screen.findByText("Morgan")).toBeInTheDocument();
+  });
 });

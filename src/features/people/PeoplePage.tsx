@@ -17,12 +17,13 @@ export function PeoplePage() {
 
   async function createPerson(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     await api.people.create({
       name: String(form.get("name")),
       email: String(form.get("email")),
     });
-    event.currentTarget.reset();
+    formElement.reset();
     await load();
   }
 
