@@ -1,0 +1,63 @@
+export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
+export type MeetingType = "single" | "recurring";
+export type AlertState = "dueSoon" | "overdue";
+export type AuditEntityType = "task" | "meeting";
+
+export type PersonDto = {
+  publicId: string;
+  name: string;
+  email: string | null;
+  archived: boolean;
+};
+
+export type TaskDto = {
+  publicId: string;
+  description: string;
+  assignee: PersonDto | null;
+  status: TaskStatus;
+  dueDate: string | null;
+  originMeetingPublicId: string | null;
+  seriesPublicId: string | null;
+  alert: AlertState | null;
+  archived: boolean;
+};
+
+export type MeetingDto = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  meetingType: MeetingType;
+  seriesPublicId: string | null;
+  summary: string;
+  attendees: PersonDto[];
+  tasks: TaskDto[];
+  archived: boolean;
+};
+
+export type MeetingSeriesDto = {
+  publicId: string;
+  title: string;
+  cadenceLabel: string | null;
+  active: boolean;
+  archived: boolean;
+};
+
+export type DecisionDto = {
+  publicId: string;
+  decisionText: string;
+  decisionDate: string;
+  context: string;
+  meetingPublicId: string | null;
+  archived: boolean;
+};
+
+export type AuditLogDto = {
+  id: number;
+  entityType: AuditEntityType;
+  entityPublicId: string;
+  action: string;
+  summary: string;
+  actorName: string | null;
+  createdAt: string;
+  changes: Record<string, unknown>;
+};

@@ -1,0 +1,90 @@
+import request from "supertest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApp } from "../../server/app";
+import { createTestDatabase, migrateDatabase } from "../../server/db/database";
+
+const dbs: ReturnType<typeof createTestDatabase>[] = [];
+
+async function setup() {
+  vi.setSystemTime(new Date("2026-06-09T12:00:00Z"));
+  const db = createTestDatabase();
+  dbs.push(db);
+  migrateDatabase(db);
+  db.prepare("INSERT INTO invite_codes (code, usage_limit) VALUES (?, ?)").run("join", 10);
+  const app = createApp({ db });
+  const signup = await request(app).post("/api/auth/signup").send({
+    name: "Editor",
+    email: "editor@example.com",
+    password: "long-enough-password",
+    inviteCode: "join",
+  });
+  const cookie = signup.headers["set-cookie"];
+  const person = await request(app)
+    .post("/api/people")
+    .set("Cookie", cookie)
+    .send({ name: "Taylor", email: "" });
+  await request(app).post("/api/tasks").set("Cookie", cookie).send({
+    description: "Prepare board packet",
+    assigneePublicId: person.body.person.publicId,
+    status: "Open",
+    dueDate: "2026-06-10",
+  });
+  await request(app)
+    .post("/api/meetings")
+    .set("Cookie", cookie)
+    .send({
+      title: "Board Prep",
+      startsAt: "2026-06-09T15:00:00.000Z",
+      meetingType: "single",
+      summary: "Packet timing.",
+      attendeePublicIds: [person.body.person.publicId],
+      taskPublicIds: ["T001"],
+    });
+  await request(app).post("/api/decisions").set("Cookie", cookie).send({
+    decisionText: "Send packet Friday",
+    decisionDate: "2026-06-09",
+    context: "Enough review time.",
+    meetingPublicId: "M001",
+  });
+  return { app, cookie };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  for (const db of dbs.splice(0)) db.close();
+});
+
+describe("search and dashboard", () => {
+  it("searches by exact public ID first", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app).get("/api/search?q=T001").set("Cookie", cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.results[0]).toMatchObject({
+      type: "task",
+      publicId: "T001",
+    });
+  });
+
+  it("searches text across records", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app).get("/api/search?q=packet").set("Cookie", cookie);
+
+    expect(response.body.results.map((result: { type: string }) => result.type)).toEqual(
+      expect.arrayContaining(["task", "meeting", "decision"]),
+    );
+  });
+
+  it("returns dashboard summaries and alerts", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app).get("/api/dashboard").set("Cookie", cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.alerts.dueSoon).toHaveLength(1);
+    expect(response.body.openTasksByAssignee[0].assignee.name).toBe("Taylor");
+    expect(response.body.recentDecisions[0].publicId).toBe("D001");
+  });
+});
