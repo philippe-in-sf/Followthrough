@@ -1,35 +1,64 @@
 import type { AppDatabase } from "./database.js";
 
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
 export function withTransaction<T>(db: AppDatabase, work: () => T): T {
+  if (db.isTransaction) {
+    throw new Error("Nested transactions are not supported by withTransaction");
+  }
+
   db.exec("BEGIN IMMEDIATE");
+  let shouldRollback = true;
+
   try {
     const result = work();
+
+    if (isThenable(result)) {
+      db.exec("ROLLBACK");
+      shouldRollback = false;
+      throw new Error("withTransaction only accepts synchronous work");
+    }
+
     db.exec("COMMIT");
+    shouldRollback = false;
     return result;
   } catch (error) {
-    db.exec("ROLLBACK");
+    if (shouldRollback && db.isTransaction) {
+      db.exec("ROLLBACK");
+    }
     throw error;
   }
 }
 
-export function nextPublicId(db: AppDatabase, prefix: string): string {
+function allocatePublicId(db: AppDatabase, prefix: string): string {
   const row = db
-    .prepare("SELECT next_value FROM id_counters WHERE prefix = ?")
-    .get(prefix) as { next_value: number } | undefined;
+    .prepare(
+      `
+        INSERT INTO id_counters (prefix, next_value)
+        VALUES (?, 2)
+        ON CONFLICT(prefix) DO UPDATE SET next_value = next_value + 1
+        RETURNING next_value - 1 AS allocated_value
+      `,
+    )
+    .get(prefix) as { allocated_value: number } | undefined;
 
-  const nextValue = row?.next_value ?? 1;
-
-  if (row) {
-    db.prepare("UPDATE id_counters SET next_value = ? WHERE prefix = ?").run(
-      nextValue + 1,
-      prefix,
-    );
-  } else {
-    db.prepare("INSERT INTO id_counters (prefix, next_value) VALUES (?, ?)").run(
-      prefix,
-      nextValue + 1,
-    );
+  if (!row) {
+    throw new Error(`Unable to allocate public ID for prefix ${prefix}`);
   }
 
-  return `${prefix}${String(nextValue).padStart(3, "0")}`;
+  return `${prefix}${String(row.allocated_value).padStart(3, "0")}`;
+}
+
+export function nextPublicId(db: AppDatabase, prefix: string): string {
+  if (db.isTransaction) {
+    return allocatePublicId(db, prefix);
+  }
+
+  return withTransaction(db, () => allocatePublicId(db, prefix));
 }

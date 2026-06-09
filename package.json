@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/index.ts",
-    "build": "vite build && tsc -p tsconfig.server.json",
+    "build": "vite build && tsc -p tsconfig.server.json && rm -rf dist/server/db/migrations && mkdir -p dist/server/db && cp -R server/db/migrations dist/server/db/migrations",
     "start": "NODE_ENV=production node dist/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

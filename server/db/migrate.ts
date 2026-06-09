@@ -1,12 +1,28 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AppDatabase } from "./database.js";
 
-const migrationsDir = path.resolve(process.cwd(), "server/db/migrations");
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveMigrationsDir() {
+  const candidates = [
+    path.join(moduleDir, "migrations"),
+    path.resolve(process.cwd(), "server/db/migrations"),
+  ];
+
+  const migrationsDir = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!migrationsDir) {
+    throw new Error(`Unable to find database migrations in: ${candidates.join(", ")}`);
+  }
+
+  return migrationsDir;
+}
 
 export function migrateDatabase(db: AppDatabase) {
   db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
 
+  const migrationsDir = resolveMigrationsDir();
   const files = fs
     .readdirSync(migrationsDir)
     .filter((file) => file.endsWith(".sql"))
