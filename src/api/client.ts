@@ -1,5 +1,6 @@
 import type {
   AlertState,
+  AuditLogDto,
   DecisionDto,
   MeetingDto,
   MeetingSeriesDto,
@@ -142,6 +143,8 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    audit: (publicId: string) =>
+      request<{ auditEvents: AuditLogDto[] }>(`/api/tasks/${publicId}/audit`),
   },
   meetings: {
     list: () => request<{ meetings: MeetingDto[] }>("/api/meetings"),
@@ -155,6 +158,8 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    audit: (publicId: string) =>
+      request<{ auditEvents: AuditLogDto[] }>(`/api/meetings/${publicId}/audit`),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),

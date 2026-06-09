@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import type { PersonDto, TaskDto, TaskStatus } from "../../../shared/types";
+import type { AuditLogDto, PersonDto, TaskDto, TaskStatus } from "../../../shared/types";
 import { api } from "../../api/client";
+import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -8,7 +9,6 @@ import { StatusBadge } from "../../components/StatusBadge";
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
 
 type TaskFormState = {
-  publicId: string;
   description: string;
   assigneePublicId: string;
   status: TaskStatus;
@@ -18,7 +18,6 @@ type TaskFormState = {
 };
 
 const emptyTaskForm: TaskFormState = {
-  publicId: "",
   description: "",
   assigneePublicId: "",
   status: "Open",
@@ -34,6 +33,9 @@ export function TasksPage() {
   const [status, setStatus] = useState("");
   const [alert, setAlert] = useState("");
   const [form, setForm] = useState<TaskFormState>(emptyTaskForm);
+  const [editingTaskPublicId, setEditingTaskPublicId] = useState<string | null>(null);
+  const [taskEditForm, setTaskEditForm] = useState<TaskFormState>(emptyTaskForm);
+  const [taskAudits, setTaskAudits] = useState<Record<string, AuditLogDto[]>>({});
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -45,7 +47,17 @@ export function TasksPage() {
   }, [assigneePublicId, status, alert]);
 
   async function loadTasks() {
-    setTasks((await api.tasks.list(query)).tasks);
+    const result = await api.tasks.list(query);
+    const auditEntries = await Promise.all(
+      result.tasks.map(async (task) => {
+        const auditResult = await api.tasks
+          .audit(task.publicId)
+          .catch(() => ({ auditEvents: [] as AuditLogDto[] }));
+        return [task.publicId, auditResult.auditEvents ?? []] as const;
+      }),
+    );
+    setTasks(result.tasks);
+    setTaskAudits(Object.fromEntries(auditEntries));
   }
 
   useEffect(() => {
@@ -67,16 +79,14 @@ export function TasksPage() {
       seriesPublicId: form.seriesPublicId,
     };
 
-    if (form.publicId) await api.tasks.update(form.publicId, body);
-    else await api.tasks.create(body);
-
+    await api.tasks.create(body);
     setForm(emptyTaskForm);
     await loadTasks();
   }
 
   function editTask(task: TaskDto) {
-    setForm({
-      publicId: task.publicId,
+    setEditingTaskPublicId(task.publicId);
+    setTaskEditForm({
       description: task.description,
       assigneePublicId: task.assignee?.publicId ?? "",
       status: task.status,
@@ -84,6 +94,21 @@ export function TasksPage() {
       originMeetingPublicId: task.originMeetingPublicId,
       seriesPublicId: task.seriesPublicId,
     });
+  }
+
+  async function submitTaskEdit(event: FormEvent<HTMLFormElement>, task: TaskDto) {
+    event.preventDefault();
+    await api.tasks.update(task.publicId, {
+      description: taskEditForm.description,
+      assigneePublicId: taskEditForm.assigneePublicId || null,
+      status: taskEditForm.status,
+      dueDate: taskEditForm.dueDate || null,
+      originMeetingPublicId: taskEditForm.originMeetingPublicId,
+      seriesPublicId: taskEditForm.seriesPublicId,
+    });
+    setEditingTaskPublicId(null);
+    setTaskEditForm(emptyTaskForm);
+    await loadTasks();
   }
 
   return (
@@ -133,13 +158,8 @@ export function TasksPage() {
         </FormField>
         <div className="form-actions">
           <button className="primary-button" type="submit">
-            {form.publicId ? "Update task" : "Add task"}
+            Add task
           </button>
-          {form.publicId ? (
-            <button className="secondary-button" type="button" onClick={() => setForm(emptyTaskForm)}>
-              Cancel edit
-            </button>
-          ) : null}
         </div>
       </form>
       <div className="filter-bar">
@@ -180,24 +200,100 @@ export function TasksPage() {
       ) : (
         <div className="record-list">
           {tasks.map((task) => (
-            <article className="record-row" key={task.publicId}>
-              <div>
-                <strong>{task.description}</strong>
-                <span>{task.publicId}</span>
+            <article aria-label={`Task ${task.publicId}`} className="task-card" key={task.publicId}>
+              <div className="record-row task-row">
+                <div>
+                  <strong>{task.description}</strong>
+                  <span>{task.publicId}</span>
+                </div>
+                <StatusBadge label={task.status} />
+                {task.alert === "dueSoon" ? <StatusBadge label="Due soon" tone="warn" /> : null}
+                {task.alert === "overdue" ? <StatusBadge label="Overdue" tone="bad" /> : null}
+                <span>{task.assignee?.name ?? "Unassigned"}</span>
+                <span>{task.dueDate ?? "No due date"}</span>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => editTask(task)}
+                  aria-label={`Edit details for ${task.publicId}`}
+                >
+                  Edit details
+                </button>
               </div>
-              <StatusBadge label={task.status} />
-              {task.alert === "dueSoon" ? <StatusBadge label="Due soon" tone="warn" /> : null}
-              {task.alert === "overdue" ? <StatusBadge label="Overdue" tone="bad" /> : null}
-              <span>{task.assignee?.name ?? "Unassigned"}</span>
-              <span>{task.dueDate ?? "No due date"}</span>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => editTask(task)}
-                aria-label={`Edit ${task.publicId}`}
-              >
-                Edit
-              </button>
+              {editingTaskPublicId === task.publicId ? (
+                <form className="task-edit-form" onSubmit={(event) => submitTaskEdit(event, task)}>
+                  <h3>Edit details for {task.publicId}</h3>
+                  <FormField label={`Task description for ${task.publicId}`}>
+                    <input
+                      value={taskEditForm.description}
+                      onChange={(event) =>
+                        setTaskEditForm({ ...taskEditForm, description: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label={`Task assignee for ${task.publicId}`}>
+                    <select
+                      value={taskEditForm.assigneePublicId}
+                      onChange={(event) =>
+                        setTaskEditForm({
+                          ...taskEditForm,
+                          assigneePublicId: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {people.map((person) => (
+                        <option key={person.publicId} value={person.publicId}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label={`Task status for ${task.publicId}`}>
+                    <select
+                      value={taskEditForm.status}
+                      onChange={(event) =>
+                        setTaskEditForm({
+                          ...taskEditForm,
+                          status: event.target.value as TaskStatus,
+                        })
+                      }
+                    >
+                      {statuses.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label={`Task due date for ${task.publicId}`}>
+                    <input
+                      type="date"
+                      value={taskEditForm.dueDate}
+                      onChange={(event) =>
+                        setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
+                      }
+                    />
+                  </FormField>
+                  <div className="form-actions">
+                    <button className="primary-button" type="submit">
+                      Save task {task.publicId}
+                    </button>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => {
+                        setEditingTaskPublicId(null);
+                        setTaskEditForm(emptyTaskForm);
+                      }}
+                    >
+                      Cancel edit {task.publicId}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+              <AuditLog events={taskAudits[task.publicId] ?? []} />
             </article>
           ))}
         </div>

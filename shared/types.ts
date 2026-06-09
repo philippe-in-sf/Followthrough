@@ -1,6 +1,7 @@
 export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
 export type MeetingType = "single" | "recurring";
 export type AlertState = "dueSoon" | "overdue";
+export type AuditEntityType = "task" | "meeting";
 
 export type PersonDto = {
   publicId: string;
@@ -48,4 +49,15 @@ export type DecisionDto = {
   context: string;
   meetingPublicId: string | null;
   archived: boolean;
+};
+
+export type AuditLogDto = {
+  id: number;
+  entityType: AuditEntityType;
+  entityPublicId: string;
+  action: string;
+  summary: string;
+  actorName: string | null;
+  createdAt: string;
+  changes: Record<string, unknown>;
 };

@@ -6,6 +6,7 @@ import {
   publicIdSchema,
 } from "../../shared/schemas.js";
 import type { MeetingDto, MeetingSeriesDto, PersonDto } from "../../shared/types.js";
+import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
@@ -204,6 +205,7 @@ function createMeeting(
   db: AppDatabase,
   config: AppConfig,
   input: z.infer<typeof meetingInputSchema>,
+  userId: number | null,
 ) {
   return withTransaction(db, () => {
     const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
@@ -229,16 +231,26 @@ function createMeeting(
       input.summary,
     );
 
-    const meeting = getMeetingRow(db, publicId);
+    const meetingRow = getMeetingRow(db, publicId);
     replaceMeetingLinks(
       db,
-      meeting.id,
+      meetingRow.id,
       input.attendeePublicIds,
       input.taskPublicIds,
       series?.id ?? null,
     );
 
-    return toMeeting(db, config, getMeetingRow(db, publicId));
+    const meeting = toMeeting(db, config, getMeetingRow(db, publicId));
+    recordAuditEvent(db, {
+      entityType: "meeting",
+      entityPublicId: meeting.publicId,
+      action: "created",
+      userId,
+      summary: "Created meeting",
+      changes: { after: meeting },
+    });
+
+    return meeting;
   });
 }
 
@@ -342,7 +354,16 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         const row = getMeetingRow(db, publicId);
         replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id);
         linkOpenSeriesTasksToMeeting(db, series.id, row.id);
-        return toMeeting(db, config, getMeetingRow(db, publicId));
+        const meeting = toMeeting(db, config, getMeetingRow(db, publicId));
+        recordAuditEvent(db, {
+          entityType: "meeting",
+          entityPublicId: meeting.publicId,
+          action: "created",
+          userId: req.user?.id ?? null,
+          summary: "Created meeting",
+          changes: { after: meeting },
+        });
+        return meeting;
       });
 
       res.status(201).json({ meeting });
@@ -370,10 +391,14 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
   meetingsRouter.post("/", (req, res, next) => {
     try {
       const input = parseBody(req, meetingInputSchema);
-      res.status(201).json({ meeting: createMeeting(db, config, input) });
+      res.status(201).json({ meeting: createMeeting(db, config, input, req.user?.id ?? null) });
     } catch (error) {
       next(error);
     }
+  });
+
+  meetingsRouter.get("/:publicId/audit", (req, res) => {
+    res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
   });
 
   meetingsRouter.get("/:publicId", (req, res, next) => {
@@ -389,6 +414,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
       const input = parseBody(req, meetingInputSchema);
       const meeting = withTransaction(db, () => {
         const existing = getMeetingRow(db, req.params.publicId);
+        const before = toMeeting(db, config, existing);
         const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
 
         if (input.meetingType === "single" && series) {
@@ -421,7 +447,17 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           series?.id ?? null,
         );
 
-        return toMeeting(db, config, getMeetingRow(db, req.params.publicId));
+        const updated = toMeeting(db, config, getMeetingRow(db, req.params.publicId));
+        recordAuditEvent(db, {
+          entityType: "meeting",
+          entityPublicId: updated.publicId,
+          action: "updated",
+          userId: req.user?.id ?? null,
+          summary: "Updated meeting details",
+          changes: { before, after: updated },
+        });
+
+        return updated;
       });
 
       res.json({ meeting });
@@ -432,15 +468,27 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.post("/:publicId/archive", (req, res, next) => {
     try {
-      const result = db
-        .prepare(
-          `UPDATE meetings
-           SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
-        )
-        .run(req.params.publicId);
+      withTransaction(db, () => {
+        const existing = getMeetingRow(db, req.params.publicId);
+        const before = toMeeting(db, config, existing);
+        const result = db
+          .prepare(
+            `UPDATE meetings
+             SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ? AND archived_at IS NULL`,
+          )
+          .run(req.params.publicId);
 
-      if (result.changes === 0) throw notFound("Meeting not found");
+        if (result.changes === 0) throw notFound("Meeting not found");
+        recordAuditEvent(db, {
+          entityType: "meeting",
+          entityPublicId: before.publicId,
+          action: "archived",
+          userId: req.user?.id ?? null,
+          summary: "Archived meeting",
+          changes: { before },
+        });
+      });
       res.status(204).end();
     } catch (error) {
       next(error);

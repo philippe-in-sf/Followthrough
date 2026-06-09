@@ -387,7 +387,8 @@ textarea {
   gap: 8px;
 }
 
-.meeting-card {
+.meeting-card,
+.task-card {
   display: grid;
   gap: 0;
   background: #ffffff;
@@ -396,7 +397,8 @@ textarea {
   overflow: hidden;
 }
 
-.meeting-card .record-row {
+.meeting-card .record-row,
+.task-card .record-row {
   border: 0;
   border-radius: 0;
 }
@@ -425,11 +427,17 @@ textarea {
   grid-template-columns: minmax(180px, 1fr) auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto;
 }
 
+.task-row {
+  grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
+}
+
 .task-links {
   display: grid;
   gap: 4px;
 }
 
+.meeting-edit-form,
+.task-edit-form,
 .meeting-task-form {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(150px, auto));
@@ -440,10 +448,55 @@ textarea {
   padding: 12px 14px;
 }
 
-.meeting-task-form h3 {
+.meeting-edit-form,
+.task-edit-form {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.meeting-edit-form textarea,
+.task-edit-form textarea,
+.meeting-task-form textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.meeting-task-form h3,
+.meeting-edit-form h3,
+.task-edit-form h3 {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 0.95rem;
+}
+
+.audit-log {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #d9dee7;
+  padding: 12px 14px;
+}
+
+.audit-log h3,
+.audit-log p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.audit-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-list li {
+  display: grid;
+  gap: 2px;
+}
+
+.audit-list span {
+  color: #5b6475;
+  font-size: 0.85rem;
 }
 
 .status-badge {
@@ -520,6 +573,9 @@ textarea {
 
   .record-row,
   .meeting-row,
+  .task-row,
+  .meeting-edit-form,
+  .task-edit-form,
   .meeting-task-form,
   .compact-list li {
     grid-template-columns: 1fr;

@@ -50,6 +50,53 @@ describe("meetings", () => {
     expect(meeting.body.meeting.attendees[0].publicId).toBe(personPublicId);
   });
 
+  it("records meeting audit history", async () => {
+    const { app, cookie, personPublicId } = await setup();
+
+    await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Planning",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Discussed launch work.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+      });
+
+    await request(app)
+      .patch("/api/meetings/M001")
+      .set("Cookie", cookie)
+      .send({
+        title: "Updated planning",
+        startsAt: "2026-06-09T15:30:00.000Z",
+        meetingType: "single",
+        summary: "Updated launch work.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+      });
+
+    const audit = await request(app).get("/api/meetings/M001/audit").set("Cookie", cookie);
+
+    expect(audit.status).toBe(200);
+    expect(audit.body.auditEvents).toEqual([
+      expect.objectContaining({
+        action: "updated",
+        actorName: "Editor",
+        entityPublicId: "M001",
+        entityType: "meeting",
+        summary: "Updated meeting details",
+      }),
+      expect.objectContaining({
+        action: "created",
+        actorName: "Editor",
+        summary: "Created meeting",
+      }),
+    ]);
+    expect(audit.body.auditEvents[0].changes.after.title).toBe("Updated planning");
+  });
+
   it("creates next recurring occurrence and carries open tasks", async () => {
     const { app, cookie, personPublicId } = await setup();
 

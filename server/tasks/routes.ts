@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { taskInputSchema } from "../../shared/schemas.js";
 import type { TaskDto, TaskStatus } from "../../shared/types.js";
+import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
@@ -188,13 +189,38 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           );
         }
 
-        return getTaskByPublicId(db, config, publicId);
+        const created = getTaskByPublicId(db, config, publicId);
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: created.publicId,
+          action: "created",
+          userId: req.user?.id ?? null,
+          summary: "Created task",
+          changes: { after: created },
+        });
+
+        if (created.originMeetingPublicId) {
+          recordAuditEvent(db, {
+            entityType: "meeting",
+            entityPublicId: created.originMeetingPublicId,
+            action: "task_added",
+            userId: req.user?.id ?? null,
+            summary: `Added task ${created.publicId}`,
+            changes: { task: created },
+          });
+        }
+
+        return created;
       });
 
       res.status(201).json({ task });
     } catch (error) {
       next(error);
     }
+  });
+
+  router.get("/:publicId/audit", (req, res) => {
+    res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
   });
 
   router.get("/:publicId", (req, res, next) => {
@@ -213,6 +239,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           .prepare("SELECT id FROM tasks WHERE public_id = ? AND archived_at IS NULL")
           .get(req.params.publicId) as { id: number } | undefined;
         if (!existing) throw notFound("Task not found");
+        const before = getTaskByPublicId(db, config, req.params.publicId);
 
         const relations = resolveRelations(db, input);
         db.prepare(
@@ -243,7 +270,17 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           );
         }
 
-        return getTaskByPublicId(db, config, req.params.publicId);
+        const updated = getTaskByPublicId(db, config, req.params.publicId);
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: updated.publicId,
+          action: "updated",
+          userId: req.user?.id ?? null,
+          summary: "Updated task details",
+          changes: { before, after: updated },
+        });
+
+        return updated;
       });
 
       res.json({ task });
@@ -254,15 +291,26 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
 
   router.post("/:publicId/archive", (req, res, next) => {
     try {
-      const result = db
-        .prepare(
-          `UPDATE tasks
-           SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
-        )
-        .run(req.params.publicId);
+      withTransaction(db, () => {
+        const before = getTaskByPublicId(db, config, req.params.publicId);
+        const result = db
+          .prepare(
+            `UPDATE tasks
+             SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ? AND archived_at IS NULL`,
+          )
+          .run(req.params.publicId);
 
-      if (result.changes === 0) throw notFound("Task not found");
+        if (result.changes === 0) throw notFound("Task not found");
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: before.publicId,
+          action: "archived",
+          userId: req.user?.id ?? null,
+          summary: "Archived task",
+          changes: { before },
+        });
+      });
       res.status(204).end();
     } catch (error) {
       next(error);

@@ -71,6 +71,46 @@ describe("tasks", () => {
     expect(archived.status).toBe(204);
   });
 
+  it("records task audit history", async () => {
+    const { app, cookie, personPublicId } = await setup();
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Send notes",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+    });
+
+    await request(app)
+      .patch("/api/tasks/T001")
+      .set("Cookie", cookie)
+      .send({
+        description: "Send final notes",
+        assigneePublicId: personPublicId,
+        status: "Done",
+        dueDate: "2026-06-12",
+      });
+
+    const audit = await request(app).get("/api/tasks/T001/audit").set("Cookie", cookie);
+
+    expect(audit.status).toBe(200);
+    expect(audit.body.auditEvents).toEqual([
+      expect.objectContaining({
+        action: "updated",
+        actorName: "Editor",
+        entityPublicId: "T001",
+        entityType: "task",
+        summary: "Updated task details",
+      }),
+      expect.objectContaining({
+        action: "created",
+        actorName: "Editor",
+        summary: "Created task",
+      }),
+    ]);
+    expect(audit.body.auditEvents[0].changes.after.description).toBe("Send final notes");
+  });
+
   it("marks overdue tasks", async () => {
     const { app, cookie, personPublicId } = await setup();
 

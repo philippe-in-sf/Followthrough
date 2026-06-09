@@ -1,5 +1,6 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import type {
+  AuditLogDto,
   MeetingDto,
   MeetingSeriesDto,
   MeetingType,
@@ -7,6 +8,7 @@ import type {
   TaskDto,
 } from "../../../shared/types";
 import { api } from "../../api/client";
+import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -19,6 +21,7 @@ type MeetingFormState = {
   seriesPublicId: string;
   summary: string;
   attendeePublicIds: string[];
+  attendeeNames: string;
   taskPublicIds: string[];
 };
 
@@ -34,6 +37,7 @@ type OccurrenceFormState = {
   title: string;
   summary: string;
   attendeePublicIds: string[];
+  attendeeNames: string;
 };
 
 type MeetingTaskFormState = {
@@ -51,6 +55,7 @@ const emptyMeetingForm: MeetingFormState = {
   seriesPublicId: "",
   summary: "",
   attendeePublicIds: [],
+  attendeeNames: "",
   taskPublicIds: [],
 };
 
@@ -66,6 +71,7 @@ const emptyOccurrenceForm: OccurrenceFormState = {
   title: "",
   summary: "",
   attendeePublicIds: [],
+  attendeeNames: "",
 };
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
@@ -86,6 +92,13 @@ function toDateTimeInputValue(value: string) {
 function toggleValue(values: string[], value: string, checked: boolean) {
   if (checked) return [...new Set([...values, value])];
   return values.filter((item) => item !== value);
+}
+
+function parseAttendeeNames(value: string) {
+  return value
+    .split(/[\n,;]+/)
+    .map((name) => name.trim())
+    .filter(Boolean);
 }
 
 function CheckboxGroup({
@@ -132,7 +145,9 @@ export function MeetingsPage() {
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
   const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
-  const meetingEditorRef = useRef<HTMLFormElement | null>(null);
+  const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
+  const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
 
   async function load() {
     const [meetingResult, seriesResult, peopleResult, taskResult] = await Promise.all([
@@ -141,15 +156,46 @@ export function MeetingsPage() {
       api.people.list(),
       api.tasks.list(),
     ]);
+    const auditEntries = await Promise.all(
+      meetingResult.meetings.map(async (meeting) => {
+        const auditResult = await api.meetings
+          .audit(meeting.publicId)
+          .catch(() => ({ auditEvents: [] as AuditLogDto[] }));
+        return [meeting.publicId, auditResult.auditEvents ?? []] as const;
+      }),
+    );
     setMeetings(meetingResult.meetings);
     setSeries(seriesResult.series);
     setPeople(peopleResult.people);
     setTasks(taskResult.tasks);
+    setMeetingAudits(Object.fromEntries(auditEntries));
   }
 
   useEffect(() => {
     void load();
   }, []);
+
+  async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
+    const attendeeIds = new Set(selectedIds);
+    const personIdByName = new Map(
+      people.map((person) => [person.name.trim().toLowerCase(), person.publicId]),
+    );
+
+    for (const name of parseAttendeeNames(attendeeNames)) {
+      const key = name.toLowerCase();
+      const existingPublicId = personIdByName.get(key);
+      if (existingPublicId) {
+        attendeeIds.add(existingPublicId);
+        continue;
+      }
+
+      const result = await api.people.create({ name });
+      personIdByName.set(key, result.person.publicId);
+      attendeeIds.add(result.person.publicId);
+    }
+
+    return [...attendeeIds];
+  }
 
   async function submitSeries(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,6 +206,10 @@ export function MeetingsPage() {
 
   async function submitMeeting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const attendeePublicIds = await resolveAttendeePublicIds(
+      meetingForm.attendeePublicIds,
+      meetingForm.attendeeNames,
+    );
     const body = {
       title: meetingForm.title,
       startsAt: toApiDateTime(meetingForm.startsAt),
@@ -167,31 +217,34 @@ export function MeetingsPage() {
       seriesPublicId:
         meetingForm.meetingType === "recurring" ? meetingForm.seriesPublicId || null : null,
       summary: meetingForm.summary,
-      attendeePublicIds: meetingForm.attendeePublicIds,
+      attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
     };
 
-    if (meetingForm.publicId) await api.meetings.update(meetingForm.publicId, body);
-    else await api.meetings.create(body);
-
+    await api.meetings.create(body);
     setMeetingForm(emptyMeetingForm);
     await load();
   }
 
   async function submitOccurrence(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const attendeePublicIds = await resolveAttendeePublicIds(
+      occurrenceForm.attendeePublicIds,
+      occurrenceForm.attendeeNames,
+    );
     await api.series.createOccurrence(occurrenceForm.seriesPublicId, {
       title: occurrenceForm.title,
       startsAt: toApiDateTime(occurrenceForm.startsAt),
       summary: occurrenceForm.summary,
-      attendeePublicIds: occurrenceForm.attendeePublicIds,
+      attendeePublicIds,
     });
     setOccurrenceForm(emptyOccurrenceForm);
     await load();
   }
 
   function editMeeting(meeting: MeetingDto) {
-    setMeetingForm({
+    setEditingMeetingPublicId(meeting.publicId);
+    setMeetingEditForm({
       publicId: meeting.publicId,
       title: meeting.title,
       startsAt: toDateTimeInputValue(meeting.startsAt),
@@ -199,15 +252,32 @@ export function MeetingsPage() {
       seriesPublicId: meeting.seriesPublicId ?? "",
       summary: meeting.summary,
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
+      attendeeNames: "",
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
     });
-    requestAnimationFrame(() => {
-      const editor = meetingEditorRef.current;
-      if (typeof editor?.scrollIntoView === "function") {
-        editor.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      editor?.querySelector("input")?.focus();
+  }
+
+  async function submitMeetingEdit(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
+    event.preventDefault();
+    const attendeePublicIds = await resolveAttendeePublicIds(
+      meetingEditForm.attendeePublicIds,
+      meetingEditForm.attendeeNames,
+    );
+    await api.meetings.update(meeting.publicId, {
+      title: meetingEditForm.title,
+      startsAt: toApiDateTime(meetingEditForm.startsAt),
+      meetingType: meetingEditForm.meetingType,
+      seriesPublicId:
+        meetingEditForm.meetingType === "recurring"
+          ? meetingEditForm.seriesPublicId || null
+          : null,
+      summary: meetingEditForm.summary,
+      attendeePublicIds,
+      taskPublicIds: meetingEditForm.taskPublicIds,
     });
+    setEditingMeetingPublicId(null);
+    setMeetingEditForm(emptyMeetingForm);
+    await load();
   }
 
   function getMeetingTaskForm(meetingPublicId: string) {
@@ -328,25 +398,29 @@ export function MeetingsPage() {
             />
           </FormField>
           <CheckboxGroup
-            legend="Occurrence attendees"
+            legend="Existing occurrence attendees"
             options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
             selected={occurrenceForm.attendeePublicIds}
             onChange={(attendeePublicIds) =>
               setOccurrenceForm({ ...occurrenceForm, attendeePublicIds })
             }
           />
+          <FormField label="Occurrence attendee names">
+            <textarea
+              value={occurrenceForm.attendeeNames}
+              onChange={(event) =>
+                setOccurrenceForm({ ...occurrenceForm, attendeeNames: event.target.value })
+              }
+              placeholder="Morgan, Taylor"
+            />
+          </FormField>
           <button className="primary-button" type="submit">
             Create occurrence
           </button>
         </form>
       </div>
-      <form
-        className="editor-form"
-        id="meeting-editor"
-        onSubmit={submitMeeting}
-        ref={meetingEditorRef}
-      >
-        <h3>{meetingForm.publicId ? `Edit meeting ${meetingForm.publicId}` : "Add meeting"}</h3>
+      <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
+        <h3>Add meeting</h3>
         <FormField label="Meeting title">
           <input
             value={meetingForm.title}
@@ -401,13 +475,20 @@ export function MeetingsPage() {
           />
         </FormField>
         <CheckboxGroup
-          legend="Attendees"
+          legend="Existing attendees"
           options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
           selected={meetingForm.attendeePublicIds}
           onChange={(attendeePublicIds) =>
             setMeetingForm({ ...meetingForm, attendeePublicIds })
           }
         />
+        <FormField label="New attendee names">
+          <textarea
+            value={meetingForm.attendeeNames}
+            onChange={(event) => setMeetingForm({ ...meetingForm, attendeeNames: event.target.value })}
+            placeholder="Morgan, Taylor"
+          />
+        </FormField>
         <CheckboxGroup
           legend="Meeting tasks"
           options={tasks.map((task) => ({
@@ -419,17 +500,8 @@ export function MeetingsPage() {
         />
         <div className="form-actions">
           <button className="primary-button" type="submit">
-            {meetingForm.publicId ? "Update meeting" : "Add meeting"}
+            Add meeting
           </button>
-          {meetingForm.publicId ? (
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setMeetingForm(emptyMeetingForm)}
-            >
-              Cancel edit
-            </button>
-          ) : null}
         </div>
       </form>
       {meetings.length === 0 ? (
@@ -475,6 +547,126 @@ export function MeetingsPage() {
                   Edit details
                 </button>
               </div>
+              {editingMeetingPublicId === meeting.publicId ? (
+                <form
+                  className="meeting-edit-form"
+                  onSubmit={(event) => submitMeetingEdit(event, meeting)}
+                >
+                  <h3>Edit details for {meeting.publicId}</h3>
+                  <FormField label={`Meeting title for ${meeting.publicId}`}>
+                    <input
+                      value={meetingEditForm.title}
+                      onChange={(event) =>
+                        setMeetingEditForm({ ...meetingEditForm, title: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label={`Meeting start for ${meeting.publicId}`}>
+                    <input
+                      type="datetime-local"
+                      value={meetingEditForm.startsAt}
+                      onChange={(event) =>
+                        setMeetingEditForm({ ...meetingEditForm, startsAt: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label={`Meeting type for ${meeting.publicId}`}>
+                    <select
+                      value={meetingEditForm.meetingType}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          meetingType: event.target.value as MeetingType,
+                          seriesPublicId:
+                            event.target.value === "single" ? "" : meetingEditForm.seriesPublicId,
+                        })
+                      }
+                    >
+                      <option value="single">Single</option>
+                      <option value="recurring">Recurring</option>
+                    </select>
+                  </FormField>
+                  <FormField label={`Meeting series for ${meeting.publicId}`}>
+                    <select
+                      value={meetingEditForm.seriesPublicId}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          seriesPublicId: event.target.value,
+                        })
+                      }
+                      required={meetingEditForm.meetingType === "recurring"}
+                      disabled={meetingEditForm.meetingType === "single"}
+                    >
+                      <option value="">No series</option>
+                      {series.map((item) => (
+                        <option key={item.publicId} value={item.publicId}>
+                          {item.title}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label={`Meeting summary for ${meeting.publicId}`}>
+                    <textarea
+                      value={meetingEditForm.summary}
+                      onChange={(event) =>
+                        setMeetingEditForm({ ...meetingEditForm, summary: event.target.value })
+                      }
+                    />
+                  </FormField>
+                  <CheckboxGroup
+                    legend={`Existing attendees for ${meeting.publicId}`}
+                    options={people.map((person) => ({
+                      publicId: person.publicId,
+                      label: person.name,
+                    }))}
+                    selected={meetingEditForm.attendeePublicIds}
+                    onChange={(attendeePublicIds) =>
+                      setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
+                    }
+                  />
+                  <FormField label={`New attendee names for ${meeting.publicId}`}>
+                    <textarea
+                      value={meetingEditForm.attendeeNames}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          attendeeNames: event.target.value,
+                        })
+                      }
+                      placeholder="Morgan, Taylor"
+                    />
+                  </FormField>
+                  <CheckboxGroup
+                    legend={`Meeting tasks for ${meeting.publicId}`}
+                    options={tasks.map((task) => ({
+                      publicId: task.publicId,
+                      label: `${task.publicId} ${task.description}`,
+                    }))}
+                    selected={meetingEditForm.taskPublicIds}
+                    onChange={(taskPublicIds) =>
+                      setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
+                    }
+                  />
+                  <div className="form-actions">
+                    <button className="primary-button" type="submit">
+                      Save meeting {meeting.publicId}
+                    </button>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => {
+                        setEditingMeetingPublicId(null);
+                        setMeetingEditForm(emptyMeetingForm);
+                      }}
+                    >
+                      Cancel edit {meeting.publicId}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
               <form className="meeting-task-form" onSubmit={(event) => submitMeetingTask(event, meeting)}>
                 <h3>Add task to {meeting.publicId}</h3>
                 <FormField label={`New task description for ${meeting.publicId}`}>
@@ -535,6 +727,7 @@ export function MeetingsPage() {
                   Add task to {meeting.publicId}
                 </button>
               </form>
+              <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
             </article>
           ))}
         </div>

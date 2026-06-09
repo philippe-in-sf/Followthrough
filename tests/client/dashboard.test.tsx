@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
+  AuditLogDto,
   DecisionDto,
   MeetingDto,
   MeetingSeriesDto,
@@ -29,6 +30,7 @@ function json(data: unknown, status = 200) {
 }
 
 function setupAppFetch() {
+  const people: PersonDto[] = [avery];
   const tasks: TaskDto[] = [
     {
       publicId: "T099",
@@ -89,6 +91,48 @@ function setupAppFetch() {
     },
   ];
 
+  const taskAudits: Record<string, AuditLogDto[]> = {
+    T099: [
+      {
+        id: 1,
+        entityType: "task",
+        entityPublicId: "T099",
+        action: "created",
+        summary: "Created task",
+        actorName: "Editor",
+        createdAt: "2026-06-09 12:00:00",
+        changes: {},
+      },
+    ],
+    T010: [
+      {
+        id: 2,
+        entityType: "task",
+        entityPublicId: "T010",
+        action: "created",
+        summary: "Created task",
+        actorName: "Editor",
+        createdAt: "2026-06-09 12:00:00",
+        changes: {},
+      },
+    ],
+  };
+
+  const meetingAudits: Record<string, AuditLogDto[]> = {
+    M010: [
+      {
+        id: 3,
+        entityType: "meeting",
+        entityPublicId: "M010",
+        action: "created",
+        summary: "Created meeting",
+        actorName: "Editor",
+        createdAt: "2026-06-09 12:00:00",
+        changes: {},
+      },
+    ],
+  };
+
   globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), "http://task-manager.test");
     const method = init?.method ?? "GET";
@@ -132,9 +176,25 @@ function setupAppFetch() {
       });
     }
 
-    if (url.pathname === "/api/people") return json({ people: [avery] });
+    if (url.pathname === "/api/people" && method === "GET") return json({ people });
+
+    if (url.pathname === "/api/people" && method === "POST") {
+      const person: PersonDto = {
+        publicId: `P${String(people.length + 1).padStart(3, "0")}`,
+        name: body.name,
+        email: body.email || null,
+        archived: false,
+      };
+      people.push(person);
+      return json({ person }, 201);
+    }
 
     if (url.pathname === "/api/tasks" && method === "GET") return json({ tasks });
+
+    const taskAuditMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/audit$/);
+    if (taskAuditMatch && method === "GET") {
+      return json({ auditEvents: taskAudits[taskAuditMatch[1]] ?? [] });
+    }
 
     if (url.pathname === "/api/tasks" && method === "POST") {
       const task: TaskDto = {
@@ -149,15 +209,53 @@ function setupAppFetch() {
         archived: false,
       };
       tasks.push(task);
+      taskAudits[task.publicId] = [
+        {
+          id: 100,
+          entityType: "task",
+          entityPublicId: task.publicId,
+          action: "created",
+          summary: "Created task",
+          actorName: "Editor",
+          createdAt: "2026-06-09 12:10:00",
+          changes: { after: task },
+        },
+      ];
       if (body.originMeetingPublicId) {
         const meeting = meetings.find((item) => item.publicId === body.originMeetingPublicId);
         meeting?.tasks.push(task);
+        meetingAudits[body.originMeetingPublicId] = [
+          {
+            id: 101,
+            entityType: "meeting",
+            entityPublicId: body.originMeetingPublicId,
+            action: "task_added",
+            summary: `Added task ${task.publicId}`,
+            actorName: "Editor",
+            createdAt: "2026-06-09 12:10:00",
+            changes: { task },
+          },
+          ...(meetingAudits[body.originMeetingPublicId] ?? []),
+        ];
       }
       return json({ task }, 201);
     }
 
     if (url.pathname === "/api/tasks/T099" && method === "PATCH") {
       tasks[0] = { ...tasks[0], description: body.description, status: body.status };
+      taskAudits.T099 = [
+        {
+          id: 102,
+          entityType: "task",
+          entityPublicId: "T099",
+          action: "updated",
+          summary: "Updated task details",
+          actorName: "Editor",
+          createdAt: "2026-06-09 12:15:00",
+          changes: { after: tasks[0] },
+        },
+        ...taskAudits.T099,
+      ];
       return json({ task: tasks[0] });
     }
 
@@ -198,7 +296,9 @@ function setupAppFetch() {
         meetingType: "recurring",
         seriesPublicId: "S001",
         summary: body.summary,
-        attendees: [avery],
+        attendees: body.attendeePublicIds
+          .map((publicId: string) => people.find((person) => person.publicId === publicId))
+          .filter(Boolean) as PersonDto[],
         tasks: [tasks[1]],
         archived: false,
       };
@@ -208,6 +308,11 @@ function setupAppFetch() {
 
     if (url.pathname === "/api/meetings" && method === "GET") return json({ meetings });
 
+    const meetingAuditMatch = url.pathname.match(/^\/api\/meetings\/([^/]+)\/audit$/);
+    if (meetingAuditMatch && method === "GET") {
+      return json({ auditEvents: meetingAudits[meetingAuditMatch[1]] ?? [] });
+    }
+
     if (url.pathname === "/api/meetings" && method === "POST") {
       const meeting: MeetingDto = {
         publicId: "M100",
@@ -216,11 +321,25 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
-        attendees: [avery],
+        attendees: body.attendeePublicIds
+          .map((publicId: string) => people.find((person) => person.publicId === publicId))
+          .filter(Boolean) as PersonDto[],
         tasks: [],
         archived: false,
       };
       meetings.push(meeting);
+      meetingAudits[meeting.publicId] = [
+        {
+          id: 103,
+          entityType: "meeting",
+          entityPublicId: meeting.publicId,
+          action: "created",
+          summary: "Created meeting",
+          actorName: "Editor",
+          createdAt: "2026-06-09 12:20:00",
+          changes: { after: meeting },
+        },
+      ];
       return json({ meeting }, 201);
     }
 
@@ -232,11 +351,26 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
-        attendees: [avery],
+        attendees: body.attendeePublicIds
+          .map((publicId: string) => people.find((person) => person.publicId === publicId))
+          .filter(Boolean) as PersonDto[],
         tasks: body.taskPublicIds
           .map((publicId: string) => tasks.find((task) => task.publicId === publicId))
           .filter(Boolean) as TaskDto[],
       };
+      meetingAudits.M010 = [
+        {
+          id: 104,
+          entityType: "meeting",
+          entityPublicId: "M010",
+          action: "updated",
+          summary: "Updated meeting details",
+          actorName: "Editor",
+          createdAt: "2026-06-09 12:25:00",
+          changes: { after: meetings[0] },
+        },
+        ...meetingAudits.M010,
+      ];
       return json({ meeting: meetings[0] });
     }
 
@@ -278,11 +412,20 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add task" }));
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Edit T099" }));
-    await userEvent.clear(screen.getByLabelText("Task description"));
-    await userEvent.type(screen.getByLabelText("Task description"), "Prep launch materials");
-    await userEvent.click(screen.getByRole("button", { name: "Update task" }));
+    const taskCard = await screen.findByLabelText("Task T099");
+    expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
+    expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
+    expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+    await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
+    await userEvent.type(
+      within(taskCard).getByLabelText("Task description for T099"),
+      "Prep launch materials",
+    );
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Save task T099" }));
     expect(await screen.findByText("Prep launch materials")).toBeInTheDocument();
+    expect(await screen.findByText("Updated task details")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Decisions" }));
     await userEvent.type(await screen.findByLabelText("Decision"), "Adopt weekly review");
@@ -315,6 +458,8 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).getByText("Audit history")).toBeInTheDocument();
+    expect(within(meetingCard).getByText("Created meeting")).toBeInTheDocument();
 
     await userEvent.type(
       within(meetingCard).getByLabelText("New task description for M010"),
@@ -332,17 +477,29 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(within(meetingCard).getByRole("button", { name: "Add task to M010" }));
 
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
+    expect(await screen.findByText("Added task T100")).toBeInTheDocument();
 
     await userEvent.click(within(meetingCard).getByRole("button", { name: "Edit details for M010" }));
-    expect(await screen.findByRole("heading", { name: "Edit meeting M010" })).toBeInTheDocument();
+    expect(
+      within(meetingCard).getByRole("heading", { name: "Edit details for M010" }),
+    ).toBeInTheDocument();
 
-    await userEvent.clear(screen.getByLabelText("Meeting title"));
-    await userEvent.type(screen.getByLabelText("Meeting title"), "Updated leadership sync");
-    await userEvent.clear(screen.getByLabelText("Meeting summary"));
-    await userEvent.type(screen.getByLabelText("Meeting summary"), "Updated summary");
-    await userEvent.click(screen.getByRole("button", { name: "Update meeting" }));
+    await userEvent.clear(within(meetingCard).getByLabelText("Meeting title for M010"));
+    await userEvent.type(
+      within(meetingCard).getByLabelText("Meeting title for M010"),
+      "Updated leadership sync",
+    );
+    await userEvent.clear(within(meetingCard).getByLabelText("Meeting summary for M010"));
+    await userEvent.type(within(meetingCard).getByLabelText("Meeting summary for M010"), "Updated summary");
+    await userEvent.type(
+      within(meetingCard).getByLabelText("New attendee names for M010"),
+      "Morgan, Taylor",
+    );
+    await userEvent.click(within(meetingCard).getByRole("button", { name: "Save meeting M010" }));
 
     expect(await screen.findByText("Updated leadership sync")).toBeInTheDocument();
     expect(screen.getByText("Updated summary")).toBeInTheDocument();
+    expect(screen.getByText("Avery, Morgan, Taylor")).toBeInTheDocument();
+    expect(await screen.findByText("Updated meeting details")).toBeInTheDocument();
   });
 });
