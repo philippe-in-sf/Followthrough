@@ -1,9 +1,11 @@
 import express from "express";
+import { requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { AppDatabase } from "./db/database.js";
 import { openDatabase } from "./db/database.js";
 import { HttpError } from "./errors.js";
+import { peopleRoutes } from "./people/routes.js";
 
 export type AppDependencies = {
   db?: AppDatabase;
@@ -24,6 +26,11 @@ export function createApp(deps: AppDependencies = {}) {
   });
 
   app.use("/api/auth", authRoutes(db, config));
+
+  const protectedApi = express.Router();
+  protectedApi.use(requireAuth(db, config));
+  protectedApi.use("/people", peopleRoutes(db));
+  app.use("/api", protectedApi);
 
   app.use(
     (
