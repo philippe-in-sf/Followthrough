@@ -17,6 +17,8 @@ const site: DeploySite = {
   ssh: "deploy@example.com",
   appRoot: "/opt/web-ui-task-manager",
   serviceName: "web-ui-task-manager",
+  serviceUser: "taskmanager",
+  serviceGroup: "taskmanager",
   port: 3000,
   keepReleases: 5,
 };
@@ -32,6 +34,8 @@ describe("systemd unit rendering", () => {
   it("runs the app from the current release and loads shared env", () => {
     expect(renderSystemdUnit(site)).toContain("WorkingDirectory=/opt/web-ui-task-manager/current");
     expect(renderSystemdUnit(site)).toContain("EnvironmentFile=/opt/web-ui-task-manager/shared/.env");
+    expect(renderSystemdUnit(site)).toContain("User=taskmanager");
+    expect(renderSystemdUnit(site)).toContain("Group=taskmanager");
     expect(renderSystemdUnit(site)).toContain("ExecStart=/usr/bin/env node dist/server/index.js");
     expect(renderSystemdUnit(site)).toContain("Restart=on-failure");
   });
@@ -42,10 +46,21 @@ describe("remote command rendering", () => {
     const command = buildEnsureLayoutCommand(site);
 
     expect(command).toContain("mkdir -p");
+    expect(command).toContain("sudo mkdir -p '/opt/web-ui-task-manager' '/opt/web-ui-task-manager/releases' '/opt/web-ui-task-manager/shared' '/opt/web-ui-task-manager/shared/data'");
     expect(command).toContain("/opt/web-ui-task-manager/shared/data");
+    expect(command).toContain("sudo chown -R \"$USER\":\"$USER\" '/opt/web-ui-task-manager/releases'");
+    expect(command).toContain("sudo chown \"$USER\":\"$USER\" '/opt/web-ui-task-manager/shared'");
+    expect(command).toContain("sudo chown -R 'taskmanager':'taskmanager' '/opt/web-ui-task-manager/shared/data'");
+    expect(command).not.toContain("chown -R \"$USER\":\"$USER\" '/opt/web-ui-task-manager'");
     expect(command).toContain("if [ ! -f '/opt/web-ui-task-manager/shared/.env' ]; then");
     expect(command).toContain("DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite");
     expect(command).not.toContain("rm -rf '/opt/web-ui-task-manager/shared");
+  });
+
+  it("rejects dangerous app roots before rendering commands", () => {
+    for (const appRoot of ["relative/path", "/", "/opt", "/srv", "/opt/../tmp/app"]) {
+      expect(() => buildEnsureLayoutCommand({ ...site, appRoot })).toThrow(/appRoot/);
+    }
   });
 
   it("installs production dependencies inside a release", () => {
@@ -73,7 +88,10 @@ describe("remote command rendering", () => {
   it("cleans old releases without deleting current or shared data", () => {
     const command = buildCleanupCommand(site);
 
-    expect(command).toContain("readlink '/opt/web-ui-task-manager/current'");
+    expect(command).toContain("canonicalize_path() {");
+    expect(command).toContain("readlink -f \"$1\" 2>/dev/null || realpath \"$1\"");
+    expect(command).toContain("current_target=\"$(canonicalize_path '/opt/web-ui-task-manager/current' || true)\"");
+    expect(command).toContain("release_path=\"$(canonicalize_path \"$PWD/$release\")\"");
     expect(command).toContain("tail -n +6");
     expect(command).not.toContain("shared");
     expect(command).not.toContain("rm -rf '/opt/web-ui-task-manager'");

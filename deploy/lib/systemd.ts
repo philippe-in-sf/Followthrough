@@ -10,6 +10,8 @@ Type=simple
 WorkingDirectory=${site.appRoot}/current
 EnvironmentFile=${site.appRoot}/shared/.env
 Environment=NODE_ENV=production
+User=${site.serviceUser}
+Group=${site.serviceGroup}
 ExecStart=/usr/bin/env node dist/server/index.js
 Restart=on-failure
 RestartSec=5

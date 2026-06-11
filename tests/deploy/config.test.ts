@@ -16,6 +16,8 @@ describe("deploy config", () => {
       ssh: "deploy@example.com",
       appRoot: "/opt/web-ui-task-manager",
       serviceName: "web-ui-task-manager",
+      serviceUser: "deploy",
+      serviceGroup: "deploy",
       port: 3000,
       keepReleases: 5,
     });
@@ -27,6 +29,8 @@ describe("deploy config", () => {
         DEPLOY_OFFICE_SSH: "app@office.example.com",
         DEPLOY_OFFICE_APP_ROOT: "/srv/tasks",
         DEPLOY_OFFICE_SERVICE_NAME: "tasks-office",
+        DEPLOY_OFFICE_SERVICE_USER: "task_runner",
+        DEPLOY_OFFICE_SERVICE_GROUP: "task-runners",
         DEPLOY_OFFICE_PORT: "4300",
         DEPLOY_OFFICE_KEEP_RELEASES: "8",
       },
@@ -39,9 +43,47 @@ describe("deploy config", () => {
       ssh: "app@office.example.com",
       appRoot: "/srv/tasks",
       serviceName: "tasks-office",
+      serviceUser: "task_runner",
+      serviceGroup: "task-runners",
       port: 4300,
       keepReleases: 8,
     });
+  });
+
+  it("defaults service user and group from the SSH username", () => {
+    const site = parseDeploySite(
+      {
+        DEPLOY_PRODUCTION_SSH: "deploy-user@example.com",
+      },
+      "production",
+    );
+
+    expect(site.serviceUser).toBe("deploy-user");
+    expect(site.serviceGroup).toBe("deploy-user");
+  });
+
+  it("falls back to the default service identity for SSH host aliases", () => {
+    const site = parseDeploySite(
+      {
+        DEPLOY_PRODUCTION_SSH: "production-host",
+      },
+      "production",
+    );
+
+    expect(site.serviceUser).toBe("web-ui-task-manager");
+    expect(site.serviceGroup).toBe("web-ui-task-manager");
+  });
+
+  it("rejects invalid service users", () => {
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_SERVICE_USER: "9deploy",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_SERVICE_USER/);
   });
 
   it("parses the configured site list in order", () => {
@@ -154,6 +196,8 @@ describe("deploy config", () => {
       ssh: "app@office.example.com",
       appRoot: "/opt/web-ui-task-manager",
       serviceName: "web-ui-task-manager",
+      serviceUser: "app",
+      serviceGroup: "app",
       port: 3000,
       keepReleases: 5,
     });
