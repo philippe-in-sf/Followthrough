@@ -86,6 +86,26 @@ describe("deploy config", () => {
     ).toThrow(/DEPLOY_PRODUCTION_SERVICE_USER/);
   });
 
+  it("rejects unsafe service names", () => {
+    for (const serviceName of [
+      "task manager",
+      "../task-manager",
+      "task-manager;sudo reboot",
+      "task-manager.service",
+      "task-manager@prod",
+    ]) {
+      expect(() =>
+        parseDeploySite(
+          {
+            DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+            DEPLOY_PRODUCTION_SERVICE_NAME: serviceName,
+          },
+          "production",
+        ),
+      ).toThrow(/DEPLOY_PRODUCTION_SERVICE_NAME/);
+    }
+  });
+
   it("rejects root derived from the SSH username as a service user", () => {
     expect(() =>
       parseDeploySite(

@@ -22,6 +22,7 @@ const DEFAULT_SERVICE_USER = "web-ui-task-manager";
 const DEFAULT_PORT = 3000;
 const DEFAULT_KEEP_RELEASES = 5;
 const SITE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
+const SERVICE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 const LINUX_ACCOUNT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*\$?$/;
 const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9]\d*$/;
 
@@ -48,6 +49,18 @@ function positiveInteger(env: EnvMap, key: string, fallback: number) {
   }
 
   return Number(rawValue);
+}
+
+function systemdServiceName(env: EnvMap, key: string, fallback: string) {
+  const value = env[key]?.trim() || fallback;
+
+  if (!SERVICE_NAME_PATTERN.test(value)) {
+    throw new Error(
+      `Deploy config value ${key} must be a simple systemd service name without a .service suffix: ${value}`,
+    );
+  }
+
+  return value;
 }
 
 function defaultServiceUser(ssh: string) {
@@ -113,7 +126,7 @@ export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
     envPrefix,
     ssh,
     appRoot: env[`${envPrefix}APP_ROOT`]?.trim() || DEFAULT_APP_ROOT,
-    serviceName: env[`${envPrefix}SERVICE_NAME`]?.trim() || DEFAULT_SERVICE_NAME,
+    serviceName: systemdServiceName(env, `${envPrefix}SERVICE_NAME`, DEFAULT_SERVICE_NAME),
     serviceUser,
     serviceGroup: serviceGroupName(env, `${envPrefix}SERVICE_GROUP`, serviceUser),
     port: positiveInteger(env, `${envPrefix}PORT`, DEFAULT_PORT),

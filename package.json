@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json",
     "invite:create": "tsx server/auth/createInviteCode.ts",
-    "deploy": "bash deploy/deploy.sh"
+    "deploy": "bash deploy/deploy.sh",
+    "deploy:install-systemd": "bash deploy/install-systemd.sh"
   },
   "keywords": [],
   "author": "",

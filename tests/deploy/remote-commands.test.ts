@@ -33,12 +33,15 @@ describe("shell quoting", () => {
 
 describe("systemd unit rendering", () => {
   it("runs the app from the current release and loads shared env", () => {
-    expect(renderSystemdUnit(site)).toContain("WorkingDirectory=/opt/web-ui-task-manager/current");
-    expect(renderSystemdUnit(site)).toContain("EnvironmentFile=/opt/web-ui-task-manager/shared/.env");
-    expect(renderSystemdUnit(site)).toContain("User=taskmanager");
-    expect(renderSystemdUnit(site)).toContain("Group=taskmanager");
-    expect(renderSystemdUnit(site)).toContain("ExecStart=/usr/bin/env node dist/server/index.js");
-    expect(renderSystemdUnit(site)).toContain("Restart=on-failure");
+    const unit = renderSystemdUnit(site);
+
+    expect(unit).toContain("WorkingDirectory=/opt/web-ui-task-manager/current");
+    expect(unit).toContain("EnvironmentFile=/opt/web-ui-task-manager/shared/.env");
+    expect(unit).toContain("User=taskmanager");
+    expect(unit).toContain("Group=taskmanager");
+    expect(unit).toContain("ExecStart=/usr/bin/env node dist/server/index.js");
+    expect(unit).toContain("Restart=on-failure");
+    expect(unit).toContain("WantedBy=multi-user.target");
   });
 });
 
