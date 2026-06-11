@@ -66,3 +66,127 @@ npm run build
 ```
 
 These cover server routes, database behavior, auth, recurring carry-over, search/dashboard APIs, and frontend workflows.
+
+## Linux SSH Deployment
+
+The app can be deployed to Linux hosts over SSH and run with `systemd`. The deployment path builds locally, pushes a release directory with `rsync`, keeps site data in a shared directory, restarts the service, and checks `/api/health`.
+
+### Remote prerequisites
+
+- Linux host reachable over SSH
+- Node.js 24 or newer, required for Node's built-in SQLite support
+- npm, with network access for remote `npm ci --omit=dev`
+- rsync
+- curl
+- systemd
+- SSH user with passwordless `sudo` for deploy app directory `mkdir`/`chown`, service unit install under `/etc/systemd/system`, `systemctl daemon-reload`, `systemctl enable`, and service restart
+- Existing non-root service user and group for running the app
+
+### Local site config
+
+```bash
+cp deploy/sites.example.env deploy/sites.env
+```
+
+Edit `deploy/sites.env`:
+
+```bash
+DEPLOY_SITES=production
+DEPLOY_PRODUCTION_SSH=deploy@example.com
+DEPLOY_PRODUCTION_APP_ROOT=/opt/web-ui-task-manager
+DEPLOY_PRODUCTION_SERVICE_NAME=web-ui-task-manager
+DEPLOY_PRODUCTION_PORT=3000
+DEPLOY_PRODUCTION_KEEP_RELEASES=5
+
+# Optional; both must already exist on the host and must be non-root.
+DEPLOY_PRODUCTION_SERVICE_USER=web-ui-task-manager
+DEPLOY_PRODUCTION_SERVICE_GROUP=web-ui-task-manager
+```
+
+`deploy/sites.env` is ignored by git because it is local machine configuration.
+
+Site names use letters, numbers, and underscores. Service names omit the `.service` suffix, must start with an alphanumeric character, and use only letters, numbers, underscores, and hyphens. Service users and groups must be simple Linux account/group names and cannot be `root`.
+
+If `DEPLOY_PRODUCTION_SERVICE_USER` is not set, `deploy@example.com` defaults the service user and group to `deploy`. Host aliases without a username default to `web-ui-task-manager`.
+
+App roots must be deploy-safe absolute paths without spaces or shell metacharacters; `/`, `/opt`, and `/srv` are rejected.
+
+### First-time service install
+
+```bash
+npm run deploy:install-systemd -- production
+```
+
+This creates the remote app layout, installs `/etc/systemd/system/web-ui-task-manager.service`, runs `systemctl daemon-reload`, and enables the service.
+
+### Deploy one site
+
+```bash
+npm run deploy -- production
+```
+
+The deploy command runs local verification and build once:
+
+```bash
+npm run check
+npm run test
+npm run build
+```
+
+Then it copies the release to:
+
+```text
+/opt/web-ui-task-manager/releases/<release-id>
+```
+
+The release contains the built app plus `package.json` and `package-lock.json`; the remote host then runs `npm ci --omit=dev` inside that release.
+
+The service runs from:
+
+```text
+/opt/web-ui-task-manager/current
+```
+
+Persistent site data stays under:
+
+```text
+/opt/web-ui-task-manager/shared
+```
+
+### Deploy all configured sites
+
+```bash
+npm run deploy
+```
+
+Sites are deployed sequentially in the order listed by `DEPLOY_SITES`. Local check, test, build, and release staging run once, then the same release is reused for each configured site.
+
+### Remote environment
+
+On first install, deployment creates this file only if it does not already exist:
+
+```text
+/opt/web-ui-task-manager/shared/.env
+```
+
+The default database path is:
+
+```text
+/opt/web-ui-task-manager/shared/data/task-manager.sqlite
+```
+
+Edit the remote `.env` directly for site-specific settings.
+
+### Rollback
+
+SSH to the host and repoint `current` to a previous release:
+
+```bash
+cd /opt/web-ui-task-manager
+ls -1dt releases/*
+previous_release=/opt/web-ui-task-manager/releases/<previous-release>
+ln -sfn "$previous_release" current.next
+mv -Tf current.next current
+sudo systemctl restart web-ui-task-manager
+curl --fail --silent --show-error http://127.0.0.1:3000/api/health
+```

@@ -1,0 +1,178 @@
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const deployScript = path.join(repoRoot, "deploy/scripts/deploy.ts");
+const tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
+
+function quoteShell(value: string) {
+  return `'${value.replace(/'/g, "'\"'\"'")}'`;
+}
+
+function writeExecutable(filePath: string, content: string) {
+  fs.writeFileSync(filePath, content, { mode: 0o755 });
+}
+
+function createRuntimePaths(workDir: string) {
+  fs.mkdirSync(path.join(workDir, "dist"));
+  fs.writeFileSync(path.join(workDir, "dist/server.js"), "console.log('built');\n");
+  fs.writeFileSync(path.join(workDir, "package.json"), "{}\n");
+  fs.writeFileSync(path.join(workDir, "package-lock.json"), "{}\n");
+}
+
+function createDeployFixture() {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-runner-work-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-runner-tmp-"));
+  const binDir = path.join(workDir, "bin");
+  const commandLog = path.join(workDir, "commands.log");
+  fs.mkdirSync(binDir);
+
+  const runDeploy = (env: NodeJS.ProcessEnv, target = "all") =>
+    spawnSync(process.execPath, [tsxCli, deployScript, target], {
+      cwd: workDir,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`,
+        TMPDIR: tempDir,
+        ...env,
+      },
+    });
+
+  return {
+    workDir,
+    tempDir,
+    binDir,
+    commandLog,
+    runDeploy,
+    cleanup: () => {
+      fs.rmSync(workDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    },
+  };
+}
+
+function readCommandLog(commandLog: string) {
+  if (!fs.existsSync(commandLog)) return [];
+  return fs.readFileSync(commandLog, "utf8").trim().split("\n").filter(Boolean);
+}
+
+describe("deploy runner", () => {
+  it("removes the local staging root when copying runtime files fails", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      writeExecutable(path.join(fixture.binDir, "npm"), "#!/bin/sh\nexit 0\n");
+      writeExecutable(path.join(fixture.binDir, "git"), "#!/bin/sh\nprintf 'abcdef1'\n");
+      fs.writeFileSync(path.join(fixture.workDir, "package.json"), "{}\n");
+      fs.writeFileSync(path.join(fixture.workDir, "package-lock.json"), "{}\n");
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("ENOENT");
+      expect(
+        fs.readdirSync(fixture.tempDir).filter((entry) => entry.startsWith("web-ui-task-manager-release-")),
+      ).toEqual([]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("runs local gates and stages the release once for multiple sites", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      createRuntimePaths(fixture.workDir);
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "git"),
+        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "ssh"),
+        `#!/bin/sh\nprintf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}\ncat >/dev/null\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "rsync"),
+        `#!/bin/sh\nprintf 'rsync-source %s\\n' "$3" >> ${quoteShell(
+          fixture.commandLog,
+        )}\nprintf 'rsync-target %s\\n' "$4" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production,office",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+        DEPLOY_OFFICE_SSH: "office@example.com",
+        DEPLOY_OFFICE_APP_ROOT: "/srv/web-ui-task-manager-office",
+      });
+
+      const output = `${result.stdout}${result.stderr}`;
+      expect(result.status, output).toBe(0);
+
+      const lines = readCommandLog(fixture.commandLog);
+      expect(lines.filter((line) => line === "npm run check")).toHaveLength(1);
+      expect(lines.filter((line) => line === "npm run test")).toHaveLength(1);
+      expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git rev-parse --short HEAD")).toHaveLength(1);
+
+      const rsyncSources = lines
+        .filter((line) => line.startsWith("rsync-source "))
+        .map((line) => line.replace("rsync-source ", ""));
+      expect(rsyncSources).toHaveLength(2);
+      expect(new Set(rsyncSources).size).toBe(1);
+
+      const rsyncTargets = lines.filter((line) => line.startsWith("rsync-target "));
+      expect(rsyncTargets).toHaveLength(2);
+      expect(rsyncTargets[0]).toContain("deploy@example.com:/opt/web-ui-task-manager/releases/");
+      expect(rsyncTargets[1]).toContain("office@example.com:/srv/web-ui-task-manager-office/releases/");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("fails before deployment when the git SHA cannot be captured", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      createRuntimePaths(fixture.workDir);
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "git"),
+        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 1\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "ssh"),
+        `#!/bin/sh\nprintf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}\ncat >/dev/null\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "rsync"),
+        `#!/bin/sh\nprintf 'rsync %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("Unable to determine git commit");
+      expect(readCommandLog(fixture.commandLog).some((line) => line.startsWith("rsync "))).toBe(false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+});

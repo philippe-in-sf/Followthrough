@@ -1,0 +1,17 @@
+[Unit]
+Description=Web UI Task Manager
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/web-ui-task-manager/current
+EnvironmentFile=/opt/web-ui-task-manager/shared/.env
+Environment=NODE_ENV=production
+User=web-ui-task-manager
+Group=web-ui-task-manager
+ExecStart=/usr/bin/env node dist/server/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
