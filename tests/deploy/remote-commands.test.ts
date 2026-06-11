@@ -91,9 +91,21 @@ describe("remote command rendering", () => {
     expect(command).toContain("canonicalize_path() {");
     expect(command).toContain("readlink -f \"$1\" 2>/dev/null || realpath \"$1\"");
     expect(command).toContain("current_target=\"$(canonicalize_path '/opt/web-ui-task-manager/current' || true)\"");
-    expect(command).toContain("release_path=\"$(canonicalize_path \"$PWD/$release\")\"");
+    expect(command).toContain("release_path=\"$PWD/$release\"");
+    expect(command).toContain("release_target=\"$(canonicalize_path \"$release_path\")\"");
     expect(command).toContain("tail -n +6");
     expect(command).not.toContain("shared");
     expect(command).not.toContain("rm -rf '/opt/web-ui-task-manager'");
+  });
+
+  it("does not delete canonicalized release targets when cleaning symlink entries", () => {
+    const command = buildCleanupCommand(site);
+
+    expect(command).toContain("if [ \"$release_target\" = \"$current_target\" ]; then");
+    expect(command).toContain("continue");
+    expect(command).toContain("if [ -L \"$release_path\" ]; then");
+    expect(command).toContain("rm -f -- \"$release_path\"");
+    expect(command).toContain("rm -rf -- \"$release_path\"");
+    expect(command).not.toContain("rm -rf -- \"$release_target\"");
   });
 });
