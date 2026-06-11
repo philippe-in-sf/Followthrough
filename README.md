@@ -75,12 +75,12 @@ The app can be deployed to Linux hosts over SSH and run with `systemd`. The depl
 
 - Linux host reachable over SSH
 - Node.js 24 or newer, required for Node's built-in SQLite support
-- npm
+- npm, with network access for remote `npm ci --omit=dev`
 - rsync
 - curl
 - systemd
-- SSH user with passwordless `sudo` for `systemctl`, writing `/etc/systemd/system`, and creating/chowning the deploy app directories
-- Non-root service user and group for running the app
+- SSH user with passwordless `sudo` for deploy app directory `mkdir`/`chown`, service unit install under `/etc/systemd/system`, `systemctl daemon-reload`, `systemctl enable`, and service restart
+- Existing non-root service user and group for running the app
 
 ### Local site config
 
@@ -98,14 +98,18 @@ DEPLOY_PRODUCTION_SERVICE_NAME=web-ui-task-manager
 DEPLOY_PRODUCTION_PORT=3000
 DEPLOY_PRODUCTION_KEEP_RELEASES=5
 
-# Optional; both must be non-root when set.
+# Optional; both must already exist on the host and must be non-root.
 DEPLOY_PRODUCTION_SERVICE_USER=web-ui-task-manager
 DEPLOY_PRODUCTION_SERVICE_GROUP=web-ui-task-manager
 ```
 
 `deploy/sites.env` is ignored by git because it is local machine configuration.
 
-Service names must start with an alphanumeric character and use only letters, numbers, underscores, and hyphens. App roots must be deploy-safe absolute paths without spaces or shell metacharacters; `/`, `/opt`, and `/srv` are rejected.
+Site names use letters, numbers, and underscores. Service names omit the `.service` suffix, must start with an alphanumeric character, and use only letters, numbers, underscores, and hyphens. Service users and groups must be simple Linux account/group names and cannot be `root`.
+
+If `DEPLOY_PRODUCTION_SERVICE_USER` is not set, `deploy@example.com` defaults the service user and group to `deploy`. Host aliases without a username default to `web-ui-task-manager`.
+
+App roots must be deploy-safe absolute paths without spaces or shell metacharacters; `/`, `/opt`, and `/srv` are rejected.
 
 ### First-time service install
 
@@ -134,6 +138,8 @@ Then it copies the release to:
 ```text
 /opt/web-ui-task-manager/releases/<release-id>
 ```
+
+The release contains the built app plus `package.json` and `package-lock.json`; the remote host then runs `npm ci --omit=dev` inside that release.
 
 The service runs from:
 
@@ -178,7 +184,8 @@ SSH to the host and repoint `current` to a previous release:
 ```bash
 cd /opt/web-ui-task-manager
 ls -1dt releases/*
-ln -sfn /opt/web-ui-task-manager/releases/<previous-release> current.next
+previous_release=/opt/web-ui-task-manager/releases/<previous-release>
+ln -sfn "$previous_release" current.next
 mv -Tf current.next current
 sudo systemctl restart web-ui-task-manager
 curl --fail --silent --show-error http://127.0.0.1:3000/api/health
