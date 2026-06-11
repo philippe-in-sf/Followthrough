@@ -65,6 +65,7 @@ describe("remote command rendering", () => {
     expect(command).toContain("/opt/web-ui-task-manager/shared/data");
     expect(command).toContain("deploy_user=\"$(id -un)\"");
     expect(command).toContain("deploy_group=\"$(id -gn)\"");
+    expect(command).toContain("sudo chown \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager'");
     expect(command).toContain("sudo chown -R \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/releases'");
     expect(command).toContain("sudo chown \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/shared'");
     expect(command).toContain("sudo chown -R 'taskmanager':'taskmanager' '/opt/web-ui-task-manager/shared/data'");

@@ -38,6 +38,7 @@ export function buildEnsureLayoutCommand(site: DeploySite) {
     `deploy_user="$(id -un)"`,
     `deploy_group="$(id -gn)"`,
     `sudo mkdir -p ${appRoot} ${releasesDir} ${sharedDir} ${dataDir}`,
+    `sudo chown ${deployIdentity} ${appRoot}`,
     `sudo chown -R ${deployIdentity} ${releasesDir}`,
     `sudo chown ${deployIdentity} ${sharedDir}`,
     `sudo chown -R ${serviceIdentity} ${dataDir}`,
