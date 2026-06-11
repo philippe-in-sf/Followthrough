@@ -79,7 +79,7 @@ The app can be deployed to Linux hosts over SSH and run with `systemd`. The depl
 - rsync
 - curl
 - systemd
-- SSH user with passwordless `sudo` for `systemctl` and writing `/etc/systemd/system`
+- SSH user with passwordless `sudo` for `systemctl`, writing `/etc/systemd/system`, and creating/chowning the deploy app directories
 - Non-root service user and group for running the app
 
 ### Local site config
