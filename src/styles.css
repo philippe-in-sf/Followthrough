@@ -387,6 +387,88 @@ textarea {
   gap: 8px;
 }
 
+.lane-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.record-lane {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.lane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  border-left: 6px solid #93a4bd;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.lane-header h3,
+.lane-header p {
+  margin: 0;
+}
+
+.lane-header h3 {
+  font-size: 1rem;
+}
+
+.lane-header p {
+  color: #5b6475;
+  font-size: 0.85rem;
+}
+
+.lane-count,
+.hint-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #3b4354;
+  font-size: 0.82rem;
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+
+.record-lane-bad .lane-header {
+  border-left-color: #dc2626;
+  background: #fff5f5;
+}
+
+.record-lane-warn .lane-header {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.record-lane-info .lane-header {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.record-lane-good .lane-header {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.record-lane-meeting .lane-header {
+  border-left-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.record-lane-neutral .lane-header {
+  border-left-color: #64748b;
+  background: #f8fafc;
+}
+
 .meeting-card,
 .task-card {
   display: grid;
@@ -395,6 +477,27 @@ textarea {
   border: 1px solid #d9dee7;
   border-radius: 8px;
   overflow: hidden;
+  border-left-width: 6px;
+}
+
+.record-card-bad {
+  border-left-color: #dc2626;
+}
+
+.record-card-warn {
+  border-left-color: #d97706;
+}
+
+.record-card-info {
+  border-left-color: #2563eb;
+}
+
+.record-card-good {
+  border-left-color: #16a34a;
+}
+
+.record-card-meeting {
+  border-left-color: #0f766e;
 }
 
 .meeting-card .record-row,
@@ -434,6 +537,37 @@ textarea {
 .task-links {
   display: grid;
   gap: 4px;
+}
+
+.series-list {
+  display: grid;
+  gap: 8px;
+}
+
+.series-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-left: 6px solid #0f766e;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.series-row div {
+  display: grid;
+  gap: 3px;
+}
+
+.series-row div span {
+  color: #5b6475;
+}
+
+.hint-chip-teal {
+  background: #ccfbf1;
+  color: #0f766e;
 }
 
 .meeting-edit-form,
@@ -574,10 +708,17 @@ textarea {
   .record-row,
   .meeting-row,
   .task-row,
+  .series-row,
   .meeting-edit-form,
   .task-edit-form,
   .meeting-task-form,
   .compact-list li {
     grid-template-columns: 1fr;
+  }
+
+  .lane-header,
+  .series-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

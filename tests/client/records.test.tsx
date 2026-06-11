@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -90,7 +90,9 @@ describe("record pages", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Tasks" }));
     expect(await screen.findByText("Send notes")).toBeInTheDocument();
-    expect(screen.getAllByText(/due soon/i)).toHaveLength(2);
+    expect(
+      within(screen.getByLabelText("Task T001")).getByText("Due soon"),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Decisions" }));
     expect(await screen.findByText("Use SQLite")).toBeInTheDocument();

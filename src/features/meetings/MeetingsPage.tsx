@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AuditLogDto,
   MeetingDto,
@@ -45,6 +45,14 @@ type MeetingTaskFormState = {
   assigneePublicId: string;
   status: TaskDto["status"];
   dueDate: string;
+};
+
+type MeetingLane = {
+  key: string;
+  title: string;
+  ariaLabel: string;
+  tone: "info" | "neutral";
+  meetings: MeetingDto[];
 };
 
 const emptyMeetingForm: MeetingFormState = {
@@ -101,6 +109,10 @@ function parseAttendeeNames(value: string) {
     .filter(Boolean);
 }
 
+function countLabel(count: number, singular: string) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
 function CheckboxGroup({
   legend,
   options,
@@ -148,8 +160,40 @@ export function MeetingsPage() {
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
+  const meetingLoadRequestId = useRef(0);
+
+  const meetingLanes = useMemo<MeetingLane[]>(() => {
+    const now = Date.now();
+    const upcoming = meetings
+      .filter((meeting) => new Date(meeting.startsAt).getTime() >= now)
+      .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
+    const past = meetings
+      .filter((meeting) => new Date(meeting.startsAt).getTime() < now)
+      .sort((left, right) => new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime());
+
+    const lanes: MeetingLane[] = [
+      {
+        key: "upcoming",
+        title: "Upcoming",
+        ariaLabel: "Upcoming meetings",
+        tone: "info",
+        meetings: upcoming,
+      },
+      {
+        key: "past",
+        title: "Past",
+        ariaLabel: "Past meetings",
+        tone: "neutral",
+        meetings: past,
+      },
+    ];
+
+    return lanes.filter((lane) => lane.meetings.length > 0);
+  }, [meetings]);
 
   async function load() {
+    const requestId = meetingLoadRequestId.current + 1;
+    meetingLoadRequestId.current = requestId;
     const [meetingResult, seriesResult, peopleResult, taskResult] = await Promise.all([
       api.meetings.list(),
       api.series.list(),
@@ -164,10 +208,11 @@ export function MeetingsPage() {
         return [meeting.publicId, auditResult.auditEvents ?? []] as const;
       }),
     );
-    setMeetings(meetingResult.meetings);
-    setSeries(seriesResult.series);
-    setPeople(peopleResult.people);
-    setTasks(taskResult.tasks);
+    if (requestId !== meetingLoadRequestId.current) return;
+    setMeetings([...meetingResult.meetings]);
+    setSeries([...seriesResult.series]);
+    setPeople([...peopleResult.people]);
+    setTasks([...taskResult.tasks]);
     setMeetingAudits(Object.fromEntries(auditEntries));
   }
 
@@ -507,11 +552,49 @@ export function MeetingsPage() {
       {meetings.length === 0 ? (
         <EmptyState title="No meetings" detail="Create a single meeting or start a recurring series." />
       ) : (
-        <div className="record-list">
-          {meetings.map((meeting) => (
+        <div className="lane-stack">
+          {series.length > 0 ? (
+            <section aria-label="Recurring series" className="record-lane record-lane-meeting">
+              <header className="lane-header">
+                <div>
+                  <h3>Recurring series</h3>
+                  <p>Active meeting rhythms</p>
+                </div>
+                <span className="lane-count">{countLabel(series.length, "series")}</span>
+              </header>
+              <div className="series-list">
+                {series.map((item) => (
+                  <div className="series-row" key={item.publicId}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.publicId}</span>
+                    </div>
+                    <span className="hint-chip hint-chip-teal">
+                      {item.cadenceLabel || "Recurring"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {meetingLanes.map((lane) => (
+            <section
+              aria-label={lane.ariaLabel}
+              className={`record-lane record-lane-${lane.tone}`}
+              key={lane.key}
+            >
+              <header className="lane-header">
+                <div>
+                  <h3>{lane.title}</h3>
+                  <p>{lane.ariaLabel}</p>
+                </div>
+                <span className="lane-count">{countLabel(lane.meetings.length, "meeting")}</span>
+              </header>
+              <div className="record-list">
+                {lane.meetings.map((meeting) => (
             <article
               aria-label={`Meeting ${meeting.publicId}`}
-              className="meeting-card"
+              className="meeting-card record-card-meeting"
               key={meeting.publicId}
             >
               <div className="record-row meeting-row">
@@ -729,6 +812,9 @@ export function MeetingsPage() {
               </form>
               <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
             </article>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
