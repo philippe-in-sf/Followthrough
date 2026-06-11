@@ -1,3 +1,8 @@
+import {
+  validateLinuxAccountName,
+  validateSystemdServiceName,
+} from "./validation";
+
 export type DeploySite = {
   name: string;
   envPrefix: string;
@@ -22,8 +27,6 @@ const DEFAULT_SERVICE_USER = "web-ui-task-manager";
 const DEFAULT_PORT = 3000;
 const DEFAULT_KEEP_RELEASES = 5;
 const SITE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
-const SERVICE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
-const LINUX_ACCOUNT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*\$?$/;
 const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9]\d*$/;
 
 function envPrefixForSite(siteName: string) {
@@ -53,14 +56,7 @@ function positiveInteger(env: EnvMap, key: string, fallback: number) {
 
 function systemdServiceName(env: EnvMap, key: string, fallback: string) {
   const value = env[key]?.trim() || fallback;
-
-  if (!SERVICE_NAME_PATTERN.test(value)) {
-    throw new Error(
-      `Deploy config value ${key} must be a simple systemd service name without a .service suffix: ${value}`,
-    );
-  }
-
-  return value;
+  return validateSystemdServiceName(value, key);
 }
 
 function defaultServiceUser(ssh: string) {
@@ -70,14 +66,7 @@ function defaultServiceUser(ssh: string) {
 
 function linuxAccountName(env: EnvMap, key: string, fallback: string) {
   const value = env[key]?.trim() || fallback;
-
-  if (!LINUX_ACCOUNT_NAME_PATTERN.test(value)) {
-    throw new Error(
-      `Deploy config value ${key} must be a simple Linux account or group name: ${value}`,
-    );
-  }
-
-  return value;
+  return validateLinuxAccountName(value, key);
 }
 
 function nonRootLinuxAccountName(

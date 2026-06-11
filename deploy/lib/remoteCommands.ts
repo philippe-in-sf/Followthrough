@@ -1,34 +1,8 @@
 import type { DeploySite } from "./config";
-import path from "node:path";
 import { quoteShell } from "./shell";
+import { systemdUnitName, validateDeployAppRoot } from "./validation";
 
-const PROTECTED_APP_ROOTS = new Set(["/", "/opt", "/srv"]);
-const SAFE_APP_ROOT_PATTERN = /^\/[A-Za-z0-9._/-]+$/;
 const SAFE_RELEASE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
-
-export function validateDeployAppRoot(appRoot: string) {
-  if (!appRoot.startsWith("/")) {
-    throw new Error(`Invalid deploy appRoot: must be an absolute path, got ${appRoot}`);
-  }
-
-  if (!SAFE_APP_ROOT_PATTERN.test(appRoot)) {
-    throw new Error(
-      `Invalid deploy appRoot: only letters, numbers, dot, underscore, slash, and hyphen are allowed, got ${appRoot}`,
-    );
-  }
-
-  const normalizedRoot = path.posix.normalize(appRoot);
-  const comparableRoot = normalizedRoot.replace(/\/+$/, "") || "/";
-  if (PROTECTED_APP_ROOTS.has(comparableRoot)) {
-    throw new Error(`Invalid deploy appRoot: refusing to deploy directly into ${appRoot}`);
-  }
-
-  if (appRoot.split("/").includes("..")) {
-    throw new Error(`Invalid deploy appRoot: path segments cannot include "..", got ${appRoot}`);
-  }
-
-  return normalizedRoot;
-}
 
 function pathsForSite(site: DeploySite) {
   const appRoot = validateDeployAppRoot(site.appRoot);
@@ -102,7 +76,7 @@ export function buildSwitchCurrentCommand(site: DeploySite, releaseId: string) {
 
 export function buildRestartCommand(site: DeploySite) {
   validateDeployAppRoot(site.appRoot);
-  return `sudo systemctl restart ${quoteShell(site.serviceName)}`;
+  return `sudo systemctl restart -- ${quoteShell(systemdUnitName(site.serviceName))}`;
 }
 
 export function buildHealthCheckCommand(site: DeploySite) {

@@ -43,6 +43,17 @@ describe("systemd unit rendering", () => {
     expect(unit).toContain("Restart=on-failure");
     expect(unit).toContain("WantedBy=multi-user.target");
   });
+
+  it("rejects dangerous app roots before rendering units", () => {
+    for (const appRoot of ["relative/path", "/", "/opt", "/srv", "/opt/../tmp/app"]) {
+      expect(() => renderSystemdUnit({ ...site, appRoot })).toThrow(/appRoot/);
+    }
+  });
+
+  it("rejects unsafe service identities before rendering units", () => {
+    expect(() => renderSystemdUnit({ ...site, serviceUser: "9taskmanager" })).toThrow(/serviceUser/);
+    expect(() => renderSystemdUnit({ ...site, serviceGroup: "root" })).toThrow(/serviceGroup/);
+  });
 });
 
 describe("remote command rendering", () => {
@@ -82,7 +93,7 @@ describe("remote command rendering", () => {
   });
 
   it("restarts the configured service with sudo", () => {
-    expect(buildRestartCommand(site)).toBe("sudo systemctl restart 'web-ui-task-manager'");
+    expect(buildRestartCommand(site)).toBe("sudo systemctl restart -- 'web-ui-task-manager.service'");
   });
 
   it("formats rsync release targets using a validated app root", () => {

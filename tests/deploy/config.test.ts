@@ -93,6 +93,8 @@ describe("deploy config", () => {
       "task-manager;sudo reboot",
       "task-manager.service",
       "task-manager@prod",
+      "-bad",
+      "--now",
     ]) {
       expect(() =>
         parseDeploySite(
