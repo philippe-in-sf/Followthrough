@@ -58,7 +58,7 @@ describe("remote command rendering", () => {
   });
 
   it("rejects dangerous app roots before rendering commands", () => {
-    for (const appRoot of ["relative/path", "/", "/opt", "/srv", "/opt/../tmp/app"]) {
+    for (const appRoot of ["relative/path", "/", "/opt", "/srv", "/opt/.", "/srv/.", "/opt/../tmp/app"]) {
       expect(() => buildEnsureLayoutCommand({ ...site, appRoot })).toThrow(/appRoot/);
     }
   });

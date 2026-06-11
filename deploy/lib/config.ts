@@ -67,13 +67,28 @@ function linuxAccountName(env: EnvMap, key: string, fallback: string) {
   return value;
 }
 
+function serviceUserName(env: EnvMap, key: string, fallback: string) {
+  const explicitValue = env[key]?.trim();
+  const value = linuxAccountName(env, key, fallback);
+
+  if (value === "root") {
+    if (explicitValue) {
+      throw new Error(`Deploy config value ${key} cannot be root; set a non-root service user`);
+    }
+
+    throw new Error(`Deploy SSH username resolved to root; set ${key} to a non-root service user for this site`);
+  }
+
+  return value;
+}
+
 export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
   const name = siteName.trim();
   if (!name) throw new Error("Deploy site name cannot be empty");
 
   const envPrefix = envPrefixForSite(name);
   const ssh = required(env, `${envPrefix}SSH`);
-  const serviceUser = linuxAccountName(env, `${envPrefix}SERVICE_USER`, defaultServiceUser(ssh));
+  const serviceUser = serviceUserName(env, `${envPrefix}SERVICE_USER`, defaultServiceUser(ssh));
 
   return {
     name,

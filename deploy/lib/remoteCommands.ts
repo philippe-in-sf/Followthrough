@@ -1,4 +1,5 @@
 import type { DeploySite } from "./config";
+import path from "node:path";
 import { quoteShell } from "./shell";
 
 const PROTECTED_APP_ROOTS = new Set(["/", "/opt", "/srv"]);
@@ -8,7 +9,8 @@ function validateAppRoot(appRoot: string) {
     throw new Error(`Invalid deploy appRoot: must be an absolute path, got ${appRoot}`);
   }
 
-  const comparableRoot = appRoot.replace(/\/+$/, "") || "/";
+  const normalizedRoot = path.posix.normalize(appRoot);
+  const comparableRoot = normalizedRoot.replace(/\/+$/, "") || "/";
   if (PROTECTED_APP_ROOTS.has(comparableRoot)) {
     throw new Error(`Invalid deploy appRoot: refusing to deploy directly into ${appRoot}`);
   }
@@ -16,25 +18,27 @@ function validateAppRoot(appRoot: string) {
   if (appRoot.split("/").includes("..")) {
     throw new Error(`Invalid deploy appRoot: path segments cannot include "..", got ${appRoot}`);
   }
+
+  return normalizedRoot;
 }
 
 function pathsForSite(site: DeploySite) {
-  validateAppRoot(site.appRoot);
+  const appRoot = validateAppRoot(site.appRoot);
 
   return {
-    appRoot: quoteShell(site.appRoot),
-    releasesDir: quoteShell(`${site.appRoot}/releases`),
-    sharedDir: quoteShell(`${site.appRoot}/shared`),
-    dataDir: quoteShell(`${site.appRoot}/shared/data`),
-    envFile: quoteShell(`${site.appRoot}/shared/.env`),
-    currentLink: quoteShell(`${site.appRoot}/current`),
+    appRoot: quoteShell(appRoot),
+    releasesDir: quoteShell(`${appRoot}/releases`),
+    sharedDir: quoteShell(`${appRoot}/shared`),
+    dataDir: quoteShell(`${appRoot}/shared/data`),
+    envFile: quoteShell(`${appRoot}/shared/.env`),
+    currentLink: quoteShell(`${appRoot}/current`),
+    defaultDatabasePath: `${appRoot}/shared/data/task-manager.sqlite`,
   };
 }
 
 export function buildEnsureLayoutCommand(site: DeploySite) {
-  const { appRoot, releasesDir, sharedDir, dataDir, envFile } = pathsForSite(site);
+  const { appRoot, releasesDir, sharedDir, dataDir, envFile, defaultDatabasePath } = pathsForSite(site);
   const serviceIdentity = `${quoteShell(site.serviceUser)}:${quoteShell(site.serviceGroup)}`;
-  const defaultDatabasePath = `${site.appRoot}/shared/data/task-manager.sqlite`;
 
   return [
     "set -euo pipefail",
@@ -55,8 +59,8 @@ export function buildEnsureLayoutCommand(site: DeploySite) {
 }
 
 export function buildInstallDependenciesCommand(site: DeploySite, releaseId: string) {
-  validateAppRoot(site.appRoot);
-  const releaseDir = quoteShell(`${site.appRoot}/releases/${releaseId}`);
+  const appRoot = validateAppRoot(site.appRoot);
+  const releaseDir = quoteShell(`${appRoot}/releases/${releaseId}`);
 
   return [
     "set -euo pipefail",
@@ -66,10 +70,10 @@ export function buildInstallDependenciesCommand(site: DeploySite, releaseId: str
 }
 
 export function buildSwitchCurrentCommand(site: DeploySite, releaseId: string) {
-  validateAppRoot(site.appRoot);
-  const releaseDir = quoteShell(`${site.appRoot}/releases/${releaseId}`);
-  const nextLink = quoteShell(`${site.appRoot}/current.next`);
-  const currentLink = quoteShell(`${site.appRoot}/current`);
+  const appRoot = validateAppRoot(site.appRoot);
+  const releaseDir = quoteShell(`${appRoot}/releases/${releaseId}`);
+  const nextLink = quoteShell(`${appRoot}/current.next`);
+  const currentLink = quoteShell(`${appRoot}/current`);
 
   return [
     "set -euo pipefail",

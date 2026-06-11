@@ -86,6 +86,29 @@ describe("deploy config", () => {
     ).toThrow(/DEPLOY_PRODUCTION_SERVICE_USER/);
   });
 
+  it("rejects root derived from the SSH username as a service user", () => {
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "root@example.com",
+        },
+        "production",
+      ),
+    ).toThrow(/set DEPLOY_PRODUCTION_SERVICE_USER to a non-root service user/);
+  });
+
+  it("rejects explicit root service users", () => {
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_SERVICE_USER: "root",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_SERVICE_USER/);
+  });
+
   it("parses the configured site list in order", () => {
     const config = parseDeployConfig({
       DEPLOY_SITES: "production, office",
