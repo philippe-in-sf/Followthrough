@@ -42,17 +42,22 @@ function remote(site: DeploySite, command: string) {
 
 function stageRelease(releaseId: string) {
   const stageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "web-ui-task-manager-release-"));
-  const releaseDir = path.join(stageRoot, releaseId);
-  fs.mkdirSync(releaseDir, { recursive: true });
+  try {
+    const releaseDir = path.join(stageRoot, releaseId);
+    fs.mkdirSync(releaseDir, { recursive: true });
 
-  for (const runtimePath of runtimePaths) {
-    fs.cpSync(runtimePath, path.join(releaseDir, runtimePath), {
-      recursive: true,
-      dereference: false,
-    });
+    for (const runtimePath of runtimePaths) {
+      fs.cpSync(runtimePath, path.join(releaseDir, runtimePath), {
+        recursive: true,
+        dereference: false,
+      });
+    }
+
+    return { stageRoot, releaseDir };
+  } catch (error) {
+    fs.rmSync(stageRoot, { recursive: true, force: true });
+    throw error;
   }
-
-  return { stageRoot, releaseDir };
 }
 
 function deploySite(site: DeploySite) {
