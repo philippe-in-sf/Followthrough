@@ -7,11 +7,18 @@ function timestampPart(date: Date) {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
+const GIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
+
 function shortShaPart(gitSha: string) {
-  return gitSha.replace(/[^A-Za-z0-9]/g, "").slice(0, 7);
+  const cleanedSha = gitSha?.trim().toLowerCase() || "";
+
+  if (!GIT_SHA_PATTERN.test(cleanedSha)) {
+    throw new Error("Deploy release git sha must be 7 to 40 hexadecimal characters");
+  }
+
+  return cleanedSha.slice(0, 7);
 }
 
-export function createReleaseId(date = new Date(), gitSha = "") {
-  const cleanedSha = shortShaPart(gitSha);
-  return cleanedSha ? `${timestampPart(date)}-${cleanedSha}` : timestampPart(date);
+export function createReleaseId(date: Date, gitSha: string) {
+  return `${timestampPart(date)}-${shortShaPart(gitSha)}`;
 }

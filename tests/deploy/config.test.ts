@@ -208,6 +208,20 @@ describe("deploy config", () => {
     ).toThrow(/DEPLOY_PRODUCTION_KEEP_RELEASES/);
   });
 
+  it("rejects ports outside the TCP range", () => {
+    for (const port of ["0", "99999"]) {
+      expect(() =>
+        parseDeploySite(
+          {
+            DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+            DEPLOY_PRODUCTION_PORT: port,
+          },
+          "production",
+        ),
+      ).toThrow(/DEPLOY_PRODUCTION_PORT/);
+    }
+  });
+
   it("rejects non-decimal numeric values", () => {
     expect(() =>
       parseDeploySite(

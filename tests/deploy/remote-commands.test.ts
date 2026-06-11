@@ -63,10 +63,13 @@ describe("remote command rendering", () => {
     expect(command).toContain("mkdir -p");
     expect(command).toContain("sudo mkdir -p '/opt/web-ui-task-manager' '/opt/web-ui-task-manager/releases' '/opt/web-ui-task-manager/shared' '/opt/web-ui-task-manager/shared/data'");
     expect(command).toContain("/opt/web-ui-task-manager/shared/data");
-    expect(command).toContain("sudo chown -R \"$USER\":\"$USER\" '/opt/web-ui-task-manager/releases'");
-    expect(command).toContain("sudo chown \"$USER\":\"$USER\" '/opt/web-ui-task-manager/shared'");
+    expect(command).toContain("deploy_user=\"$(id -un)\"");
+    expect(command).toContain("deploy_group=\"$(id -gn)\"");
+    expect(command).toContain("sudo chown -R \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/releases'");
+    expect(command).toContain("sudo chown \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/shared'");
     expect(command).toContain("sudo chown -R 'taskmanager':'taskmanager' '/opt/web-ui-task-manager/shared/data'");
-    expect(command).not.toContain("chown -R \"$USER\":\"$USER\" '/opt/web-ui-task-manager'");
+    expect(command).not.toContain("$USER:$USER");
+    expect(command).not.toContain("\"$USER\":\"$USER\"");
     expect(command).toContain("if [ ! -f '/opt/web-ui-task-manager/shared/.env' ]; then");
     expect(command).toContain("DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite");
     expect(command).not.toContain("rm -rf '/opt/web-ui-task-manager/shared");
@@ -116,8 +119,14 @@ describe("remote command rendering", () => {
     }
   });
 
-  it("checks health on localhost using the configured port", () => {
-    expect(buildHealthCheckCommand(site)).toContain("curl --fail --silent --show-error 'http://127.0.0.1:3000/api/health'");
+  it("retries health checks on localhost using the configured port", () => {
+    const command = buildHealthCheckCommand(site);
+
+    expect(command).toContain("for attempt in 1 2 3 4 5 6 7 8 9 10; do");
+    expect(command).toContain("curl --fail --silent --show-error 'http://127.0.0.1:3000/api/health'");
+    expect(command).toContain("if [ \"$attempt\" -lt 10 ]; then");
+    expect(command).toContain("sleep 1");
+    expect(command).toMatch(/done\nexit 1$/);
   });
 
   it("cleans old releases without deleting current or shared data", () => {

@@ -31,12 +31,15 @@ export function buildRsyncReleaseTarget(site: DeploySite, releaseId: string) {
 export function buildEnsureLayoutCommand(site: DeploySite) {
   const { appRoot, releasesDir, sharedDir, dataDir, envFile, defaultDatabasePath } = pathsForSite(site);
   const serviceIdentity = `${quoteShell(site.serviceUser)}:${quoteShell(site.serviceGroup)}`;
+  const deployIdentity = '"${deploy_user}:${deploy_group}"';
 
   return [
     "set -euo pipefail",
+    `deploy_user="$(id -un)"`,
+    `deploy_group="$(id -gn)"`,
     `sudo mkdir -p ${appRoot} ${releasesDir} ${sharedDir} ${dataDir}`,
-    `sudo chown -R "$USER":"$USER" ${releasesDir}`,
-    `sudo chown "$USER":"$USER" ${sharedDir}`,
+    `sudo chown -R ${deployIdentity} ${releasesDir}`,
+    `sudo chown ${deployIdentity} ${sharedDir}`,
     `sudo chown -R ${serviceIdentity} ${dataDir}`,
     `if [ ! -f ${envFile} ]; then`,
     `  cat > ${envFile} <<'ENV'`,
@@ -85,7 +88,15 @@ export function buildHealthCheckCommand(site: DeploySite) {
 
   return [
     "set -euo pipefail",
-    `curl --fail --silent --show-error ${url}`,
+    "for attempt in 1 2 3 4 5 6 7 8 9 10; do",
+    `  if curl --fail --silent --show-error ${url}; then`,
+    "    exit 0",
+    "  fi",
+    "  if [ \"$attempt\" -lt 10 ]; then",
+    "    sleep 1",
+    "  fi",
+    "done",
+    "exit 1",
   ].join("\n");
 }
 

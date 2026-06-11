@@ -54,6 +54,16 @@ function positiveInteger(env: EnvMap, key: string, fallback: number) {
   return Number(rawValue);
 }
 
+function portNumber(env: EnvMap, key: string, fallback: number) {
+  const value = positiveInteger(env, key, fallback);
+
+  if (value < 1 || value > 65535) {
+    throw new Error(`Deploy config value ${key} must be a TCP port from 1 to 65535`);
+  }
+
+  return value;
+}
+
 function systemdServiceName(env: EnvMap, key: string, fallback: string) {
   const value = env[key]?.trim() || fallback;
   return validateSystemdServiceName(value, key);
@@ -118,7 +128,7 @@ export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
     serviceName: systemdServiceName(env, `${envPrefix}SERVICE_NAME`, DEFAULT_SERVICE_NAME),
     serviceUser,
     serviceGroup: serviceGroupName(env, `${envPrefix}SERVICE_GROUP`, serviceUser),
-    port: positiveInteger(env, `${envPrefix}PORT`, DEFAULT_PORT),
+    port: portNumber(env, `${envPrefix}PORT`, DEFAULT_PORT),
     keepReleases: positiveInteger(env, `${envPrefix}KEEP_RELEASES`, DEFAULT_KEEP_RELEASES),
   };
 }
