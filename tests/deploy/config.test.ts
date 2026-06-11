@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDeployConfig, parseDeploySite } from "../../deploy/lib/config";
+import { findDeploySite, parseDeployConfig, parseDeploySite } from "../../deploy/lib/config";
 
 describe("deploy config", () => {
   it("parses a site with defaults", () => {
@@ -58,6 +58,25 @@ describe("deploy config", () => {
     expect(() => parseDeployConfig({})).toThrow(/DEPLOY_SITES/);
   });
 
+  it("rejects empty site list entries", () => {
+    expect(() =>
+      parseDeployConfig({
+        DEPLOY_SITES: "production,,office",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+        DEPLOY_OFFICE_SSH: "app@office.example.com",
+      }),
+    ).toThrow(/DEPLOY_SITES/);
+  });
+
+  it("rejects trailing site list commas", () => {
+    expect(() =>
+      parseDeployConfig({
+        DEPLOY_SITES: "production,",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      }),
+    ).toThrow(/DEPLOY_SITES/);
+  });
+
   it("rejects missing SSH destination", () => {
     expect(() => parseDeploySite({}, "production")).toThrow(/DEPLOY_PRODUCTION_SSH/);
   });
@@ -88,5 +107,65 @@ describe("deploy config", () => {
         "production",
       ),
     ).toThrow(/DEPLOY_PRODUCTION_KEEP_RELEASES/);
+  });
+
+  it("rejects non-decimal numeric values", () => {
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_PORT: "1e3",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_PORT/);
+
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_KEEP_RELEASES: "0x5",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_KEEP_RELEASES/);
+
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_PORT: "3000.0",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_PORT/);
+  });
+
+  it("finds a configured deploy site", () => {
+    const config = parseDeployConfig({
+      DEPLOY_SITES: "production,office",
+      DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      DEPLOY_OFFICE_SSH: "app@office.example.com",
+    });
+
+    expect(findDeploySite(config, "office")).toEqual({
+      name: "office",
+      envPrefix: "DEPLOY_OFFICE_",
+      ssh: "app@office.example.com",
+      appRoot: "/opt/web-ui-task-manager",
+      serviceName: "web-ui-task-manager",
+      port: 3000,
+      keepReleases: 5,
+    });
+  });
+
+  it("rejects unknown deploy sites", () => {
+    const config = parseDeployConfig({
+      DEPLOY_SITES: "production,office",
+      DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      DEPLOY_OFFICE_SSH: "app@office.example.com",
+    });
+
+    expect(() => findDeploySite(config, "staging")).toThrow(/Unknown deploy site "staging"/);
   });
 });

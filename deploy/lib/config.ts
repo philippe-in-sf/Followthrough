@@ -19,6 +19,7 @@ const DEFAULT_SERVICE_NAME = "web-ui-task-manager";
 const DEFAULT_PORT = 3000;
 const DEFAULT_KEEP_RELEASES = 5;
 const SITE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
+const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9]\d*$/;
 
 function envPrefixForSite(siteName: string) {
   if (!SITE_NAME_PATTERN.test(siteName)) {
@@ -38,12 +39,11 @@ function positiveInteger(env: EnvMap, key: string, fallback: number) {
   const rawValue = env[key]?.trim();
   if (!rawValue) return fallback;
 
-  const value = Number(rawValue);
-  if (!Number.isInteger(value) || value < 1) {
+  if (!POSITIVE_DECIMAL_INTEGER_PATTERN.test(rawValue)) {
     throw new Error(`Deploy config value ${key} must be a positive integer`);
   }
 
-  return value;
+  return Number(rawValue);
 }
 
 export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
@@ -65,13 +65,10 @@ export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
 
 export function parseDeployConfig(env: EnvMap = process.env): DeployConfig {
   const rawSites = required(env, "DEPLOY_SITES");
-  const siteNames = rawSites
-    .split(",")
-    .map((siteName) => siteName.trim())
-    .filter(Boolean);
+  const siteNames = rawSites.split(",").map((siteName) => siteName.trim());
 
-  if (siteNames.length === 0) {
-    throw new Error("DEPLOY_SITES must include at least one site name");
+  if (siteNames.some((siteName) => !siteName)) {
+    throw new Error("DEPLOY_SITES must include site names separated by commas without empty entries");
   }
 
   return {
