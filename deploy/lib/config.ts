@@ -67,19 +67,37 @@ function linuxAccountName(env: EnvMap, key: string, fallback: string) {
   return value;
 }
 
-function serviceUserName(env: EnvMap, key: string, fallback: string) {
+function nonRootLinuxAccountName(
+  env: EnvMap,
+  key: string,
+  fallback: string,
+  rootErrorMessage: (explicit: boolean) => string,
+) {
   const explicitValue = env[key]?.trim();
   const value = linuxAccountName(env, key, fallback);
 
   if (value === "root") {
-    if (explicitValue) {
-      throw new Error(`Deploy config value ${key} cannot be root; set a non-root service user`);
-    }
-
-    throw new Error(`Deploy SSH username resolved to root; set ${key} to a non-root service user for this site`);
+    throw new Error(rootErrorMessage(Boolean(explicitValue)));
   }
 
   return value;
+}
+
+function serviceUserName(env: EnvMap, key: string, fallback: string) {
+  return nonRootLinuxAccountName(env, key, fallback, (explicit) =>
+    explicit
+      ? `Deploy config value ${key} cannot be root; set a non-root service user`
+      : `Deploy SSH username resolved to root; set ${key} to a non-root service user for this site`,
+  );
+}
+
+function serviceGroupName(env: EnvMap, key: string, fallback: string) {
+  return nonRootLinuxAccountName(
+    env,
+    key,
+    fallback,
+    () => `Deploy config value ${key} cannot be root; set a non-root service group`,
+  );
 }
 
 export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
@@ -97,7 +115,7 @@ export function parseDeploySite(env: EnvMap, siteName: string): DeploySite {
     appRoot: env[`${envPrefix}APP_ROOT`]?.trim() || DEFAULT_APP_ROOT,
     serviceName: env[`${envPrefix}SERVICE_NAME`]?.trim() || DEFAULT_SERVICE_NAME,
     serviceUser,
-    serviceGroup: linuxAccountName(env, `${envPrefix}SERVICE_GROUP`, serviceUser),
+    serviceGroup: serviceGroupName(env, `${envPrefix}SERVICE_GROUP`, serviceUser),
     port: positiveInteger(env, `${envPrefix}PORT`, DEFAULT_PORT),
     keepReleases: positiveInteger(env, `${envPrefix}KEEP_RELEASES`, DEFAULT_KEEP_RELEASES),
   };

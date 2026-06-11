@@ -109,6 +109,18 @@ describe("deploy config", () => {
     ).toThrow(/DEPLOY_PRODUCTION_SERVICE_USER/);
   });
 
+  it("rejects explicit root service groups", () => {
+    expect(() =>
+      parseDeploySite(
+        {
+          DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+          DEPLOY_PRODUCTION_SERVICE_GROUP: "root",
+        },
+        "production",
+      ),
+    ).toThrow(/DEPLOY_PRODUCTION_SERVICE_GROUP/);
+  });
+
   it("parses the configured site list in order", () => {
     const config = parseDeployConfig({
       DEPLOY_SITES: "production, office",
