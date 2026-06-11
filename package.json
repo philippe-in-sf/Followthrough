@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json",
-    "invite:create": "tsx server/auth/createInviteCode.ts"
+    "invite:create": "tsx server/auth/createInviteCode.ts",
+    "deploy": "bash deploy/deploy.sh"
   },
   "keywords": [],
   "author": "",
