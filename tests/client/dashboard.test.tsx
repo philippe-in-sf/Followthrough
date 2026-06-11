@@ -412,12 +412,24 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add task" }));
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
 
+    const overdueTasks = await screen.findByRole("region", { name: "Overdue tasks" });
+    expect(within(overdueTasks).getByText("Prep launch plan")).toBeInTheDocument();
+    expect(within(overdueTasks).getByText("1 task")).toBeInTheDocument();
+
+    const dueSoonTasks = screen.getByRole("region", { name: "Due soon tasks" });
+    expect(within(dueSoonTasks).getByText("Carry roadmap")).toBeInTheDocument();
+
+    const activeTasks = screen.getByRole("region", { name: "Active tasks" });
+    expect(within(activeTasks).getByText("Draft rollout notes")).toBeInTheDocument();
+
     const taskCard = await screen.findByLabelText("Task T099");
-    expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
-    expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
+    expect(within(taskCard).queryByText("Audit history")).not.toBeInTheDocument();
+    expect(within(taskCard).queryByText("Created task")).not.toBeInTheDocument();
 
     await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+    expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
+    expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
     await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
     await userEvent.type(
       within(taskCard).getByLabelText("Task description for T099"),
@@ -425,7 +437,13 @@ describe("dashboard and workspace flows", () => {
     );
     await userEvent.click(within(taskCard).getByRole("button", { name: "Save task T099" }));
     expect(await screen.findByText("Prep launch materials")).toBeInTheDocument();
-    expect(await screen.findByText("Updated task details")).toBeInTheDocument();
+
+    const refreshedTaskCard = await screen.findByLabelText("Task T099");
+    expect(within(refreshedTaskCard).queryByText("Updated task details")).not.toBeInTheDocument();
+    await userEvent.click(
+      within(refreshedTaskCard).getByRole("button", { name: "Edit details for T099" }),
+    );
+    expect(await within(refreshedTaskCard).findByText("Updated task details")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Decisions" }));
     await userEvent.type(await screen.findByLabelText("Decision"), "Adopt weekly review");
@@ -442,6 +460,12 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     expect(await screen.findByText("Leadership sync")).toBeInTheDocument();
     expect(screen.getByText("Carry roadmap")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Past meetings" })).getByText("Leadership sync"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
+    ).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
     await userEvent.type(screen.getByLabelText("Occurrence start"), "2026-06-16T09:00");
@@ -449,6 +473,11 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create occurrence" }));
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Upcoming meetings" })).getByText(
+        "Project sync follow-up",
+      ),
+    ).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Carry roadmap").length).toBeGreaterThan(1));
   });
 
@@ -479,23 +508,31 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
     expect(await screen.findByText("Added task T100")).toBeInTheDocument();
 
-    await userEvent.click(within(meetingCard).getByRole("button", { name: "Edit details for M010" }));
+    const refreshedMeetingCard = await screen.findByLabelText("Meeting M010");
+    await userEvent.click(
+      within(refreshedMeetingCard).getByRole("button", { name: "Edit details for M010" }),
+    );
     expect(
-      within(meetingCard).getByRole("heading", { name: "Edit details for M010" }),
+      within(refreshedMeetingCard).getByRole("heading", { name: "Edit details for M010" }),
     ).toBeInTheDocument();
 
-    await userEvent.clear(within(meetingCard).getByLabelText("Meeting title for M010"));
+    await userEvent.clear(within(refreshedMeetingCard).getByLabelText("Meeting title for M010"));
     await userEvent.type(
-      within(meetingCard).getByLabelText("Meeting title for M010"),
+      within(refreshedMeetingCard).getByLabelText("Meeting title for M010"),
       "Updated leadership sync",
     );
-    await userEvent.clear(within(meetingCard).getByLabelText("Meeting summary for M010"));
-    await userEvent.type(within(meetingCard).getByLabelText("Meeting summary for M010"), "Updated summary");
+    await userEvent.clear(within(refreshedMeetingCard).getByLabelText("Meeting summary for M010"));
     await userEvent.type(
-      within(meetingCard).getByLabelText("New attendee names for M010"),
+      within(refreshedMeetingCard).getByLabelText("Meeting summary for M010"),
+      "Updated summary",
+    );
+    await userEvent.type(
+      within(refreshedMeetingCard).getByLabelText("New attendee names for M010"),
       "Morgan, Taylor",
     );
-    await userEvent.click(within(meetingCard).getByRole("button", { name: "Save meeting M010" }));
+    await userEvent.click(
+      within(refreshedMeetingCard).getByRole("button", { name: "Save meeting M010" }),
+    );
 
     expect(await screen.findByText("Updated leadership sync")).toBeInTheDocument();
     expect(screen.getByText("Updated summary")).toBeInTheDocument();
