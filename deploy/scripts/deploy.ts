@@ -9,6 +9,7 @@ import {
   buildHealthCheckCommand,
   buildInstallDependenciesCommand,
   buildRestartCommand,
+  buildRsyncReleaseTarget,
   buildSwitchCurrentCommand,
 } from "../lib/remoteCommands";
 import { createReleaseId, runtimePaths } from "../lib/release";
@@ -36,6 +37,15 @@ function capture(command: string, args: string[]) {
   return result.stdout.trim();
 }
 
+function captureRequired(command: string, args: string[], description: string) {
+  const output = capture(command, args);
+  if (!output) {
+    throw new Error(`Unable to determine ${description}: ${command} ${args.join(" ")}`);
+  }
+
+  return output;
+}
+
 function remote(site: DeploySite, command: string) {
   run("ssh", [site.ssh, "bash", "-s"], { input: command });
 }
@@ -60,39 +70,42 @@ function stageRelease(releaseId: string) {
   }
 }
 
-function deploySite(site: DeploySite) {
-  console.log(`Deploying ${site.name} to ${site.ssh}`);
-
+function runLocalGates() {
   run("npm", ["run", "check"]);
   run("npm", ["run", "test"]);
   run("npm", ["run", "build"]);
+}
 
-  const releaseId = createReleaseId(new Date(), capture("git", ["rev-parse", "--short", "HEAD"]));
-  const { stageRoot, releaseDir } = stageRelease(releaseId);
-  const remoteReleaseDir = `${site.appRoot}/releases/`;
+function deploySite(site: DeploySite, release: { releaseId: string; releaseDir: string }) {
+  console.log(`Deploying ${site.name} to ${site.ssh}`);
 
-  try {
-    remote(site, buildEnsureLayoutCommand(site));
-    run("rsync", ["-az", "--delete", `${releaseDir}/`, `${site.ssh}:${remoteReleaseDir}${releaseId}/`]);
-    remote(site, buildInstallDependenciesCommand(site, releaseId));
-    remote(site, buildSwitchCurrentCommand(site, releaseId));
-    remote(site, buildRestartCommand(site));
-    remote(site, buildHealthCheckCommand(site));
-    remote(site, buildCleanupCommand(site));
-  } finally {
-    fs.rmSync(stageRoot, { recursive: true, force: true });
-  }
+  remote(site, buildEnsureLayoutCommand(site));
+  run("rsync", ["-az", "--delete", `${release.releaseDir}/`, buildRsyncReleaseTarget(site, release.releaseId)]);
+  remote(site, buildInstallDependenciesCommand(site, release.releaseId));
+  remote(site, buildSwitchCurrentCommand(site, release.releaseId));
+  remote(site, buildRestartCommand(site));
+  remote(site, buildHealthCheckCommand(site));
+  remote(site, buildCleanupCommand(site));
 
-  console.log(`Deployed ${site.name} release ${releaseId}`);
+  console.log(`Deployed ${site.name} release ${release.releaseId}`);
 }
 
 function main() {
   const [, , target = "all"] = process.argv;
   const config = parseDeployConfig();
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
+  runLocalGates();
 
-  for (const site of sites) {
-    deploySite(site);
+  const gitSha = captureRequired("git", ["rev-parse", "--short", "HEAD"], "git commit");
+  const releaseId = createReleaseId(new Date(), gitSha);
+  const { stageRoot, releaseDir } = stageRelease(releaseId);
+
+  try {
+    for (const site of sites) {
+      deploySite(site, { releaseId, releaseDir });
+    }
+  } finally {
+    fs.rmSync(stageRoot, { recursive: true, force: true });
   }
 }
 

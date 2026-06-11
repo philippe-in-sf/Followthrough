@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_file="${DEPLOY_CONFIG:-deploy/sites.env}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "$script_dir/.." && pwd)"
+config_file="${DEPLOY_CONFIG:-$script_dir/sites.env}"
 
 if [ ! -f "$config_file" ]; then
   echo "Missing deploy config: $config_file" >&2
@@ -13,4 +15,5 @@ set -a
 source "$config_file"
 set +a
 
+cd "$repo_root"
 npx tsx deploy/scripts/deploy.ts "${1:-all}"

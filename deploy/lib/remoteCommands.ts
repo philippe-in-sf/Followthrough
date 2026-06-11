@@ -3,10 +3,18 @@ import path from "node:path";
 import { quoteShell } from "./shell";
 
 const PROTECTED_APP_ROOTS = new Set(["/", "/opt", "/srv"]);
+const SAFE_APP_ROOT_PATTERN = /^\/[A-Za-z0-9._/-]+$/;
+const SAFE_RELEASE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
-function validateAppRoot(appRoot: string) {
+export function validateDeployAppRoot(appRoot: string) {
   if (!appRoot.startsWith("/")) {
     throw new Error(`Invalid deploy appRoot: must be an absolute path, got ${appRoot}`);
+  }
+
+  if (!SAFE_APP_ROOT_PATTERN.test(appRoot)) {
+    throw new Error(
+      `Invalid deploy appRoot: only letters, numbers, dot, underscore, slash, and hyphen are allowed, got ${appRoot}`,
+    );
   }
 
   const normalizedRoot = path.posix.normalize(appRoot);
@@ -23,7 +31,7 @@ function validateAppRoot(appRoot: string) {
 }
 
 function pathsForSite(site: DeploySite) {
-  const appRoot = validateAppRoot(site.appRoot);
+  const appRoot = validateDeployAppRoot(site.appRoot);
 
   return {
     appRoot: quoteShell(appRoot),
@@ -34,6 +42,16 @@ function pathsForSite(site: DeploySite) {
     currentLink: quoteShell(`${appRoot}/current`),
     defaultDatabasePath: `${appRoot}/shared/data/task-manager.sqlite`,
   };
+}
+
+export function buildRsyncReleaseTarget(site: DeploySite, releaseId: string) {
+  const appRoot = validateDeployAppRoot(site.appRoot);
+
+  if (!SAFE_RELEASE_ID_PATTERN.test(releaseId)) {
+    throw new Error(`Invalid deploy releaseId: unsafe rsync path segment, got ${releaseId}`);
+  }
+
+  return `${site.ssh}:${appRoot}/releases/${releaseId}/`;
 }
 
 export function buildEnsureLayoutCommand(site: DeploySite) {
@@ -59,7 +77,7 @@ export function buildEnsureLayoutCommand(site: DeploySite) {
 }
 
 export function buildInstallDependenciesCommand(site: DeploySite, releaseId: string) {
-  const appRoot = validateAppRoot(site.appRoot);
+  const appRoot = validateDeployAppRoot(site.appRoot);
   const releaseDir = quoteShell(`${appRoot}/releases/${releaseId}`);
 
   return [
@@ -70,7 +88,7 @@ export function buildInstallDependenciesCommand(site: DeploySite, releaseId: str
 }
 
 export function buildSwitchCurrentCommand(site: DeploySite, releaseId: string) {
-  const appRoot = validateAppRoot(site.appRoot);
+  const appRoot = validateDeployAppRoot(site.appRoot);
   const releaseDir = quoteShell(`${appRoot}/releases/${releaseId}`);
   const nextLink = quoteShell(`${appRoot}/current.next`);
   const currentLink = quoteShell(`${appRoot}/current`);
@@ -83,12 +101,12 @@ export function buildSwitchCurrentCommand(site: DeploySite, releaseId: string) {
 }
 
 export function buildRestartCommand(site: DeploySite) {
-  validateAppRoot(site.appRoot);
+  validateDeployAppRoot(site.appRoot);
   return `sudo systemctl restart ${quoteShell(site.serviceName)}`;
 }
 
 export function buildHealthCheckCommand(site: DeploySite) {
-  validateAppRoot(site.appRoot);
+  validateDeployAppRoot(site.appRoot);
   const url = quoteShell(`http://127.0.0.1:${site.port}/api/health`);
 
   return [

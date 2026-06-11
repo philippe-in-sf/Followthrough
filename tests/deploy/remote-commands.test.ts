@@ -6,6 +6,7 @@ import {
   buildHealthCheckCommand,
   buildInstallDependenciesCommand,
   buildRestartCommand,
+  buildRsyncReleaseTarget,
   buildSwitchCurrentCommand,
 } from "../../deploy/lib/remoteCommands";
 import { quoteShell } from "../../deploy/lib/shell";
@@ -79,6 +80,26 @@ describe("remote command rendering", () => {
 
   it("restarts the configured service with sudo", () => {
     expect(buildRestartCommand(site)).toBe("sudo systemctl restart 'web-ui-task-manager'");
+  });
+
+  it("formats rsync release targets using a validated app root", () => {
+    expect(buildRsyncReleaseTarget(site, "20260611T181920Z-abcdef1")).toBe(
+      "deploy@example.com:/opt/web-ui-task-manager/releases/20260611T181920Z-abcdef1/",
+    );
+  });
+
+  it("rejects app roots that are unsafe for rsync remote targets", () => {
+    for (const appRoot of [
+      "relative/path",
+      "/opt/web ui task-manager",
+      "/opt/web-ui-task-manager;rm",
+      "/opt/web-ui-task-manager/$HOME",
+      "/opt/web-ui-task-manager/../other",
+    ]) {
+      expect(() => buildRsyncReleaseTarget({ ...site, appRoot }, "20260611T181920Z")).toThrow(
+        /appRoot/,
+      );
+    }
   });
 
   it("checks health on localhost using the configured port", () => {
