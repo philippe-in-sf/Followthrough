@@ -135,6 +135,8 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    audit: (publicId: string) =>
+      request<{ auditEvents: AuditLogDto[] }>(`/api/people/${publicId}/audit`),
   },
   tasks: {
     list: (query = "") => request<{ tasks: TaskDto[] }>(`/api/tasks${query}`),

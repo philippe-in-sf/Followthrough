@@ -1,5 +1,5 @@
 import request from "supertest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
@@ -21,6 +21,7 @@ async function loggedInApp() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   for (const db of dbs.splice(0)) db.close();
 });
 
@@ -54,6 +55,41 @@ describe("people", () => {
 
     const activeList = await request(app).get("/api/people").set("Cookie", cookie);
     expect(activeList.body.people).toHaveLength(0);
+  });
+
+  it("records person audit history", async () => {
+    vi.setSystemTime(new Date("2026-06-09T12:00:00Z"));
+    const { app, cookie } = await loggedInApp();
+
+    await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Jordan Lee", email: "jordan@example.com" });
+
+    await request(app)
+      .patch("/api/people/P001")
+      .set("Cookie", cookie)
+      .send({ name: "Jordan L.", email: "" });
+
+    const audit = await request(app).get("/api/people/P001/audit").set("Cookie", cookie);
+
+    expect(audit.status).toBe(200);
+    expect(audit.body.auditEvents).toEqual([
+      expect.objectContaining({
+        action: "updated",
+        actorName: "Editor",
+        entityPublicId: "P001",
+        entityType: "person",
+        summary: "Updated person details",
+      }),
+      expect.objectContaining({
+        action: "created",
+        actorName: "Editor",
+        summary: "Created person",
+      }),
+    ]);
+    expect(audit.body.auditEvents[0].changes.before.email).toBe("jordan@example.com");
+    expect(audit.body.auditEvents[0].changes.after.email).toBeNull();
   });
 
   it("requires login", async () => {

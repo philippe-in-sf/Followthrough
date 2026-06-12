@@ -186,6 +186,25 @@ describe("record pages", () => {
       if (url.endsWith("/api/people") && method === "GET") {
         return Promise.resolve({ ok: true, json: async () => ({ people: [...people] }) } as Response);
       }
+      if (url.endsWith("/api/people/P001/audit") && method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            auditEvents: [
+              {
+                id: 1,
+                entityType: "person",
+                entityPublicId: "P001",
+                action: "created",
+                summary: "Created person",
+                actorName: "Editor",
+                createdAt: "2026-06-09 12:00:00",
+                changes: { after: people[0] },
+              },
+            ],
+          }),
+        } as Response);
+      }
       if (url.endsWith("/api/people/P001") && method === "PATCH") {
         const body = JSON.parse(String(init?.body));
         people[0] = {
@@ -207,6 +226,8 @@ describe("record pages", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit P001" }));
 
     const editForm = screen.getByRole("form", { name: "Edit P001" });
+    expect(within(editForm).getByText("Audit history")).toBeInTheDocument();
+    expect(within(editForm).getByText("Created person")).toBeInTheDocument();
     await userEvent.clear(within(editForm).getByLabelText("Name"));
     await userEvent.type(within(editForm).getByLabelText("Name"), "Avery Stone");
     await userEvent.clear(within(editForm).getByLabelText("Email"));

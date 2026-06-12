@@ -1,7 +1,7 @@
 export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
 export type MeetingType = "single" | "recurring";
 export type AlertState = "dueSoon" | "overdue";
-export type AuditEntityType = "task" | "meeting";
+export type AuditEntityType = "task" | "meeting" | "person";
 
 export type PersonDto = {
   publicId: string;

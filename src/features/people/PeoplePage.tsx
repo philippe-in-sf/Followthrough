@@ -1,15 +1,28 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { PersonDto } from "../../../shared/types";
+import type { AuditLogDto, PersonDto } from "../../../shared/types";
 import { api } from "../../api/client";
+import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 
 export function PeoplePage() {
   const [people, setPeople] = useState<PersonDto[]>([]);
+  const [peopleAudits, setPeopleAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [editingPersonPublicId, setEditingPersonPublicId] = useState<string | null>(null);
 
   async function load() {
-    setPeople((await api.people.list()).people);
+    const result = await api.people.list();
+    setPeople(result.people);
+
+    const auditEntries = await Promise.all(
+      result.people.map(async (person) => {
+        const auditResult = await api.people
+          .audit(person.publicId)
+          .catch(() => ({ auditEvents: [] as AuditLogDto[] }));
+        return [person.publicId, auditResult.auditEvents ?? []] as const;
+      }),
+    );
+    setPeopleAudits(Object.fromEntries(auditEntries));
   }
 
   useEffect(() => {
@@ -101,6 +114,7 @@ export function PeoplePage() {
                       Cancel edit {person.publicId}
                     </button>
                   </div>
+                  <AuditLog events={peopleAudits[person.publicId] ?? []} />
                 </form>
               ) : null}
             </div>
