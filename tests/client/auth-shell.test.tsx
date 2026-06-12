@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
+import { appVersion } from "../../src/version";
 
 const originalFetch = globalThis.fetch;
 
@@ -51,5 +52,6 @@ describe("auth shell", () => {
 
     await waitFor(() => expect(screen.getByRole("navigation")).toBeInTheDocument());
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(`Version ${appVersion}`)).toBeInTheDocument();
   });
 });

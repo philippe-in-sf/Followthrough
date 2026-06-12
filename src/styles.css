@@ -36,6 +36,8 @@ textarea {
 .sidebar {
   background: #1f2937;
   color: #f8fafc;
+  display: flex;
+  flex-direction: column;
   padding: 24px 18px;
 }
 
@@ -62,6 +64,12 @@ textarea {
 .sidebar button.active,
 .sidebar button:hover {
   background: #374151;
+}
+
+.app-version {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  margin: auto 0 0;
 }
 
 .workspace {
@@ -681,6 +689,11 @@ textarea {
 
   .sidebar nav {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .app-version {
+    margin-top: 12px;
+    text-align: center;
   }
 
   .sidebar button {

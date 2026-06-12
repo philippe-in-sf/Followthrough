@@ -69,7 +69,7 @@ These cover server routes, database behavior, auth, recurring carry-over, search
 
 ## Linux SSH Deployment
 
-The app can be deployed to Linux hosts over SSH and run with `systemd`. The deployment path builds locally, pushes a release directory with `rsync`, keeps site data in a shared directory, restarts the service, and checks `/api/health`.
+The app can be deployed to Linux hosts over SSH and run with `systemd`. The deployment path builds locally, checks the remote app version, pushes a release directory with `rsync`, keeps site data in a shared directory, restarts the service, and checks `/api/health`.
 
 ### Remote prerequisites
 
@@ -122,8 +122,13 @@ This creates the remote app layout, installs `/etc/systemd/system/web-ui-task-ma
 ### Deploy one site
 
 ```bash
+npm run version:patch
 npm run deploy -- production
 ```
+
+Each deploy should include a package version bump. The running app exposes the current version at `/api/version` and shows it in the sidebar footer for logged-in users.
+
+Before copying files, deployment asks the remote site for `http://127.0.0.1:<port>/api/version` over SSH. If the remote site already reports the same package version, deployment fails and asks for a version bump. If an older site does not have `/api/version` yet, deployment continues.
 
 The deploy command runs local verification and build once:
 

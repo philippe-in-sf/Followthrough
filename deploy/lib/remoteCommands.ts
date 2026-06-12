@@ -101,6 +101,16 @@ export function buildHealthCheckCommand(site: DeploySite) {
   ].join("\n");
 }
 
+export function buildVersionCheckCommand(site: DeploySite) {
+  validateDeployAppRoot(site.appRoot);
+  const url = quoteShell(`http://127.0.0.1:${site.port}/api/version`);
+
+  return [
+    "set -euo pipefail",
+    `curl --fail --silent --show-error ${url}`,
+  ].join("\n");
+}
+
 export function buildCleanupCommand(site: DeploySite) {
   const { releasesDir, currentLink } = pathsForSite(site);
 

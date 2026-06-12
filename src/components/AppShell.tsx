@@ -12,12 +12,14 @@ export function AppShell({
   section,
   onSectionChange,
   onLogout,
+  version,
   children,
 }: {
   user: User;
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
   onLogout: () => void;
+  version: string;
   children: ReactNode;
 }) {
   return (
@@ -36,6 +38,7 @@ export function AppShell({
             </button>
           ))}
         </nav>
+        <p className="app-version">Version {version}</p>
       </aside>
       <div className="workspace">
         <header className="topbar">

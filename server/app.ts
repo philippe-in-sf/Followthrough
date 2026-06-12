@@ -11,6 +11,7 @@ import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
+import { appVersion } from "./version.js";
 
 export type AppDependencies = {
   db?: AppDatabase;
@@ -28,6 +29,10 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get("/api/version", (_req, res) => {
+    res.json({ version: appVersion });
   });
 
   app.use("/api/auth", authRoutes(db, config));
