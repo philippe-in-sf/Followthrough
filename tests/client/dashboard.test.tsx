@@ -419,6 +419,41 @@ describe("dashboard and workspace flows", () => {
     });
   });
 
+  it("opens dashboard tasks, meetings, and decisions in their detail views", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open task T099" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    });
+    const taskCard = await screen.findByLabelText("Task T099");
+    expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open meeting M010 Leadership sync/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
+    });
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).getByRole("heading", { name: "Edit details for M010" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open decision D001 Use SQLite/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Decision")).toHaveValue("Use SQLite");
+    expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
+  });
+
   it("creates and edits standalone tasks and records decisions", async () => {
     setupAppFetch();
     render(<App />);

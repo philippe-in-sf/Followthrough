@@ -13,6 +13,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
+import { scrollRecordIntoView } from "../../recordFocus";
 
 type MeetingFormState = {
   publicId: string;
@@ -154,7 +155,13 @@ function CheckboxGroup({
   );
 }
 
-export function MeetingsPage() {
+export function MeetingsPage({
+  focusMeetingPublicId,
+  onMeetingFocusHandled,
+}: {
+  focusMeetingPublicId?: string | null;
+  onMeetingFocusHandled?: () => void;
+}) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
@@ -311,6 +318,16 @@ export function MeetingsPage() {
       private: meeting.private,
     });
   }
+
+  useEffect(() => {
+    if (!focusMeetingPublicId) return;
+    const meeting = meetings.find((item) => item.publicId === focusMeetingPublicId);
+    if (!meeting) return;
+
+    editMeeting(meeting);
+    scrollRecordIntoView(`meeting-${meeting.publicId}`);
+    onMeetingFocusHandled?.();
+  }, [focusMeetingPublicId, meetings, onMeetingFocusHandled]);
 
   async function submitMeetingEdit(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
     event.preventDefault();
@@ -627,6 +644,7 @@ export function MeetingsPage() {
             <article
               aria-label={`Meeting ${meeting.publicId}`}
               className="meeting-card record-card-meeting"
+              id={`meeting-${meeting.publicId}`}
               key={meeting.publicId}
             >
               <div className="record-row meeting-row">

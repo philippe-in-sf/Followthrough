@@ -495,8 +495,49 @@ button:disabled {
   column-gap: 12px;
 }
 
-.compact-task-line > strong {
+.compact-id-button,
+.compact-record-button {
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.compact-id-button {
+  align-self: start;
+  background: transparent;
+  padding: 0;
+}
+
+.compact-id-button:hover,
+.compact-record-button:hover strong {
+  color: #2563eb;
+}
+
+.compact-id-button:focus-visible,
+.compact-record-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.compact-task-line > .compact-id-button {
   white-space: nowrap;
+}
+
+.compact-list li.compact-clickable-item {
+  display: block;
+  padding: 0;
+}
+
+.compact-record-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: #ffffff;
+  padding: 10px 12px;
 }
 
 .compact-task-body {

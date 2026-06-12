@@ -6,10 +6,28 @@ import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
 
-function TaskLine({ task }: { task: DashboardTask }) {
+export type DashboardRecordTarget = {
+  publicId: string;
+  type: "task" | "meeting" | "decision";
+};
+
+function TaskLine({
+  task,
+  onOpenTask,
+}: {
+  task: DashboardTask;
+  onOpenTask: (publicId: string) => void;
+}) {
   return (
     <li className="compact-task-line">
-      <strong>{task.publicId}</strong>
+      <button
+        className="compact-id-button"
+        type="button"
+        onClick={() => onOpenTask(task.publicId)}
+        aria-label={`Open task ${task.publicId}`}
+      >
+        <strong>{task.publicId}</strong>
+      </button>
       <span className="compact-task-body">
         <span className="compact-task-description">
           <LinkedText text={task.description} />
@@ -24,7 +42,11 @@ function TaskLine({ task }: { task: DashboardTask }) {
   );
 }
 
-export function DashboardPage() {
+export function DashboardPage({
+  onOpenRecord,
+}: {
+  onOpenRecord: (target: DashboardRecordTarget) => void;
+}) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   useEffect(() => {
@@ -55,7 +77,11 @@ export function DashboardPage() {
             ) : (
               <ul className="compact-list compact-task-list">
                 {summary.alerts.overdue.map((task) => (
-                  <TaskLine key={task.publicId} task={task} />
+                  <TaskLine
+                    key={task.publicId}
+                    task={task}
+                    onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                  />
                 ))}
               </ul>
             )}
@@ -67,7 +93,11 @@ export function DashboardPage() {
             ) : (
               <ul className="compact-list compact-task-list">
                 {summary.alerts.dueSoon.map((task) => (
-                  <TaskLine key={task.publicId} task={task} />
+                  <TaskLine
+                    key={task.publicId}
+                    task={task}
+                    onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                  />
                 ))}
               </ul>
             )}
@@ -94,10 +124,19 @@ export function DashboardPage() {
             ) : (
               <ul className="compact-list">
                 {summary.recentMeetings.map((meeting) => (
-                  <li key={meeting.publicId}>
-                    <strong>{meeting.publicId}</strong>
-                    <span>{meeting.title}</span>
-                    <small>{new Date(meeting.startsAt).toLocaleString()}</small>
+                  <li className="compact-clickable-item" key={meeting.publicId}>
+                    <button
+                      className="compact-record-button"
+                      type="button"
+                      onClick={() =>
+                        onOpenRecord({ type: "meeting", publicId: meeting.publicId })
+                      }
+                      aria-label={`Open meeting ${meeting.publicId} ${meeting.title}`}
+                    >
+                      <strong>{meeting.publicId}</strong>
+                      <span>{meeting.title}</span>
+                      <small>{new Date(meeting.startsAt).toLocaleString()}</small>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -110,10 +149,19 @@ export function DashboardPage() {
             ) : (
               <ul className="compact-list">
                 {summary.recentDecisions.map((decision) => (
-                  <li key={decision.publicId}>
-                    <strong>{decision.publicId}</strong>
-                    <span>{decision.decisionText}</span>
-                    <small>{decision.decisionDate}</small>
+                  <li className="compact-clickable-item" key={decision.publicId}>
+                    <button
+                      className="compact-record-button"
+                      type="button"
+                      onClick={() =>
+                        onOpenRecord({ type: "decision", publicId: decision.publicId })
+                      }
+                      aria-label={`Open decision ${decision.publicId} ${decision.decisionText}`}
+                    >
+                      <strong>{decision.publicId}</strong>
+                      <span>{decision.decisionText}</span>
+                      <small>{decision.decisionDate}</small>
+                    </button>
                   </li>
                 ))}
               </ul>

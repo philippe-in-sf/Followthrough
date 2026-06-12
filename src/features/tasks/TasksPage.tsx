@@ -13,6 +13,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
+import { scrollRecordIntoView } from "../../recordFocus";
 
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
 const reminderModes: Array<{ value: TaskReminderMode; label: string }> = [
@@ -61,7 +62,13 @@ function taskCardTone(task: TaskDto) {
   return "record-card-info";
 }
 
-export function TasksPage() {
+export function TasksPage({
+  focusTaskPublicId,
+  onTaskFocusHandled,
+}: {
+  focusTaskPublicId?: string | null;
+  onTaskFocusHandled?: () => void;
+}) {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
   const [assigneePublicId, setAssigneePublicId] = useState("");
@@ -180,6 +187,16 @@ export function TasksPage() {
       private: task.private,
     });
   }
+
+  useEffect(() => {
+    if (!focusTaskPublicId) return;
+    const task = tasks.find((item) => item.publicId === focusTaskPublicId);
+    if (!task) return;
+
+    editTask(task);
+    scrollRecordIntoView(`task-${task.publicId}`);
+    onTaskFocusHandled?.();
+  }, [focusTaskPublicId, onTaskFocusHandled, tasks]);
 
   async function submitTaskEdit(event: FormEvent<HTMLFormElement>, task: TaskDto) {
     event.preventDefault();
@@ -345,6 +362,7 @@ export function TasksPage() {
                   <article
                     aria-label={`Task ${task.publicId}`}
                     className={`task-card ${taskCardTone(task)}`}
+                    id={`task-${task.publicId}`}
                     key={task.publicId}
                   >
                     <div className="record-row task-row">
