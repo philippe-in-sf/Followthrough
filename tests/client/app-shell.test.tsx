@@ -39,6 +39,10 @@ describe("AppShell split context rail", () => {
     expect(screen.getByText("Overdue")).toBeInTheDocument();
     expect(screen.getByText("Due soon")).toBeInTheDocument();
     expect(screen.getByLabelText("Version 1.0.1")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+      "href",
+      "https://calendar.google.com",
+    );
   });
 
   it("switches sections from the icon rail", async () => {

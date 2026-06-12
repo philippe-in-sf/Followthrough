@@ -1,3 +1,4 @@
+import { CalendarCheck } from "lucide-react";
 import { sectionOrder, type AppSection } from "./shellNavigation";
 
 export function IconRail({
@@ -29,10 +30,22 @@ export function IconRail({
           </button>
         ))}
       </nav>
-      <p className="rail-version" aria-label={`Version ${version}`}>
-        <span className="rail-version-label">Version </span>
-        {version}
-      </p>
+      <div className="rail-footer">
+        <a
+          aria-label="Open work calendar"
+          className="icon-rail-button rail-calendar-link"
+          href="https://calendar.google.com"
+          rel="noreferrer"
+          target="_blank"
+          title="Work calendar"
+        >
+          <CalendarCheck aria-hidden="true" size={20} strokeWidth={2.1} />
+        </a>
+        <p className="rail-version" aria-label={`Version ${version}`}>
+          <span className="rail-version-label">Version </span>
+          {version}
+        </p>
+      </div>
     </aside>
   );
 }

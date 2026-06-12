@@ -83,6 +83,10 @@ textarea {
     box-shadow 120ms ease;
 }
 
+.rail-calendar-link {
+  text-decoration: none;
+}
+
 .icon-rail-button.active,
 .icon-rail-button:hover {
   background: #f8fafc;
@@ -98,6 +102,13 @@ textarea {
 .icon-rail-button:focus-visible {
   outline: 3px solid #2dd4bf;
   outline-offset: 2px;
+}
+
+.rail-footer {
+  align-self: end;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
 }
 
 .rail-version {
@@ -736,6 +747,12 @@ textarea {
   font-size: 0.95rem;
 }
 
+.meeting-edit-form .audit-log,
+.person-edit-form .audit-log,
+.task-edit-form .audit-log {
+  grid-column: 1 / -1;
+}
+
 .audit-log {
   display: grid;
   gap: 8px;
@@ -828,14 +845,14 @@ textarea {
     grid-template-rows: auto;
     align-items: center;
     justify-items: stretch;
-    gap: 10px;
+    gap: 6px;
     border-top: 1px solid rgba(203, 213, 225, 0.18);
-    padding: 10px 12px;
+    padding: 8px;
   }
 
   .app-mark {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: 8px;
     font-size: 0.8rem;
   }
@@ -843,12 +860,20 @@ textarea {
   .icon-rail-nav {
     grid-auto-flow: column;
     justify-content: center;
-    gap: 6px;
+    gap: 2px;
   }
 
   .icon-rail-button {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .rail-footer {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: end;
+    gap: 4px;
   }
 
   .rail-version {
