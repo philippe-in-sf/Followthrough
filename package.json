@@ -1,6 +1,6 @@
 {
   "name": "web-ui-task-manager",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -13,8 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json",
-    "invite:create": "tsx server/auth/createInviteCode.ts",
-    "user:create": "tsx server/auth/createUser.ts",
+    "invite:create": "node scripts/run-server-script.mjs server/auth/createInviteCode.ts dist/server/auth/createInviteCode.js",
+    "user:create": "node scripts/run-server-script.mjs server/auth/createUser.ts dist/server/auth/createUser.js",
     "version:patch": "npm version patch --no-git-tag-version",
     "deploy": "bash deploy/deploy.sh",
     "deploy:install-systemd": "bash deploy/install-systemd.sh"

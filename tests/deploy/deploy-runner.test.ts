@@ -19,7 +19,9 @@ function writeExecutable(filePath: string, content: string) {
 
 function createRuntimePaths(workDir: string) {
   fs.mkdirSync(path.join(workDir, "dist"));
+  fs.mkdirSync(path.join(workDir, "scripts"));
   fs.writeFileSync(path.join(workDir, "dist/server.js"), "console.log('built');\n");
+  fs.writeFileSync(path.join(workDir, "scripts/run-server-script.mjs"), "console.log('run');\n");
   fs.writeFileSync(path.join(workDir, "package.json"), '{"version":"1.0.1"}\n');
   fs.writeFileSync(path.join(workDir, "package-lock.json"), "{}\n");
 }

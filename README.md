@@ -31,14 +31,16 @@ The database uses Node's built-in SQLite support, so older Node versions are not
 npm install
 cp .env.example .env
 npm run invite:create -- --code=team-start --limit=10 --label=Initial
-npm run user:create -- --name="Philippe" --email=philippe@example.com
 npm run dev
 ```
 
 Open `http://localhost:3000`, sign up with the invite code, then log in.
 
-`npm run user:create` creates a login directly in the configured database. Omit
-`--password` to generate a temporary password, or pass `--password=...` to set one.
+Invite codes are the easiest way to add users: create a code once, share it, and
+let people sign themselves up. `--limit` controls how many signups can use the
+same code. `npm run user:create` is still available when you need to create a
+login directly in the configured database. Omit `--password` to generate a
+temporary password, or pass `--password=...` to set one.
 
 ## Configuration
 
@@ -173,6 +175,25 @@ Persistent site data stays under:
 
 ```text
 /opt/web-ui-task-manager/shared
+```
+
+### Add users in production
+
+Create one invite code on the server, then tell users to choose "Use an invite
+code" on the sign-in screen:
+
+```bash
+cd /opt/web-ui-task-manager/current
+sudo env DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite \
+  npm run invite:create -- --code=team-start --limit=50 --label="Team access"
+```
+
+The direct user-creation command is still available as a fallback:
+
+```bash
+cd /opt/web-ui-task-manager/current
+sudo env DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite \
+  npm run user:create -- --name="Bert Hall" --email=bhall@stackoverflow.com
 ```
 
 ### Deploy all configured sites
