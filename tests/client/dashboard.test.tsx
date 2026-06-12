@@ -397,7 +397,9 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Exact ID match")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /T099 Prep launch plan/i }));
 
-    expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    });
   });
 
   it("creates and edits standalone tasks and records decisions", async () => {
