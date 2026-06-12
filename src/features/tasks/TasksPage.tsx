@@ -11,6 +11,7 @@ import { ApiError, api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
@@ -335,7 +336,9 @@ export function TasksPage() {
                   >
                     <div className="record-row task-row">
                       <div>
-                        <strong>{task.description}</strong>
+                        <strong>
+                          <LinkedText text={task.description} />
+                        </strong>
                         <span>{task.publicId}</span>
                       </div>
                       <StatusBadge label={task.status} />

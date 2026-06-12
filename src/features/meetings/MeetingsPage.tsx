@@ -11,6 +11,7 @@ import { api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type MeetingFormState = {
@@ -616,7 +617,7 @@ export function MeetingsPage() {
                   ) : (
                     meeting.tasks.map((task) => (
                       <span key={task.publicId}>
-                        <strong>{task.publicId}</strong> {task.description}
+                        <strong>{task.publicId}</strong> <LinkedText text={task.description} />
                       </span>
                     ))
                   )}

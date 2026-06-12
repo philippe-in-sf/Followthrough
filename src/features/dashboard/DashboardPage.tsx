@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type DashboardTask } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
+import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
@@ -10,7 +11,9 @@ function TaskLine({ task }: { task: DashboardTask }) {
     <li className="compact-task-line">
       <strong>{task.publicId}</strong>
       <span className="compact-task-body">
-        <span className="compact-task-description">{task.description}</span>
+        <span className="compact-task-description">
+          <LinkedText text={task.description} />
+        </span>
         <span className="compact-task-meta">
           <small>{task.assignee?.name ?? "Unassigned"}</small>
           {task.dueDate ? <small>{task.dueDate}</small> : null}
@@ -49,7 +52,7 @@ export function DashboardPage() {
             {summary.alerts.overdue.length === 0 ? (
               <EmptyState title="No overdue tasks" detail="Tasks past their due date will appear here." />
             ) : (
-              <ul className="compact-list">
+              <ul className="compact-list compact-task-list">
                 {summary.alerts.overdue.map((task) => (
                   <TaskLine key={task.publicId} task={task} />
                 ))}
@@ -61,7 +64,7 @@ export function DashboardPage() {
             {summary.alerts.dueSoon.length === 0 ? (
               <EmptyState title="No tasks due soon" detail="Tasks nearing their due date will appear here." />
             ) : (
-              <ul className="compact-list">
+              <ul className="compact-list compact-task-list">
                 {summary.alerts.dueSoon.map((task) => (
                   <TaskLine key={task.publicId} task={task} />
                 ))}
