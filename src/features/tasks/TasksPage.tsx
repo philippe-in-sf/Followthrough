@@ -1,12 +1,23 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { AuditLogDto, PersonDto, TaskDto, TaskStatus } from "../../../shared/types";
-import { api } from "../../api/client";
+import { Mail } from "lucide-react";
+import type {
+  AuditLogDto,
+  PersonDto,
+  TaskDto,
+  TaskReminderMode,
+  TaskStatus,
+} from "../../../shared/types";
+import { ApiError, api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { StatusBadge } from "../../components/StatusBadge";
 
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
+const reminderModes: Array<{ value: TaskReminderMode; label: string }> = [
+  { value: "automatic", label: "Automatic" },
+  { value: "manual", label: "Manual only" },
+];
 
 type TaskLane = {
   key: string;
@@ -23,6 +34,7 @@ type TaskFormState = {
   dueDate: string;
   originMeetingPublicId: string | null;
   seriesPublicId: string | null;
+  reminderMode: TaskReminderMode;
 };
 
 const emptyTaskForm: TaskFormState = {
@@ -32,6 +44,7 @@ const emptyTaskForm: TaskFormState = {
   dueDate: "",
   originMeetingPublicId: null,
   seriesPublicId: null,
+  reminderMode: "automatic",
 };
 
 function countLabel(count: number, singular: string) {
@@ -55,6 +68,8 @@ export function TasksPage() {
   const [editingTaskPublicId, setEditingTaskPublicId] = useState<string | null>(null);
   const [taskEditForm, setTaskEditForm] = useState<TaskFormState>(emptyTaskForm);
   const [taskAudits, setTaskAudits] = useState<Record<string, AuditLogDto[]>>({});
+  const [pendingReminderPublicId, setPendingReminderPublicId] = useState<string | null>(null);
+  const [reminderFeedback, setReminderFeedback] = useState<Record<string, string>>({});
   const taskLoadRequestId = useRef(0);
 
   const query = useMemo(() => {
@@ -140,6 +155,7 @@ export function TasksPage() {
       dueDate: form.dueDate || null,
       originMeetingPublicId: form.originMeetingPublicId,
       seriesPublicId: form.seriesPublicId,
+      reminderMode: form.reminderMode,
     };
 
     await api.tasks.create(body);
@@ -156,6 +172,7 @@ export function TasksPage() {
       dueDate: task.dueDate ?? "",
       originMeetingPublicId: task.originMeetingPublicId,
       seriesPublicId: task.seriesPublicId,
+      reminderMode: task.reminderMode,
     });
   }
 
@@ -168,10 +185,30 @@ export function TasksPage() {
       dueDate: taskEditForm.dueDate || null,
       originMeetingPublicId: taskEditForm.originMeetingPublicId,
       seriesPublicId: taskEditForm.seriesPublicId,
+      reminderMode: taskEditForm.reminderMode,
     });
     setEditingTaskPublicId(null);
     setTaskEditForm(emptyTaskForm);
     await loadTasks();
+  }
+
+  async function sendReminder(task: TaskDto) {
+    setPendingReminderPublicId(task.publicId);
+    setReminderFeedback((current) => ({ ...current, [task.publicId]: "" }));
+
+    try {
+      await api.tasks.sendReminder(task.publicId);
+      setReminderFeedback((current) => ({ ...current, [task.publicId]: "Reminder sent" }));
+      await loadTasks();
+    } catch (error) {
+      setReminderFeedback((current) => ({
+        ...current,
+        [task.publicId]:
+          error instanceof ApiError ? error.message : "Could not send reminder",
+      }));
+    } finally {
+      setPendingReminderPublicId(null);
+    }
   }
 
   return (
@@ -218,6 +255,20 @@ export function TasksPage() {
             value={form.dueDate}
             onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
           />
+        </FormField>
+        <FormField label="Reminder mode">
+          <select
+            value={form.reminderMode}
+            onChange={(event) =>
+              setForm({ ...form, reminderMode: event.target.value as TaskReminderMode })
+            }
+          >
+            {reminderModes.map((mode) => (
+              <option key={mode.value} value={mode.value}>
+                {mode.label}
+              </option>
+            ))}
+          </select>
         </FormField>
         <div className="form-actions">
           <button className="primary-button" type="submit">
@@ -294,8 +345,25 @@ export function TasksPage() {
                       {task.alert === "overdue" ? (
                         <StatusBadge label="Overdue" tone="bad" />
                       ) : null}
+                      <StatusBadge
+                        label={task.reminderMode === "automatic" ? "Auto reminders" : "Manual only"}
+                      />
                       <span>{task.assignee?.name ?? "Unassigned"}</span>
                       <span>{task.dueDate ?? "No due date"}</span>
+                      <button
+                        className="secondary-button icon-text-button"
+                        type="button"
+                        onClick={() => sendReminder(task)}
+                        aria-label={`Send reminder for ${task.publicId}`}
+                        disabled={
+                          task.status === "Done" ||
+                          !task.assignee?.email ||
+                          pendingReminderPublicId === task.publicId
+                        }
+                      >
+                        <Mail aria-hidden="true" size={16} />
+                        {pendingReminderPublicId === task.publicId ? "Sending" : "Send reminder"}
+                      </button>
                       <button
                         className="secondary-button"
                         type="button"
@@ -305,6 +373,9 @@ export function TasksPage() {
                         Edit details
                       </button>
                     </div>
+                    {reminderFeedback[task.publicId] ? (
+                      <p className="task-reminder-feedback">{reminderFeedback[task.publicId]}</p>
+                    ) : null}
                     {editingTaskPublicId === task.publicId ? (
                       <>
                         <form
@@ -367,6 +438,23 @@ export function TasksPage() {
                                 setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
                               }
                             />
+                          </FormField>
+                          <FormField label={`Reminder mode for ${task.publicId}`}>
+                            <select
+                              value={taskEditForm.reminderMode}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  reminderMode: event.target.value as TaskReminderMode,
+                                })
+                              }
+                            >
+                              {reminderModes.map((mode) => (
+                                <option key={mode.value} value={mode.value}>
+                                  {mode.label}
+                                </option>
+                              ))}
+                            </select>
                           </FormField>
                           <div className="form-actions">
                             <button className="primary-button" type="submit">

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const taskStatusSchema = z.enum(["Open", "In Progress", "Blocked", "Done"]);
+export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
 
 export const publicIdSchema = z.string().regex(/^[A-Z][0-9]{3,}$/);
 
@@ -16,6 +17,7 @@ export const taskInputSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   originMeetingPublicId: publicIdSchema.optional().nullable(),
   seriesPublicId: publicIdSchema.optional().nullable(),
+  reminderMode: taskReminderModeSchema.default("automatic"),
 });
 
 export const meetingInputSchema = z.object({

@@ -51,6 +51,12 @@ const occurrenceSchema = z.object({
 
 const taskSelectForMeeting = `
   SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+         tasks.reminder_mode,
+         (
+           SELECT MAX(sent_at)
+           FROM task_reminder_events
+           WHERE task_reminder_events.task_id = tasks.id
+         ) AS last_reminder_sent_at,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
          people.name AS assignee_name,
