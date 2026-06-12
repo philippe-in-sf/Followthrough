@@ -1,19 +1,23 @@
 import { Router } from "express";
 import { taskInputSchema } from "../../shared/schemas.js";
-import type { TaskDto, TaskStatus } from "../../shared/types.js";
+import type { TaskDto, TaskReminderMode, TaskStatus } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
+import type { EmailSender } from "../email/mailer.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { getTaskAlert } from "./alerts.js";
+import { sendManualTaskReminder } from "./reminders.js";
 
 export type TaskRow = {
   public_id: string;
   description: string;
   status: TaskStatus;
   due_date: string | null;
+  reminder_mode: TaskReminderMode;
+  last_reminder_sent_at: string | null;
   archived_at: string | null;
   assignee_public_id: string | null;
   assignee_name: string | null;
@@ -31,6 +35,12 @@ type ResolvedTaskRelations = {
 
 const taskSelect = `
   SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+         tasks.reminder_mode,
+         (
+           SELECT MAX(sent_at)
+           FROM task_reminder_events
+           WHERE task_reminder_events.task_id = tasks.id
+         ) AS last_reminder_sent_at,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
          people.name AS assignee_name,
@@ -60,6 +70,8 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     dueDate: row.due_date,
     originMeetingPublicId: row.origin_meeting_public_id,
     seriesPublicId: row.series_public_id,
+    reminderMode: row.reminder_mode,
+    lastReminderSentAt: row.last_reminder_sent_at,
     alert: getTaskAlert(row.due_date, row.status, config.dueSoonDays),
     archived: row.archived_at !== null,
   };
@@ -127,7 +139,11 @@ function resolveRelations(
   };
 }
 
-export function taskRoutes(db: AppDatabase, config: AppConfig) {
+export function taskRoutes(
+  db: AppDatabase,
+  config: AppConfig,
+  emailSender: EmailSender | null = null,
+) {
   const router = Router();
 
   router.get("/", (req, res) => {
@@ -169,8 +185,8 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
@@ -180,6 +196,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
             input.dueDate ?? null,
             relations.originMeetingId,
             relations.seriesId,
+            input.reminderMode,
           );
 
         if (relations.originMeetingId) {
@@ -250,6 +267,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
                due_date = ?,
                origin_meeting_id = ?,
                series_id = ?,
+               reminder_mode = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
         ).run(
@@ -259,6 +277,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           input.dueDate ?? null,
           relations.originMeetingId,
           relations.seriesId,
+          input.reminderMode,
           existing.id,
         );
 
@@ -284,6 +303,21 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
       });
 
       res.json({ task });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:publicId/reminders", async (req, res, next) => {
+    try {
+      const reminder = await sendManualTaskReminder(
+        db,
+        config,
+        emailSender,
+        req.params.publicId,
+        req.user?.id ?? null,
+      );
+      res.status(201).json({ reminder });
     } catch (error) {
       next(error);
     }

@@ -53,6 +53,8 @@ function mockLoggedInFetch() {
               status: "Open",
               dueDate: "2026-06-12",
               alert: "dueSoon",
+              reminderMode: "automatic",
+              lastReminderSentAt: null,
               archived: false,
             },
           ],

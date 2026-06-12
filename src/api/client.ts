@@ -7,6 +7,7 @@ import type {
   MeetingType,
   PersonDto,
   TaskDto,
+  TaskReminderMode,
   TaskStatus,
 } from "../../shared/types";
 import type { User } from "./types";
@@ -70,6 +71,17 @@ type TaskInput = {
   dueDate?: string | null;
   originMeetingPublicId?: string | null;
   seriesPublicId?: string | null;
+  reminderMode?: TaskReminderMode;
+};
+
+export type TaskReminderResponse = {
+  reminder: {
+    taskPublicId: string;
+    recipientEmail: string;
+    mode: TaskReminderMode;
+    subject: string;
+    sentAt: string;
+  };
 };
 
 type MeetingInput = {
@@ -152,6 +164,8 @@ export const api = {
       }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/tasks/${publicId}/audit`),
+    sendReminder: (publicId: string) =>
+      request<TaskReminderResponse>(`/api/tasks/${publicId}/reminders`, { method: "POST" }),
   },
   meetings: {
     list: () => request<{ meetings: MeetingDto[] }>("/api/meetings"),

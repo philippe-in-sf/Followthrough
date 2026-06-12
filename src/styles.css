@@ -306,6 +306,19 @@ textarea {
   padding: 9px 12px;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.icon-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
 .link-button {
   margin-top: 16px;
   background: transparent;
@@ -672,7 +685,16 @@ textarea {
 }
 
 .task-row {
-  grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
+  grid-template-columns: minmax(180px, 1fr) repeat(7, auto);
+}
+
+.task-reminder-feedback {
+  margin: 0;
+  border-top: 1px solid #d9dee7;
+  background: #f8fafc;
+  color: #3b4354;
+  font-size: 0.88rem;
+  padding: 8px 14px;
 }
 
 .task-links {

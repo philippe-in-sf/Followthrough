@@ -40,6 +40,8 @@ function setupAppFetch() {
       dueDate: "2026-06-08",
       originMeetingPublicId: null,
       seriesPublicId: null,
+      reminderMode: "automatic",
+      lastReminderSentAt: null,
       alert: "overdue",
       archived: false,
     },
@@ -51,6 +53,8 @@ function setupAppFetch() {
       dueDate: "2026-06-15",
       originMeetingPublicId: "M010",
       seriesPublicId: "S001",
+      reminderMode: "automatic",
+      lastReminderSentAt: null,
       alert: "dueSoon",
       archived: false,
     },
@@ -205,6 +209,8 @@ function setupAppFetch() {
         dueDate: body.dueDate,
         originMeetingPublicId: body.originMeetingPublicId ?? null,
         seriesPublicId: body.seriesPublicId ?? null,
+        reminderMode: body.reminderMode ?? "automatic",
+        lastReminderSentAt: null,
         alert: null,
         archived: false,
       };
@@ -242,7 +248,12 @@ function setupAppFetch() {
     }
 
     if (url.pathname === "/api/tasks/T099" && method === "PATCH") {
-      tasks[0] = { ...tasks[0], description: body.description, status: body.status };
+      tasks[0] = {
+        ...tasks[0],
+        description: body.description,
+        status: body.status,
+        reminderMode: body.reminderMode ?? tasks[0].reminderMode,
+      };
       taskAudits.T099 = [
         {
           id: 102,

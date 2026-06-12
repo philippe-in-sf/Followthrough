@@ -1,4 +1,5 @@
 export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
+export type TaskReminderMode = "automatic" | "manual";
 export type MeetingType = "single" | "recurring";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "person";
@@ -18,6 +19,8 @@ export type TaskDto = {
   dueDate: string | null;
   originMeetingPublicId: string | null;
   seriesPublicId: string | null;
+  reminderMode: TaskReminderMode;
+  lastReminderSentAt: string | null;
   alert: AlertState | null;
   archived: boolean;
 };

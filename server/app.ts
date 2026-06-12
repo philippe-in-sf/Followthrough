@@ -6,6 +6,7 @@ import { dashboardRoutes } from "./dashboard/routes.js";
 import { decisionRoutes } from "./decisions/routes.js";
 import type { AppDatabase } from "./db/database.js";
 import { openDatabase } from "./db/database.js";
+import { createEmailSender, type EmailSender } from "./email/mailer.js";
 import { HttpError } from "./errors.js";
 import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
@@ -16,15 +17,18 @@ import { appVersion } from "./version.js";
 export type AppDependencies = {
   db?: AppDatabase;
   config?: AppConfig;
+  emailSender?: EmailSender | null;
 };
 
 export function createApp(deps: AppDependencies = {}) {
   const config = deps.config ?? loadConfig();
   const db = deps.db ?? openDatabase(config.databasePath);
+  const emailSender = deps.emailSender ?? createEmailSender(config);
   const app = express();
 
   app.locals.db = db;
   app.locals.config = config;
+  app.locals.emailSender = emailSender;
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
@@ -46,7 +50,7 @@ export function createApp(deps: AppDependencies = {}) {
   protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/people", peopleRoutes(db));
   protectedApi.use("/search", searchRoutes(db));
-  protectedApi.use("/tasks", taskRoutes(db, config));
+  protectedApi.use("/tasks", taskRoutes(db, config, emailSender));
   app.use("/api", protectedApi);
 
   app.use(

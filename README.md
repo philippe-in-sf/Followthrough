@@ -12,6 +12,7 @@ A single-server multi-user task manager for meetings, tasks, standalone tasks, d
 - Recurring occurrences carry over the same unfinished series tasks
 - Tasks with description, assignee, status, due date, alerts, and public IDs like `T001`
 - Standalone tasks outside meetings
+- Manual and automatic email reminders for outstanding tasks
 - Decisions with optional meeting link and public IDs like `D001`
 - Global search across IDs, tasks, meetings, decisions, and people
 - In-app overdue and due-soon task alerting
@@ -44,9 +45,20 @@ DATABASE_PATH=data/task-manager.sqlite
 SESSION_COOKIE_NAME=tm_session
 SESSION_TTL_DAYS=14
 DUE_SOON_DAYS=7
+APP_BASE_URL=http://localhost:3000
+TASK_REMINDER_EMAIL_FROM=
+TASK_REMINDER_AUTO_ENABLED=false
+TASK_REMINDER_AUTO_INTERVAL_MS=86400000
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
+
+Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
 ## Production Run
 
