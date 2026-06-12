@@ -443,7 +443,40 @@ button:disabled {
   background: #ffffff;
   border: 1px solid #d9dee7;
   border-radius: 8px;
+  overflow: hidden;
   padding: 10px 12px;
+}
+
+.compact-list strong,
+.compact-list span,
+.compact-list small {
+  min-width: 0;
+}
+
+.compact-list span {
+  overflow-wrap: anywhere;
+}
+
+.compact-list li.compact-task-line {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.compact-task-body,
+.compact-task-description,
+.compact-task-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.compact-task-description {
+  line-height: 1.3;
+}
+
+.compact-task-meta {
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 10px;
 }
 
 .compact-list small,

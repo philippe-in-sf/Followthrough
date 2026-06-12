@@ -7,11 +7,15 @@ type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
 
 function TaskLine({ task }: { task: DashboardTask }) {
   return (
-    <li>
+    <li className="compact-task-line">
       <strong>{task.publicId}</strong>
-      <span>{task.description}</span>
-      <small>{task.assignee?.name ?? "Unassigned"}</small>
-      {task.dueDate ? <small>{task.dueDate}</small> : null}
+      <span className="compact-task-body">
+        <span className="compact-task-description">{task.description}</span>
+        <span className="compact-task-meta">
+          <small>{task.assignee?.name ?? "Unassigned"}</small>
+          {task.dueDate ? <small>{task.dueDate}</small> : null}
+        </span>
+      </span>
     </li>
   );
 }
