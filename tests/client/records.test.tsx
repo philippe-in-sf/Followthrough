@@ -154,4 +154,66 @@ describe("record pages", () => {
 
     expect(await screen.findByText("Morgan")).toBeInTheDocument();
   });
+
+  it("edits people from the people display screen", async () => {
+    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
+      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
+    ];
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/me")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: { id: 1, name: "Editor", email: "editor@example.com" },
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            alerts: { overdue: [], dueSoon: [] },
+            openTasksByAssignee: [],
+            recentMeetings: [],
+            recentDecisions: [],
+            activeSeries: [],
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ people: [...people] }) } as Response);
+      }
+      if (url.endsWith("/api/people/P001") && method === "PATCH") {
+        const body = JSON.parse(String(init?.body));
+        people[0] = {
+          ...people[0],
+          name: body.name,
+          email: body.email || null,
+        };
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ person: people[0] }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "People" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit P001" }));
+
+    const editForm = screen.getByRole("form", { name: "Edit P001" });
+    await userEvent.clear(within(editForm).getByLabelText("Name"));
+    await userEvent.type(within(editForm).getByLabelText("Name"), "Avery Stone");
+    await userEvent.clear(within(editForm).getByLabelText("Email"));
+    await userEvent.type(within(editForm).getByLabelText("Email"), "avery.stone@example.com");
+    await userEvent.click(within(editForm).getByRole("button", { name: "Save person" }));
+
+    expect(await screen.findByText("Avery Stone")).toBeInTheDocument();
+    expect(screen.getByText("avery.stone@example.com")).toBeInTheDocument();
+  });
 });

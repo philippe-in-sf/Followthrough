@@ -508,6 +508,15 @@ textarea {
   gap: 8px;
 }
 
+.person-record {
+  display: grid;
+  gap: 0;
+}
+
+.person-record .record-row {
+  min-width: 0;
+}
+
 .lane-stack {
   display: grid;
   gap: 16px;
@@ -692,6 +701,7 @@ textarea {
 }
 
 .meeting-edit-form,
+.person-edit-form,
 .task-edit-form,
 .meeting-task-form {
   display: grid;
@@ -704,11 +714,13 @@ textarea {
 }
 
 .meeting-edit-form,
+.person-edit-form,
 .task-edit-form {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .meeting-edit-form textarea,
+.person-edit-form textarea,
 .task-edit-form textarea,
 .meeting-task-form textarea {
   min-height: 82px;
@@ -717,6 +729,7 @@ textarea {
 
 .meeting-task-form h3,
 .meeting-edit-form h3,
+.person-edit-form h3,
 .task-edit-form h3 {
   grid-column: 1 / -1;
   margin: 0;
@@ -879,6 +892,7 @@ textarea {
   .task-row,
   .series-row,
   .meeting-edit-form,
+  .person-edit-form,
   .task-edit-form,
   .meeting-task-form,
   .compact-list li {

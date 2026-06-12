@@ -130,6 +130,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    update: (publicId: string, body: { name: string; email?: string }) =>
+      request<{ person: PersonDto }>(`/api/people/${publicId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
   },
   tasks: {
     list: (query = "") => request<{ tasks: TaskDto[] }>(`/api/tasks${query}`),

@@ -6,6 +6,7 @@ import { FormField } from "../../components/FormField";
 
 export function PeoplePage() {
   const [people, setPeople] = useState<PersonDto[]>([]);
+  const [editingPersonPublicId, setEditingPersonPublicId] = useState<string | null>(null);
 
   async function load() {
     setPeople((await api.people.list()).people);
@@ -24,6 +25,25 @@ export function PeoplePage() {
       email: String(form.get("email")),
     });
     formElement.reset();
+    await load();
+  }
+
+  function editPerson(person: PersonDto) {
+    setEditingPersonPublicId(person.publicId);
+  }
+
+  function cancelEdit() {
+    setEditingPersonPublicId(null);
+  }
+
+  async function updatePerson(event: FormEvent<HTMLFormElement>, publicId: string) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await api.people.update(publicId, {
+      name: String(form.get("name")),
+      email: String(form.get("email")),
+    });
+    setEditingPersonPublicId(null);
     await load();
   }
 
@@ -46,10 +66,44 @@ export function PeoplePage() {
       ) : (
         <div className="record-list">
           {people.map((person) => (
-            <article className="record-row" key={person.publicId}>
-              <strong>{person.name}</strong>
-              <span>{person.publicId}</span>
-            </article>
+            <div className="person-record" key={person.publicId}>
+              <article className="record-row" aria-label={`Person ${person.publicId}`}>
+                <div>
+                  <strong>{person.name}</strong>
+                  <span>{person.email || "No email"}</span>
+                </div>
+                <span>{person.publicId}</span>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => editPerson(person)}
+                >
+                  Edit {person.publicId}
+                </button>
+              </article>
+              {editingPersonPublicId === person.publicId ? (
+                <form
+                  aria-label={`Edit ${person.publicId}`}
+                  className="person-edit-form"
+                  onSubmit={(event) => updatePerson(event, person.publicId)}
+                >
+                  <FormField label="Name">
+                    <input name="name" required defaultValue={person.name} />
+                  </FormField>
+                  <FormField label="Email">
+                    <input name="email" type="email" defaultValue={person.email ?? ""} />
+                  </FormField>
+                  <div className="form-actions">
+                    <button className="primary-button" type="submit">
+                      Save person
+                    </button>
+                    <button className="secondary-button" type="button" onClick={cancelEdit}>
+                      Cancel edit {person.publicId}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
           ))}
         </div>
       )}
