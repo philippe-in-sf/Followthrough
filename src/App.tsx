@@ -8,6 +8,7 @@ import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { PeoplePage } from "./features/people/PeoplePage";
 import { TasksPage } from "./features/tasks/TasksPage";
+import { appVersion } from "./version";
 
 function renderSection(section: AppSection) {
   switch (section) {
@@ -44,7 +45,7 @@ export function App() {
   }
 
   return (
-    <AppShell user={user} section={section} onSectionChange={setSection} onLogout={logout}>
+    <AppShell user={user} section={section} onSectionChange={setSection} onLogout={logout} version={appVersion}>
       {renderSection(section)}
     </AppShell>
   );

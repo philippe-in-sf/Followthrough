@@ -20,7 +20,7 @@ function writeExecutable(filePath: string, content: string) {
 function createRuntimePaths(workDir: string) {
   fs.mkdirSync(path.join(workDir, "dist"));
   fs.writeFileSync(path.join(workDir, "dist/server.js"), "console.log('built');\n");
-  fs.writeFileSync(path.join(workDir, "package.json"), "{}\n");
+  fs.writeFileSync(path.join(workDir, "package.json"), '{"version":"1.0.1"}\n');
   fs.writeFileSync(path.join(workDir, "package-lock.json"), "{}\n");
 }
 
@@ -68,7 +68,7 @@ describe("deploy runner", () => {
     try {
       writeExecutable(path.join(fixture.binDir, "npm"), "#!/bin/sh\nexit 0\n");
       writeExecutable(path.join(fixture.binDir, "git"), "#!/bin/sh\nprintf 'abcdef1'\n");
-      fs.writeFileSync(path.join(fixture.workDir, "package.json"), "{}\n");
+      fs.writeFileSync(path.join(fixture.workDir, "package.json"), '{"version":"1.0.1"}\n');
       fs.writeFileSync(path.join(fixture.workDir, "package-lock.json"), "{}\n");
 
       const result = fixture.runDeploy({
@@ -136,6 +136,98 @@ describe("deploy runner", () => {
       expect(rsyncTargets).toHaveLength(2);
       expect(rsyncTargets[0]).toContain("deploy@example.com:/opt/web-ui-task-manager/releases/");
       expect(rsyncTargets[1]).toContain("office@example.com:/srv/web-ui-task-manager-office/releases/");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("fails before rsync when the target already reports the local version", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      createRuntimePaths(fixture.workDir);
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "git"),
+        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "ssh"),
+        `#!/bin/sh
+script="$(cat)"
+case "$script" in
+  *"/api/version"*)
+    printf 'ssh-version %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}
+    printf '{"version":"1.0.1"}\\n'
+    exit 0
+    ;;
+esac
+printf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}
+exit 0
+`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "rsync"),
+        `#!/bin/sh\nprintf 'rsync %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("production already reports version 1.0.1");
+      expect(readCommandLog(fixture.commandLog).some((line) => line.startsWith("rsync "))).toBe(false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("continues when the remote version endpoint is unavailable", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      createRuntimePaths(fixture.workDir);
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "git"),
+        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "ssh"),
+        `#!/bin/sh
+script="$(cat)"
+case "$script" in
+  *"/api/version"*)
+    printf 'ssh-version %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}
+    exit 1
+    ;;
+esac
+printf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}
+exit 0
+`,
+      );
+      writeExecutable(
+        path.join(fixture.binDir, "rsync"),
+        `#!/bin/sh\nprintf 'rsync %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      const output = `${result.stdout}${result.stderr}`;
+      expect(result.status, output).toBe(0);
+      expect(output).toContain("Remote version unavailable for production; continuing");
+      expect(readCommandLog(fixture.commandLog).some((line) => line.startsWith("rsync "))).toBe(true);
     } finally {
       fixture.cleanup();
     }

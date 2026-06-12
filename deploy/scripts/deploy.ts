@@ -11,7 +11,9 @@ import {
   buildRestartCommand,
   buildRsyncReleaseTarget,
   buildSwitchCurrentCommand,
+  buildVersionCheckCommand,
 } from "../lib/remoteCommands";
+import { readPackageVersion } from "../lib/packageVersion";
 import { createReleaseId, runtimePaths } from "../lib/release";
 
 function run(command: string, args: string[], options: { cwd?: string; input?: string } = {}) {
@@ -50,6 +52,31 @@ function remote(site: DeploySite, command: string) {
   run("ssh", [site.ssh, "bash", "-s"], { input: command });
 }
 
+function remoteCapture(site: DeploySite, command: string) {
+  const result = spawnSync("ssh", [site.ssh, "bash", "-s"], {
+    input: command,
+    encoding: "utf8",
+    shell: false,
+  });
+
+  return {
+    ok: result.status === 0,
+    stdout: result.stdout.trim(),
+  };
+}
+
+function readRemoteVersion(site: DeploySite) {
+  const result = remoteCapture(site, buildVersionCheckCommand(site));
+  if (!result.ok || !result.stdout) return null;
+
+  try {
+    const parsed = JSON.parse(result.stdout) as { version?: unknown };
+    return typeof parsed.version === "string" && parsed.version.trim() ? parsed.version : null;
+  } catch {
+    return null;
+  }
+}
+
 function stageRelease(releaseId: string) {
   const stageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "web-ui-task-manager-release-"));
   try {
@@ -76,9 +103,26 @@ function runLocalGates() {
   run("npm", ["run", "build"]);
 }
 
-function deploySite(site: DeploySite, release: { releaseId: string; releaseDir: string }) {
+function verifyRemoteVersion(site: DeploySite, localVersion: string) {
+  const remoteVersion = readRemoteVersion(site);
+  if (!remoteVersion) {
+    console.log(`Remote version unavailable for ${site.name}; continuing`);
+    return;
+  }
+
+  if (remoteVersion === localVersion) {
+    throw new Error(
+      `${site.name} already reports version ${localVersion}; run npm run version:patch before deploying`,
+    );
+  }
+
+  console.log(`Remote ${site.name} reports version ${remoteVersion}; deploying ${localVersion}`);
+}
+
+function deploySite(site: DeploySite, release: { releaseId: string; releaseDir: string }, localVersion: string) {
   console.log(`Deploying ${site.name} to ${site.ssh}`);
 
+  verifyRemoteVersion(site, localVersion);
   remote(site, buildEnsureLayoutCommand(site));
   run("rsync", ["-az", "--delete", `${release.releaseDir}/`, buildRsyncReleaseTarget(site, release.releaseId)]);
   remote(site, buildInstallDependenciesCommand(site, release.releaseId));
@@ -96,13 +140,14 @@ function main() {
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
   runLocalGates();
 
+  const localVersion = readPackageVersion();
   const gitSha = captureRequired("git", ["rev-parse", "--short", "HEAD"], "git commit");
   const releaseId = createReleaseId(new Date(), gitSha);
   const { stageRoot, releaseDir } = stageRelease(releaseId);
 
   try {
     for (const site of sites) {
-      deploySite(site, { releaseId, releaseDir });
+      deploySite(site, { releaseId, releaseDir }, localVersion);
     }
   } finally {
     fs.rmSync(stageRoot, { recursive: true, force: true });
