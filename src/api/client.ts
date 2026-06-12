@@ -47,6 +47,7 @@ export type DashboardTask = {
   status: TaskStatus;
   dueDate: string | null;
   alert: AlertState | null;
+  private: boolean;
 };
 
 export type DashboardResponse = {
@@ -72,6 +73,7 @@ type TaskInput = {
   originMeetingPublicId?: string | null;
   seriesPublicId?: string | null;
   reminderMode?: TaskReminderMode;
+  private?: boolean;
 };
 
 export type TaskReminderResponse = {
@@ -92,6 +94,7 @@ type MeetingInput = {
   summary: string;
   attendeePublicIds: string[];
   taskPublicIds: string[];
+  private?: boolean;
 };
 
 type MeetingSeriesInput = {
@@ -105,6 +108,7 @@ type OccurrenceInput = {
   startsAt: string;
   summary: string;
   attendeePublicIds: string[];
+  private?: boolean;
 };
 
 type DecisionInput = {

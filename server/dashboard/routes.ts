@@ -8,6 +8,7 @@ type DashboardTaskRow = {
   description: string;
   status: "Open" | "In Progress" | "Blocked" | "Done";
   due_date: string | null;
+  private: number;
   assignee_public_id: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
@@ -16,25 +17,30 @@ type DashboardTaskRow = {
 export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
 
-  router.get("/", (_req, res) => {
+  router.get("/", (req, res) => {
+    const userId = req.user?.id ?? 0;
     const taskRows = db
       .prepare(
         `SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+                tasks.private,
                 people.public_id AS assignee_public_id,
                 people.name AS assignee_name,
                 people.email AS assignee_email
          FROM tasks
          LEFT JOIN people ON people.id = tasks.assignee_person_id
-         WHERE tasks.archived_at IS NULL AND tasks.status <> 'Done'
+         WHERE tasks.archived_at IS NULL
+         AND tasks.status <> 'Done'
+         AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
          ORDER BY tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
       )
-      .all() as DashboardTaskRow[];
+      .all(userId) as DashboardTaskRow[];
 
     const tasks = taskRows.map((row) => ({
       publicId: row.public_id,
       description: row.description,
       status: row.status,
       dueDate: row.due_date,
+      private: row.private === 1,
       assignee: row.assignee_public_id
         ? {
             publicId: row.assignee_public_id,
@@ -61,10 +67,11 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
         `SELECT public_id AS publicId, title, starts_at AS startsAt
          FROM meetings
          WHERE archived_at IS NULL
+         AND (private = 0 OR created_by_user_id = ?)
          ORDER BY starts_at DESC
          LIMIT 5`,
       )
-      .all();
+      .all(userId);
 
     const recentDecisions = db
       .prepare(

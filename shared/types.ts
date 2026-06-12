@@ -22,6 +22,7 @@ export type TaskDto = {
   reminderMode: TaskReminderMode;
   lastReminderSentAt: string | null;
   alert: AlertState | null;
+  private: boolean;
   archived: boolean;
 };
 
@@ -34,6 +35,7 @@ export type MeetingDto = {
   summary: string;
   attendees: PersonDto[];
   tasks: TaskDto[];
+  private: boolean;
   archived: boolean;
 };
 

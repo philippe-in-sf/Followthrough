@@ -759,11 +759,11 @@ button:disabled {
 }
 
 .meeting-row {
-  grid-template-columns: minmax(180px, 1fr) auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto;
 }
 
 .task-row {
-  grid-template-columns: minmax(180px, 1fr) repeat(7, auto);
+  grid-template-columns: minmax(180px, 1fr) repeat(8, auto);
 }
 
 .task-reminder-feedback {

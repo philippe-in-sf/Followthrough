@@ -14,6 +14,7 @@ export function searchRoutes(db: AppDatabase) {
   const router = Router();
 
   router.get("/", (req, res) => {
+    const userId = req.user?.id ?? 0;
     const q = String(req.query.q ?? "").trim();
     if (!q) {
       res.json({ results: [] });
@@ -25,24 +26,48 @@ export function searchRoutes(db: AppDatabase) {
 
     if (exactId.test(q)) {
       const exactLookups = [
-        ["task", "tasks", "description"],
-        ["meeting", "meetings", "title"],
-        ["decision", "decisions", "decision_text"],
-        ["person", "people", "name"],
+        {
+          type: "task",
+          sql: `SELECT public_id, description AS title
+                FROM tasks
+                WHERE public_id = ?
+                AND archived_at IS NULL
+                AND (private = 0 OR created_by_user_id = ?)`,
+          params: [q, userId],
+        },
+        {
+          type: "meeting",
+          sql: `SELECT public_id, title
+                FROM meetings
+                WHERE public_id = ?
+                AND archived_at IS NULL
+                AND (private = 0 OR created_by_user_id = ?)`,
+          params: [q, userId],
+        },
+        {
+          type: "decision",
+          sql: `SELECT public_id, decision_text AS title
+                FROM decisions
+                WHERE public_id = ? AND archived_at IS NULL`,
+          params: [q],
+        },
+        {
+          type: "person",
+          sql: `SELECT public_id, name AS title
+                FROM people
+                WHERE public_id = ? AND archived_at IS NULL`,
+          params: [q],
+        },
       ] as const;
 
-      for (const [type, table, titleColumn] of exactLookups) {
+      for (const lookup of exactLookups) {
         const row = db
-          .prepare(
-            `SELECT public_id, ${titleColumn} AS title
-             FROM ${table}
-             WHERE public_id = ? AND archived_at IS NULL`,
-          )
-          .get(q) as { public_id: string; title: string } | undefined;
+          .prepare(lookup.sql)
+          .get(...lookup.params) as { public_id: string; title: string } | undefined;
 
         if (row) {
           results.push({
-            type,
+            type: lookup.type,
             publicId: row.public_id,
             title: row.title,
             subtitle: "Exact ID match",
@@ -55,9 +80,13 @@ export function searchRoutes(db: AppDatabase) {
       ...(
         db
           .prepare(
-            "SELECT public_id, description AS title FROM tasks WHERE archived_at IS NULL AND description LIKE ?",
+            `SELECT public_id, description AS title
+             FROM tasks
+             WHERE archived_at IS NULL
+             AND (private = 0 OR created_by_user_id = ?)
+             AND description LIKE ?`,
           )
-          .all(like) as Array<{ public_id: string; title: string }>
+          .all(userId, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "task" as const,
         publicId: row.public_id,
@@ -69,9 +98,11 @@ export function searchRoutes(db: AppDatabase) {
           .prepare(
             `SELECT public_id, title
              FROM meetings
-             WHERE archived_at IS NULL AND (title LIKE ? OR summary LIKE ?)`,
+             WHERE archived_at IS NULL
+             AND (private = 0 OR created_by_user_id = ?)
+             AND (title LIKE ? OR summary LIKE ?)`,
           )
-          .all(like, like) as Array<{ public_id: string; title: string }>
+          .all(userId, like, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "meeting" as const,
         publicId: row.public_id,

@@ -32,6 +32,8 @@ type MeetingRow = {
   meeting_type: "single" | "recurring";
   series_public_id: string | null;
   summary: string;
+  private: number;
+  created_by_user_id: number | null;
   archived_at: string | null;
 };
 
@@ -47,6 +49,7 @@ const occurrenceSchema = z.object({
   startsAt: z.string().datetime(),
   summary: z.string().trim().default(""),
   attendeePublicIds: z.array(publicIdSchema).default([]),
+  private: z.boolean().default(false),
 });
 
 const taskSelectForMeeting = `
@@ -57,6 +60,8 @@ const taskSelectForMeeting = `
            FROM task_reminder_events
            WHERE task_reminder_events.task_id = tasks.id
          ) AS last_reminder_sent_at,
+         tasks.private,
+         tasks.created_by_user_id,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
          people.name AS assignee_name,
@@ -70,9 +75,18 @@ const taskSelectForMeeting = `
   LEFT JOIN meetings AS origin_meetings ON origin_meetings.id = tasks.origin_meeting_id
   LEFT JOIN meeting_series ON meeting_series.id = tasks.series_id
   WHERE meeting_tasks.meeting_id = ?
+  AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
   AND tasks.archived_at IS NULL
   ORDER BY tasks.status = 'Done', tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC
 `;
+
+function visibleMeetingCondition() {
+  return "(meetings.private = 0 OR meetings.created_by_user_id = ?)";
+}
+
+function canMakePrivate(createdByUserId: number | null, userId: number) {
+  return createdByUserId === null || createdByUserId === userId;
+}
 
 function toSeries(row: SeriesRow): MeetingSeriesDto {
   return {
@@ -106,17 +120,24 @@ function getSeriesRow(db: AppDatabase, publicId: string, includeArchived = false
   return row;
 }
 
-function getMeetingRow(db: AppDatabase, publicId: string, includeArchived = false) {
+function getMeetingRow(
+  db: AppDatabase,
+  publicId: string,
+  userId: number,
+  includeArchived = false,
+) {
   const row = db
     .prepare(
       `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
               meetings.meeting_type, meeting_series.public_id AS series_public_id,
-              meetings.summary, meetings.archived_at
+              meetings.summary, meetings.private, meetings.created_by_user_id, meetings.archived_at
        FROM meetings
        LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
-       WHERE meetings.public_id = ? ${includeArchived ? "" : "AND meetings.archived_at IS NULL"}`,
+       WHERE meetings.public_id = ?
+       AND ${visibleMeetingCondition()}
+       ${includeArchived ? "" : "AND meetings.archived_at IS NULL"}`,
     )
-    .get(publicId) as MeetingRow | undefined;
+    .get(publicId, userId) as MeetingRow | undefined;
 
   if (!row) throw notFound("Meeting not found");
   return row;
@@ -136,12 +157,22 @@ function getAttendees(db: AppDatabase, meetingId: number) {
   return rows.map(toPerson);
 }
 
-function getMeetingTasks(db: AppDatabase, config: AppConfig, meetingId: number) {
-  const rows = db.prepare(taskSelectForMeeting).all(meetingId) as TaskRow[];
+function getMeetingTasks(
+  db: AppDatabase,
+  config: AppConfig,
+  meetingId: number,
+  userId: number,
+) {
+  const rows = db.prepare(taskSelectForMeeting).all(meetingId, userId) as TaskRow[];
   return rows.map((row) => mapTaskRow(row, config));
 }
 
-function toMeeting(db: AppDatabase, config: AppConfig, row: MeetingRow): MeetingDto {
+function toMeeting(
+  db: AppDatabase,
+  config: AppConfig,
+  row: MeetingRow,
+  userId: number,
+): MeetingDto {
   return {
     publicId: row.public_id,
     title: row.title,
@@ -150,7 +181,8 @@ function toMeeting(db: AppDatabase, config: AppConfig, row: MeetingRow): Meeting
     seriesPublicId: row.series_public_id,
     summary: row.summary,
     attendees: getAttendees(db, row.id),
-    tasks: getMeetingTasks(db, config, row.id),
+    tasks: getMeetingTasks(db, config, row.id, userId),
+    private: row.private === 1,
     archived: row.archived_at !== null,
   };
 }
@@ -166,12 +198,18 @@ function resolvePeople(db: AppDatabase, publicIds: string[]) {
   });
 }
 
-function resolveTasks(db: AppDatabase, publicIds: string[]) {
+function resolveTasks(db: AppDatabase, publicIds: string[], userId: number) {
   const uniqueIds = [...new Set(publicIds)];
   return uniqueIds.map((publicId) => {
     const row = db
-      .prepare("SELECT id FROM tasks WHERE public_id = ? AND archived_at IS NULL")
-      .get(publicId) as { id: number } | undefined;
+      .prepare(
+        `SELECT id
+         FROM tasks
+         WHERE public_id = ?
+         AND (private = 0 OR created_by_user_id = ?)
+         AND archived_at IS NULL`,
+      )
+      .get(publicId, userId) as { id: number } | undefined;
     if (!row) throw badRequest(`Task not found: ${publicId}`);
     return row.id;
   });
@@ -183,6 +221,7 @@ function replaceMeetingLinks(
   attendeePublicIds: string[],
   taskPublicIds: string[],
   seriesId: number | null,
+  userId: number,
 ) {
   db.prepare("DELETE FROM meeting_attendees WHERE meeting_id = ?").run(meetingId);
   for (const personId of resolvePeople(db, attendeePublicIds)) {
@@ -193,7 +232,7 @@ function replaceMeetingLinks(
   }
 
   db.prepare("DELETE FROM meeting_tasks WHERE meeting_id = ?").run(meetingId);
-  for (const taskId of resolveTasks(db, taskPublicIds)) {
+  for (const taskId of resolveTasks(db, taskPublicIds, userId)) {
     db.prepare("INSERT INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
       meetingId,
       taskId,
@@ -211,7 +250,7 @@ function createMeeting(
   db: AppDatabase,
   config: AppConfig,
   input: z.infer<typeof meetingInputSchema>,
-  userId: number | null,
+  userId: number,
 ) {
   return withTransaction(db, () => {
     const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
@@ -226,8 +265,8 @@ function createMeeting(
 
     const publicId = nextPublicId(db, "M");
     db.prepare(
-      `INSERT INTO meetings (public_id, title, starts_at, meeting_type, series_id, summary)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO meetings (public_id, title, starts_at, meeting_type, series_id, summary, private, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       publicId,
       input.title,
@@ -235,18 +274,21 @@ function createMeeting(
       input.meetingType,
       series?.id ?? null,
       input.summary,
+      input.private ? 1 : 0,
+      userId,
     );
 
-    const meetingRow = getMeetingRow(db, publicId);
+    const meetingRow = getMeetingRow(db, publicId, userId);
     replaceMeetingLinks(
       db,
       meetingRow.id,
       input.attendeePublicIds,
       input.taskPublicIds,
       series?.id ?? null,
+      userId,
     );
 
-    const meeting = toMeeting(db, config, getMeetingRow(db, publicId));
+    const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId), userId);
     recordAuditEvent(db, {
       entityType: "meeting",
       entityPublicId: meeting.publicId,
@@ -347,20 +389,22 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
         const publicId = nextPublicId(db, "M");
         db.prepare(
-          `INSERT INTO meetings (public_id, title, starts_at, meeting_type, series_id, summary)
-           VALUES (?, ?, ?, 'recurring', ?, ?)`,
+          `INSERT INTO meetings (public_id, title, starts_at, meeting_type, series_id, summary, private, created_by_user_id)
+           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?)`,
         ).run(
           publicId,
           input.title || series.title,
           input.startsAt,
           series.id,
           input.summary,
+          input.private ? 1 : 0,
+          req.user?.id ?? 0,
         );
 
-        const row = getMeetingRow(db, publicId);
-        replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id);
-        linkOpenSeriesTasksToMeeting(db, series.id, row.id);
-        const meeting = toMeeting(db, config, getMeetingRow(db, publicId));
+        const row = getMeetingRow(db, publicId, req.user?.id ?? 0);
+        replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id, req.user?.id ?? 0);
+        linkOpenSeriesTasksToMeeting(db, series.id, row.id, req.user?.id ?? 0);
+        const meeting = toMeeting(db, config, getMeetingRow(db, publicId, req.user?.id ?? 0), req.user?.id ?? 0);
         recordAuditEvent(db, {
           entityType: "meeting",
           entityPublicId: meeting.publicId,
@@ -378,38 +422,52 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     }
   });
 
-  meetingsRouter.get("/", (_req, res) => {
+  meetingsRouter.get("/", (req, res) => {
+    const userId = req.user?.id ?? 0;
     const rows = db
       .prepare(
         `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
                 meetings.meeting_type, meeting_series.public_id AS series_public_id,
-                meetings.summary, meetings.archived_at
+                meetings.summary, meetings.private, meetings.created_by_user_id, meetings.archived_at
          FROM meetings
          LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
          WHERE meetings.archived_at IS NULL
+         AND ${visibleMeetingCondition()}
          ORDER BY meetings.starts_at DESC`,
       )
-      .all() as MeetingRow[];
+      .all(userId) as MeetingRow[];
 
-    res.json({ meetings: rows.map((row) => toMeeting(db, config, row)) });
+    res.json({ meetings: rows.map((row) => toMeeting(db, config, row, userId)) });
   });
 
   meetingsRouter.post("/", (req, res, next) => {
     try {
       const input = parseBody(req, meetingInputSchema);
-      res.status(201).json({ meeting: createMeeting(db, config, input, req.user?.id ?? null) });
+      res.status(201).json({ meeting: createMeeting(db, config, input, req.user?.id ?? 0) });
     } catch (error) {
       next(error);
     }
   });
 
-  meetingsRouter.get("/:publicId/audit", (req, res) => {
-    res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
+  meetingsRouter.get("/:publicId/audit", (req, res, next) => {
+    try {
+      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0);
+      res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
+    } catch (error) {
+      next(error);
+    }
   });
 
   meetingsRouter.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ meeting: toMeeting(db, config, getMeetingRow(db, req.params.publicId)) });
+      res.json({
+        meeting: toMeeting(
+          db,
+          config,
+          getMeetingRow(db, req.params.publicId, req.user?.id ?? 0),
+          req.user?.id ?? 0,
+        ),
+      });
     } catch (error) {
       next(error);
     }
@@ -419,8 +477,12 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const input = parseBody(req, meetingInputSchema);
       const meeting = withTransaction(db, () => {
-        const existing = getMeetingRow(db, req.params.publicId);
-        const before = toMeeting(db, config, existing);
+        const userId = req.user?.id ?? 0;
+        const existing = getMeetingRow(db, req.params.publicId, userId);
+        if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
+          throw badRequest("Only the creator can make this meeting private");
+        }
+        const before = toMeeting(db, config, existing, userId);
         const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
 
         if (input.meetingType === "single" && series) {
@@ -431,10 +493,14 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           throw badRequest("Recurring meetings require a meeting series");
         }
 
+        const createdByUserId =
+          input.private && existing.created_by_user_id === null
+            ? userId
+            : existing.created_by_user_id;
         db.prepare(
           `UPDATE meetings
            SET title = ?, starts_at = ?, meeting_type = ?, series_id = ?,
-               summary = ?, updated_at = CURRENT_TIMESTAMP
+               summary = ?, private = ?, created_by_user_id = ?, updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
         ).run(
           input.title,
@@ -442,6 +508,8 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.meetingType,
           series?.id ?? null,
           input.summary,
+          input.private ? 1 : 0,
+          createdByUserId,
           existing.id,
         );
 
@@ -451,9 +519,10 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.attendeePublicIds,
           input.taskPublicIds,
           series?.id ?? null,
+          userId,
         );
 
-        const updated = toMeeting(db, config, getMeetingRow(db, req.params.publicId));
+        const updated = toMeeting(db, config, getMeetingRow(db, req.params.publicId, userId), userId);
         recordAuditEvent(db, {
           entityType: "meeting",
           entityPublicId: updated.publicId,
@@ -475,15 +544,18 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
   meetingsRouter.post("/:publicId/archive", (req, res, next) => {
     try {
       withTransaction(db, () => {
-        const existing = getMeetingRow(db, req.params.publicId);
-        const before = toMeeting(db, config, existing);
+        const userId = req.user?.id ?? 0;
+        const existing = getMeetingRow(db, req.params.publicId, userId);
+        const before = toMeeting(db, config, existing, userId);
         const result = db
           .prepare(
             `UPDATE meetings
              SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NULL`,
           )
-          .run(req.params.publicId);
+          .run(req.params.publicId, userId);
 
         if (result.changes === 0) throw notFound("Meeting not found");
         recordAuditEvent(db, {

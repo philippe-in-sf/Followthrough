@@ -153,4 +153,85 @@ describe("meetings", () => {
       "T001",
     ]);
   });
+
+  it("keeps private meetings visible only to their creator", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    const meeting = await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Private planning",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Sensitive work.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+        private: true,
+      });
+
+    expect(meeting.status).toBe(201);
+    expect(meeting.body.meeting.private).toBe(true);
+
+    const ownerList = await request(app).get("/api/meetings").set("Cookie", cookie);
+    expect(
+      ownerList.body.meetings.map((item: { publicId: string }) => item.publicId),
+    ).toContain("M001");
+
+    const viewerList = await request(app).get("/api/meetings").set("Cookie", viewerCookie);
+    expect(
+      viewerList.body.meetings.map((item: { publicId: string }) => item.publicId),
+    ).not.toContain("M001");
+
+    const viewerGet = await request(app).get("/api/meetings/M001").set("Cookie", viewerCookie);
+    expect(viewerGet.status).toBe(404);
+  });
+
+  it("does not expose private linked tasks through public meetings", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Shared planning",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Visible meeting.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+      });
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private follow-up",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-16",
+      originMeetingPublicId: "M001",
+      private: true,
+    });
+
+    const ownerMeeting = await request(app).get("/api/meetings/M001").set("Cookie", cookie);
+    expect(ownerMeeting.body.meeting.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
+      "T001",
+    ]);
+
+    const viewerMeeting = await request(app).get("/api/meetings/M001").set("Cookie", viewerCookie);
+    expect(viewerMeeting.status).toBe(200);
+    expect(viewerMeeting.body.meeting.tasks).toEqual([]);
+  });
 });

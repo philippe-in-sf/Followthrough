@@ -46,7 +46,7 @@ async function setup() {
     context: "Enough review time.",
     meetingPublicId: "M001",
   });
-  return { app, cookie };
+  return { app, cookie, personPublicId: person.body.person.publicId };
 }
 
 afterEach(() => {
@@ -86,5 +86,56 @@ describe("search and dashboard", () => {
     expect(response.body.alerts.dueSoon).toHaveLength(1);
     expect(response.body.openTasksByAssignee[0].assignee.name).toBe("Taylor");
     expect(response.body.recentDecisions[0].publicId).toBe("D001");
+  });
+
+  it("excludes another user's private tasks and meetings from search and dashboard", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private packet",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-10",
+      private: true,
+    });
+    await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Private packet review",
+        startsAt: "2026-06-10T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Private packet timing.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+        private: true,
+      });
+
+    const ownerSearch = await request(app).get("/api/search?q=Private").set("Cookie", cookie);
+    expect(ownerSearch.body.results.map((result: { publicId: string }) => result.publicId)).toEqual(
+      expect.arrayContaining(["T002", "M002"]),
+    );
+
+    const viewerSearch = await request(app).get("/api/search?q=Private").set("Cookie", viewerCookie);
+    expect(viewerSearch.body.results).toEqual([]);
+
+    const ownerDashboard = await request(app).get("/api/dashboard").set("Cookie", cookie);
+    expect(ownerDashboard.body.alerts.dueSoon).toHaveLength(2);
+    expect(
+      ownerDashboard.body.recentMeetings.map((meeting: { publicId: string }) => meeting.publicId),
+    ).toContain("M002");
+
+    const viewerDashboard = await request(app).get("/api/dashboard").set("Cookie", viewerCookie);
+    expect(viewerDashboard.body.alerts.dueSoon).toHaveLength(1);
+    expect(
+      viewerDashboard.body.recentMeetings.map((meeting: { publicId: string }) => meeting.publicId),
+    ).not.toContain("M002");
   });
 });

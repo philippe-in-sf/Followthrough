@@ -230,4 +230,44 @@ describe("tasks", () => {
     ]);
     expect(sentEmails).toHaveLength(1);
   });
+
+  it("keeps private tasks visible only to their creator", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    const privateTask = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private task",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+      private: true,
+    });
+
+    expect(privateTask.status).toBe(201);
+    expect(privateTask.body.task.private).toBe(true);
+
+    const ownerList = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(ownerList.body.tasks.map((task: { publicId: string }) => task.publicId)).toContain(
+      "T001",
+    );
+
+    const viewerList = await request(app).get("/api/tasks").set("Cookie", viewerCookie);
+    expect(viewerList.body.tasks.map((task: { publicId: string }) => task.publicId)).not.toContain(
+      "T001",
+    );
+
+    const viewerGet = await request(app).get("/api/tasks/T001").set("Cookie", viewerCookie);
+    expect(viewerGet.status).toBe(404);
+
+    const viewerAudit = await request(app)
+      .get("/api/tasks/T001/audit")
+      .set("Cookie", viewerCookie);
+    expect(viewerAudit.status).toBe(404);
+  });
 });

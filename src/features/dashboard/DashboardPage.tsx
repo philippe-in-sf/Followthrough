@@ -17,6 +17,7 @@ function TaskLine({ task }: { task: DashboardTask }) {
         <span className="compact-task-meta">
           <small>{task.assignee?.name ?? "Unassigned"}</small>
           {task.dueDate ? <small>{task.dueDate}</small> : null}
+          {task.private ? <small>Private</small> : null}
         </span>
       </span>
     </li>

@@ -10,9 +10,10 @@ A single-server multi-user task manager for meetings, tasks, standalone tasks, d
 - Single meetings and recurring meeting series
 - Manual next-occurrence creation for recurring meetings
 - Recurring occurrences carry over the same unfinished series tasks
-- Tasks with description, assignee, status, due date, alerts, and public IDs like `T001`
+- Tasks with description, assignee, status, due date, optional creator-only privacy, alerts, and public IDs like `T001`
 - Standalone tasks outside meetings
 - Manual and automatic email reminders for outstanding tasks
+- Meetings with optional creator-only privacy
 - Decisions with optional meeting link and public IDs like `D001`
 - Global search across IDs, tasks, meetings, decisions, and people
 - In-app overdue and due-soon task alerting
@@ -30,10 +31,14 @@ The database uses Node's built-in SQLite support, so older Node versions are not
 npm install
 cp .env.example .env
 npm run invite:create -- --code=team-start --limit=10 --label=Initial
+npm run user:create -- --name="Philippe" --email=philippe@example.com
 npm run dev
 ```
 
 Open `http://localhost:3000`, sign up with the invite code, then log in.
+
+`npm run user:create` creates a login directly in the configured database. Omit
+`--password` to generate a temporary password, or pass `--password=...` to set one.
 
 ## Configuration
 

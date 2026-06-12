@@ -43,6 +43,7 @@ function setupAppFetch() {
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "overdue",
+      private: false,
       archived: false,
     },
     {
@@ -56,6 +57,7 @@ function setupAppFetch() {
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "dueSoon",
+      private: false,
       archived: false,
     },
   ];
@@ -91,6 +93,7 @@ function setupAppFetch() {
       summary: "Launch readiness",
       attendees: [avery],
       tasks: [tasks[1]],
+      private: false,
       archived: false,
     },
   ];
@@ -212,6 +215,7 @@ function setupAppFetch() {
         reminderMode: body.reminderMode ?? "automatic",
         lastReminderSentAt: null,
         alert: null,
+        private: body.private ?? false,
         archived: false,
       };
       tasks.push(task);
@@ -311,6 +315,7 @@ function setupAppFetch() {
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [tasks[1]],
+        private: body.private ?? false,
         archived: false,
       };
       meetings.unshift(meeting);
@@ -336,6 +341,7 @@ function setupAppFetch() {
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [],
+        private: body.private ?? false,
         archived: false,
       };
       meetings.push(meeting);

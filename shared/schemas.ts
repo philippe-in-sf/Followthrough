@@ -18,6 +18,7 @@ export const taskInputSchema = z.object({
   originMeetingPublicId: publicIdSchema.optional().nullable(),
   seriesPublicId: publicIdSchema.optional().nullable(),
   reminderMode: taskReminderModeSchema.default("automatic"),
+  private: z.boolean().default(false),
 });
 
 export const meetingInputSchema = z.object({
@@ -28,6 +29,7 @@ export const meetingInputSchema = z.object({
   summary: z.string().trim().default(""),
   attendeePublicIds: z.array(publicIdSchema).default([]),
   taskPublicIds: z.array(publicIdSchema).default([]),
+  private: z.boolean().default(false),
 });
 
 export const meetingSeriesInputSchema = z.object({

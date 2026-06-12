@@ -24,6 +24,7 @@ type MeetingFormState = {
   attendeePublicIds: string[];
   attendeeNames: string;
   taskPublicIds: string[];
+  private: boolean;
 };
 
 type SeriesFormState = {
@@ -39,6 +40,7 @@ type OccurrenceFormState = {
   summary: string;
   attendeePublicIds: string[];
   attendeeNames: string;
+  private: boolean;
 };
 
 type MeetingTaskFormState = {
@@ -46,6 +48,7 @@ type MeetingTaskFormState = {
   assigneePublicId: string;
   status: TaskDto["status"];
   dueDate: string;
+  private: boolean;
 };
 
 type MeetingLane = {
@@ -66,6 +69,7 @@ const emptyMeetingForm: MeetingFormState = {
   attendeePublicIds: [],
   attendeeNames: "",
   taskPublicIds: [],
+  private: false,
 };
 
 const emptySeriesForm: SeriesFormState = {
@@ -81,6 +85,7 @@ const emptyOccurrenceForm: OccurrenceFormState = {
   summary: "",
   attendeePublicIds: [],
   attendeeNames: "",
+  private: false,
 };
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
@@ -88,6 +93,7 @@ const emptyMeetingTaskForm: MeetingTaskFormState = {
   assigneePublicId: "",
   status: "Open",
   dueDate: "",
+  private: false,
 };
 
 function toApiDateTime(value: string) {
@@ -265,6 +271,7 @@ export function MeetingsPage() {
       summary: meetingForm.summary,
       attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
+      private: meetingForm.private,
     };
 
     await api.meetings.create(body);
@@ -283,6 +290,7 @@ export function MeetingsPage() {
       startsAt: toApiDateTime(occurrenceForm.startsAt),
       summary: occurrenceForm.summary,
       attendeePublicIds,
+      private: occurrenceForm.private,
     });
     setOccurrenceForm(emptyOccurrenceForm);
     await load();
@@ -300,6 +308,7 @@ export function MeetingsPage() {
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
       attendeeNames: "",
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
+      private: meeting.private,
     });
   }
 
@@ -320,6 +329,7 @@ export function MeetingsPage() {
       summary: meetingEditForm.summary,
       attendeePublicIds,
       taskPublicIds: meetingEditForm.taskPublicIds,
+      private: meetingEditForm.private,
     });
     setEditingMeetingPublicId(null);
     setMeetingEditForm(emptyMeetingForm);
@@ -353,6 +363,7 @@ export function MeetingsPage() {
       dueDate: form.dueDate || null,
       originMeetingPublicId: meeting.publicId,
       seriesPublicId: meeting.seriesPublicId,
+      private: form.private,
     });
     setMeetingTaskForms((current) => ({
       ...current,
@@ -460,6 +471,16 @@ export function MeetingsPage() {
               placeholder="Morgan, Taylor"
             />
           </FormField>
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={occurrenceForm.private}
+              onChange={(event) =>
+                setOccurrenceForm({ ...occurrenceForm, private: event.target.checked })
+              }
+            />
+            <span>Private</span>
+          </label>
           <button className="primary-button" type="submit">
             Create occurrence
           </button>
@@ -545,6 +566,16 @@ export function MeetingsPage() {
           onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
         />
         <div className="form-actions">
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={meetingForm.private}
+              onChange={(event) =>
+                setMeetingForm({ ...meetingForm, private: event.target.checked })
+              }
+            />
+            <span>Private</span>
+          </label>
           <button className="primary-button" type="submit">
             Add meeting
           </button>
@@ -604,6 +635,7 @@ export function MeetingsPage() {
                   <span>{meeting.publicId}</span>
                 </div>
                 <StatusBadge label={meeting.meetingType} />
+                {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
                 <span>{new Date(meeting.startsAt).toLocaleString()}</span>
                 <span>{meeting.summary || "No summary"}</span>
                 <span>
@@ -734,6 +766,19 @@ export function MeetingsPage() {
                       setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
                     }
                   />
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={meetingEditForm.private}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          private: event.target.checked,
+                        })
+                      }
+                    />
+                    <span>Private</span>
+                  </label>
                   <div className="form-actions">
                     <button className="primary-button" type="submit">
                       Save meeting {meeting.publicId}
@@ -807,6 +852,18 @@ export function MeetingsPage() {
                     }
                   />
                 </FormField>
+                <label className="checkbox-line">
+                  <input
+                    type="checkbox"
+                    checked={getMeetingTaskForm(meeting.publicId).private}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        private: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Private</span>
+                </label>
                 <button className="primary-button" type="submit">
                   Add task to {meeting.publicId}
                 </button>

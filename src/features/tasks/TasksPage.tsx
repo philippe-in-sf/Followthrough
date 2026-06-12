@@ -36,6 +36,7 @@ type TaskFormState = {
   originMeetingPublicId: string | null;
   seriesPublicId: string | null;
   reminderMode: TaskReminderMode;
+  private: boolean;
 };
 
 const emptyTaskForm: TaskFormState = {
@@ -46,6 +47,7 @@ const emptyTaskForm: TaskFormState = {
   originMeetingPublicId: null,
   seriesPublicId: null,
   reminderMode: "automatic",
+  private: false,
 };
 
 function countLabel(count: number, singular: string) {
@@ -157,6 +159,7 @@ export function TasksPage() {
       originMeetingPublicId: form.originMeetingPublicId,
       seriesPublicId: form.seriesPublicId,
       reminderMode: form.reminderMode,
+      private: form.private,
     };
 
     await api.tasks.create(body);
@@ -174,6 +177,7 @@ export function TasksPage() {
       originMeetingPublicId: task.originMeetingPublicId,
       seriesPublicId: task.seriesPublicId,
       reminderMode: task.reminderMode,
+      private: task.private,
     });
   }
 
@@ -187,6 +191,7 @@ export function TasksPage() {
       originMeetingPublicId: taskEditForm.originMeetingPublicId,
       seriesPublicId: taskEditForm.seriesPublicId,
       reminderMode: taskEditForm.reminderMode,
+      private: taskEditForm.private,
     });
     setEditingTaskPublicId(null);
     setTaskEditForm(emptyTaskForm);
@@ -272,6 +277,14 @@ export function TasksPage() {
           </select>
         </FormField>
         <div className="form-actions">
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={form.private}
+              onChange={(event) => setForm({ ...form, private: event.target.checked })}
+            />
+            <span>Private</span>
+          </label>
           <button className="primary-button" type="submit">
             Add task
           </button>
@@ -351,6 +364,7 @@ export function TasksPage() {
                       <StatusBadge
                         label={task.reminderMode === "automatic" ? "Auto reminders" : "Manual only"}
                       />
+                      {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
                       <span>{task.assignee?.name ?? "Unassigned"}</span>
                       <span>{task.dueDate ?? "No due date"}</span>
                       <button
@@ -459,6 +473,19 @@ export function TasksPage() {
                               ))}
                             </select>
                           </FormField>
+                          <label className="checkbox-line">
+                            <input
+                              type="checkbox"
+                              checked={taskEditForm.private}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  private: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>Private</span>
+                          </label>
                           <div className="form-actions">
                             <button className="primary-button" type="submit">
                               Save task {task.publicId}
