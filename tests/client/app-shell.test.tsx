@@ -31,7 +31,7 @@ describe("AppShell split context rail", () => {
   it("renders accessible icon navigation and selected-section context", () => {
     renderShell("Dashboard");
 
-    expect(screen.getByLabelText("Task Manager")).toBeInTheDocument();
+    expect(screen.getByLabelText("Followthrough")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Primary sections" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Tasks" })).not.toHaveAttribute("aria-current");

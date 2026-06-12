@@ -56,9 +56,25 @@ textarea {
   border-radius: 8px;
   background: #0f766e;
   color: #ffffff;
-  font-size: 0.84rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 10px 22px rgba(2, 44, 34, 0.24);
+}
+
+.followthrough-mark {
+  width: 42px;
+  height: 42px;
+}
+
+.mark-letter {
+  fill: #ffffff;
+}
+
+.mark-forward {
+  fill: none;
+  stroke: #facc15;
+  stroke-linecap: round;
+  stroke-width: 3.8;
 }
 
 .icon-rail-nav {
