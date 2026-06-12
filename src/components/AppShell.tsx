@@ -1,11 +1,12 @@
 import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import type { User } from "../api/types";
+import { ContextRail } from "./ContextRail";
 import { GlobalSearch } from "./GlobalSearch";
+import { IconRail } from "./IconRail";
+import type { AppSection } from "./shellNavigation";
 
-const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People"] as const;
-
-export type AppSection = (typeof navItems)[number];
+export type { AppSection } from "./shellNavigation";
 
 export function AppShell({
   user,
@@ -24,22 +25,8 @@ export function AppShell({
 }) {
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <h1>Task Manager</h1>
-        <nav aria-label="Primary">
-          {navItems.map((item) => (
-            <button
-              key={item}
-              className={item === section ? "active" : ""}
-              onClick={() => onSectionChange(item)}
-              type="button"
-            >
-              {item}
-            </button>
-          ))}
-        </nav>
-        <p className="app-version">Version {version}</p>
-      </aside>
+      <IconRail section={section} onSectionChange={onSectionChange} version={version} />
+      <ContextRail section={section} />
       <div className="workspace">
         <header className="topbar">
           <GlobalSearch onOpenSection={onSectionChange} />
