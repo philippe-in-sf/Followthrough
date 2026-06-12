@@ -50,7 +50,10 @@ describe("auth shell", () => {
     await userEvent.type(screen.getByLabelText(/password/i), "long-enough-password");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    await waitFor(() => expect(screen.getByRole("navigation")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "Primary sections" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
     expect(screen.getByText(`Version ${appVersion}`)).toBeInTheDocument();
   });
