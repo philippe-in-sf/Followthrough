@@ -29,7 +29,7 @@ export function IconRail({
           </button>
         ))}
       </nav>
-      <p className="rail-version">
+      <p className="rail-version" aria-label={`Version ${version}`}>
         <span className="rail-version-label">Version </span>
         {version}
       </p>

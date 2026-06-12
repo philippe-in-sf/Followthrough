@@ -38,7 +38,7 @@ describe("AppShell split context rail", () => {
     expect(screen.getByText("Today's operational picture, task pressure, and recent activity.")).toBeInTheDocument();
     expect(screen.getByText("Overdue")).toBeInTheDocument();
     expect(screen.getByText("Due soon")).toBeInTheDocument();
-    expect(screen.getByText("Version 1.0.1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Version 1.0.1")).toBeInTheDocument();
   });
 
   it("switches sections from the icon rail", async () => {

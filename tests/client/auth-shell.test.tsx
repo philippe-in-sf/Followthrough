@@ -55,6 +55,6 @@ describe("auth shell", () => {
     );
     expect(screen.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
-    expect(screen.getByText(`Version ${appVersion}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`Version ${appVersion}`)).toBeInTheDocument();
   });
 });
