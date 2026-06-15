@@ -26,6 +26,37 @@ export type TaskDto = {
   archived: boolean;
 };
 
+export type PersonRelatedTaskDto = {
+  publicId: string;
+  description: string;
+  status: TaskStatus;
+  dueDate: string | null;
+  private: boolean;
+};
+
+export type PersonRelatedMeetingDto = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  meetingType: MeetingType;
+  private: boolean;
+};
+
+export type PersonRelatedDecisionDto = {
+  publicId: string;
+  decisionText: string;
+  decisionDate: string;
+  context: string;
+  meetingPublicId: string;
+};
+
+export type PersonRelatedRecordsDto = {
+  person: PersonDto;
+  tasks: PersonRelatedTaskDto[];
+  meetings: PersonRelatedMeetingDto[];
+  decisions: PersonRelatedDecisionDto[];
+};
+
 export type MeetingDto = {
   publicId: string;
   title: string;

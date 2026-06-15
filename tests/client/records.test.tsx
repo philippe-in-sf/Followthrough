@@ -239,4 +239,90 @@ describe("record pages", () => {
     expect(await screen.findByText("Avery Stone")).toBeInTheDocument();
     expect(screen.getByText("avery.stone@example.com")).toBeInTheDocument();
   });
+
+  it("shows related records when a person record is selected", async () => {
+    const people = [
+      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
+    ];
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/me")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: { id: 1, name: "Editor", email: "editor@example.com" },
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            alerts: { overdue: [], dueSoon: [] },
+            openTasksByAssignee: [],
+            recentMeetings: [],
+            recentDecisions: [],
+            activeSeries: [],
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ people }) } as Response);
+      }
+      if (url.endsWith("/api/people/P001/audit") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ auditEvents: [] }) } as Response);
+      }
+      if (url.endsWith("/api/people/P001/records") && method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            person: people[0],
+            meetings: [
+              {
+                publicId: "M001",
+                title: "Planning sync",
+                startsAt: "2026-06-10T15:00:00.000Z",
+                meetingType: "single",
+                private: false,
+              },
+            ],
+            tasks: [
+              {
+                publicId: "T001",
+                description: "Send notes",
+                status: "Open",
+                dueDate: "2026-06-12",
+                private: false,
+              },
+            ],
+            decisions: [
+              {
+                publicId: "D001",
+                decisionText: "Ship the launch plan",
+                decisionDate: "2026-06-10",
+                context: "Planning sync",
+                meetingPublicId: "M001",
+              },
+            ],
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "People" }));
+    await userEvent.click(await screen.findByRole("button", { name: "View records for P001" }));
+
+    const related = await screen.findByRole("region", { name: "Related records for P001" });
+    expect(within(related).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
+    expect(within(related).getByText("Planning sync")).toBeInTheDocument();
+    expect(within(related).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    expect(within(related).getByText("Send notes")).toBeInTheDocument();
+    expect(within(related).getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    expect(within(related).getByText("Ship the launch plan")).toBeInTheDocument();
+  });
 });

@@ -6,6 +6,7 @@ import type {
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
+  PersonRelatedRecordsDto,
   TaskDto,
   TaskReminderMode,
   TaskStatus,
@@ -153,6 +154,8 @@ export const api = {
       }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/people/${publicId}/audit`),
+    records: (publicId: string) =>
+      request<PersonRelatedRecordsDto>(`/api/people/${publicId}/records`),
   },
   tasks: {
     list: (query = "") => request<{ tasks: TaskDto[] }>(`/api/tasks${query}`),

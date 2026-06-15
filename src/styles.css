@@ -693,6 +693,117 @@ button:disabled {
   min-width: 0;
 }
 
+.person-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.person-row-selected {
+  border-color: #2563eb;
+}
+
+.person-record-trigger {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-record-trigger:hover,
+.person-record-trigger:focus-visible {
+  background: #f8fafc;
+}
+
+.person-record-trigger:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: -3px;
+}
+
+.person-record-trigger div {
+  display: grid;
+  gap: 4px;
+}
+
+.person-row > .secondary-button {
+  align-self: center;
+  margin-right: 14px;
+}
+
+.person-related-records {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+
+.person-related-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.person-related-header h3,
+.person-related-section h4,
+.person-related-records p {
+  margin: 0;
+}
+
+.person-related-header span {
+  color: #5b6475;
+  font-size: 0.85rem;
+}
+
+.person-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.person-related-section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.person-related-section h4 {
+  font-size: 0.9rem;
+}
+
+.person-related-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.person-related-list li {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.person-related-list span {
+  color: #5b6475;
+  font-size: 0.84rem;
+}
+
 .lane-stack {
   display: grid;
   gap: 16px;
@@ -1164,6 +1275,15 @@ button:disabled {
   .meeting-task-form,
   .compact-list li {
     grid-template-columns: 1fr;
+  }
+
+  .person-record-trigger {
+    grid-template-columns: 1fr;
+  }
+
+  .person-row > .secondary-button {
+    justify-self: start;
+    margin: 0 14px 12px;
   }
 
   .lane-header,
