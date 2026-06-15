@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
 
 function formatDate(value: string | null) {
   return value ?? "No due date";
@@ -182,7 +183,9 @@ export function PeoplePage() {
                           <ul className="person-related-list">
                             {relatedRecords[person.publicId].meetings.map((meeting) => (
                               <li key={meeting.publicId}>
-                                <strong>{meeting.title}</strong>
+                                <strong>
+                                  <LinkedText text={meeting.title} />
+                                </strong>
                                 <span>
                                   {meeting.publicId} - {formatMeetingTime(meeting.startsAt)}
                                 </span>
@@ -199,7 +202,9 @@ export function PeoplePage() {
                           <ul className="person-related-list">
                             {relatedRecords[person.publicId].tasks.map((task) => (
                               <li key={task.publicId}>
-                                <strong>{task.description}</strong>
+                                <strong>
+                                  <LinkedText text={task.description} />
+                                </strong>
                                 <span>
                                   {task.publicId} - {task.status} - {formatDate(task.dueDate)}
                                 </span>
@@ -216,7 +221,9 @@ export function PeoplePage() {
                           <ul className="person-related-list">
                             {relatedRecords[person.publicId].decisions.map((decision) => (
                               <li key={decision.publicId}>
-                                <strong>{decision.decisionText}</strong>
+                                <strong>
+                                  <LinkedText text={decision.decisionText} />
+                                </strong>
                                 <span>
                                   {decision.publicId} - {decision.decisionDate} -{" "}
                                   {decision.meetingPublicId}

@@ -291,7 +291,8 @@ describe("record pages", () => {
             tasks: [
               {
                 publicId: "T001",
-                description: "Send notes",
+                description:
+                  "Send notes (https://docs.google.com/presentation/d/example/edit#slide=id.g1)",
                 status: "Open",
                 dueDate: "2026-06-12",
                 private: false,
@@ -321,7 +322,11 @@ describe("record pages", () => {
     expect(within(related).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
     expect(within(related).getByText("Planning sync")).toBeInTheDocument();
     expect(within(related).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
-    expect(within(related).getByText("Send notes")).toBeInTheDocument();
+    expect(related).toHaveTextContent("Send notes (link)");
+    expect(within(related).getByRole("link", { name: "link" })).toHaveAttribute(
+      "href",
+      "https://docs.google.com/presentation/d/example/edit#slide=id.g1",
+    );
     expect(within(related).getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
     expect(within(related).getByText("Ship the launch plan")).toBeInTheDocument();
   });

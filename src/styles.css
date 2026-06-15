@@ -770,12 +770,14 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .person-related-section {
   display: grid;
   align-content: start;
   gap: 8px;
+  min-width: 0;
 }
 
 .person-related-section h4 {
@@ -796,7 +798,15 @@ button:disabled {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #ffffff;
+  min-width: 0;
   padding: 8px;
+}
+
+.person-related-list strong,
+.person-related-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .person-related-list span {
