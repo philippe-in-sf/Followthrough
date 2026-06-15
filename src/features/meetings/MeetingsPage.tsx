@@ -1,7 +1,10 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
 import type {
   AuditLogDto,
   MeetingDto,
+  MeetingLinkDto,
+  MeetingLinkType,
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
@@ -11,7 +14,9 @@ import { api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
+import { scrollRecordIntoView } from "../../recordFocus";
 
 type MeetingFormState = {
   publicId: string;
@@ -23,6 +28,7 @@ type MeetingFormState = {
   attendeePublicIds: string[];
   attendeeNames: string;
   taskPublicIds: string[];
+  private: boolean;
 };
 
 type SeriesFormState = {
@@ -38,6 +44,7 @@ type OccurrenceFormState = {
   summary: string;
   attendeePublicIds: string[];
   attendeeNames: string;
+  private: boolean;
 };
 
 type MeetingTaskFormState = {
@@ -45,6 +52,13 @@ type MeetingTaskFormState = {
   assigneePublicId: string;
   status: TaskDto["status"];
   dueDate: string;
+  private: boolean;
+};
+
+type MeetingLinkFormState = {
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 type MeetingLane = {
@@ -65,6 +79,7 @@ const emptyMeetingForm: MeetingFormState = {
   attendeePublicIds: [],
   attendeeNames: "",
   taskPublicIds: [],
+  private: false,
 };
 
 const emptySeriesForm: SeriesFormState = {
@@ -80,6 +95,7 @@ const emptyOccurrenceForm: OccurrenceFormState = {
   summary: "",
   attendeePublicIds: [],
   attendeeNames: "",
+  private: false,
 };
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
@@ -87,10 +103,27 @@ const emptyMeetingTaskForm: MeetingTaskFormState = {
   assigneePublicId: "",
   status: "Open",
   dueDate: "",
+  private: false,
 };
 
+const emptyMeetingLinkForm: MeetingLinkFormState = {
+  label: "",
+  url: "",
+  linkType: "agenda",
+};
+
+const meetingLinkTypes: Array<{ value: MeetingLinkType; label: string }> = [
+  { value: "agenda", label: "Agenda" },
+  { value: "work", label: "Work" },
+  { value: "reference", label: "Reference" },
+  { value: "other", label: "Other" },
+];
+
 function toApiDateTime(value: string) {
-  return new Date(value).toISOString();
+  const [datePart, timePart = "00:00"] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour = 0, minute = 0, second = 0] = timePart.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute, second).toISOString();
 }
 
 function toDateTimeInputValue(value: string) {
@@ -113,6 +146,26 @@ function countLabel(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function taskOptionLabel(task: TaskDto) {
+  return (
+    <>
+      {task.publicId} <LinkedText text={task.description} />
+    </>
+  );
+}
+
+function toMeetingLinkForm(link: MeetingLinkDto): MeetingLinkFormState {
+  return {
+    label: link.label,
+    url: link.url,
+    linkType: link.linkType,
+  };
+}
+
+function linkTypeLabel(value: MeetingLinkType) {
+  return meetingLinkTypes.find((type) => type.value === value)?.label ?? "Link";
+}
+
 function CheckboxGroup({
   legend,
   options,
@@ -120,7 +173,7 @@ function CheckboxGroup({
   onChange,
 }: {
   legend: string;
-  options: Array<{ publicId: string; label: string }>;
+  options: Array<{ publicId: string; label: ReactNode }>;
   selected: string[];
   onChange: (values: string[]) => void;
 }) {
@@ -147,7 +200,13 @@ function CheckboxGroup({
   );
 }
 
-export function MeetingsPage() {
+export function MeetingsPage({
+  focusMeetingPublicId,
+  onMeetingFocusHandled,
+}: {
+  focusMeetingPublicId?: string | null;
+  onMeetingFocusHandled?: () => void;
+}) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
@@ -160,6 +219,10 @@ export function MeetingsPage() {
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
+  const [activeNotesMeetingPublicId, setActiveNotesMeetingPublicId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [linkDrafts, setLinkDrafts] = useState<MeetingLinkFormState[]>([]);
+  const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
   const meetingLoadRequestId = useRef(0);
 
   const meetingLanes = useMemo<MeetingLane[]>(() => {
@@ -190,6 +253,11 @@ export function MeetingsPage() {
 
     return lanes.filter((lane) => lane.meetings.length > 0);
   }, [meetings]);
+
+  const activeNotesMeeting = useMemo(
+    () => meetings.find((meeting) => meeting.publicId === activeNotesMeetingPublicId) ?? null,
+    [activeNotesMeetingPublicId, meetings],
+  );
 
   async function load() {
     const requestId = meetingLoadRequestId.current + 1;
@@ -264,6 +332,7 @@ export function MeetingsPage() {
       summary: meetingForm.summary,
       attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
+      private: meetingForm.private,
     };
 
     await api.meetings.create(body);
@@ -282,6 +351,7 @@ export function MeetingsPage() {
       startsAt: toApiDateTime(occurrenceForm.startsAt),
       summary: occurrenceForm.summary,
       attendeePublicIds,
+      private: occurrenceForm.private,
     });
     setOccurrenceForm(emptyOccurrenceForm);
     await load();
@@ -299,8 +369,19 @@ export function MeetingsPage() {
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
       attendeeNames: "",
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
+      private: meeting.private,
     });
   }
+
+  useEffect(() => {
+    if (!focusMeetingPublicId) return;
+    const meeting = meetings.find((item) => item.publicId === focusMeetingPublicId);
+    if (!meeting) return;
+
+    editMeeting(meeting);
+    scrollRecordIntoView(`meeting-${meeting.publicId}`);
+    onMeetingFocusHandled?.();
+  }, [focusMeetingPublicId, meetings, onMeetingFocusHandled]);
 
   async function submitMeetingEdit(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
     event.preventDefault();
@@ -317,8 +398,11 @@ export function MeetingsPage() {
           ? meetingEditForm.seriesPublicId || null
           : null,
       summary: meetingEditForm.summary,
+      notes: meeting.notes,
+      links: meeting.links.map(toMeetingLinkForm),
       attendeePublicIds,
       taskPublicIds: meetingEditForm.taskPublicIds,
+      private: meetingEditForm.private,
     });
     setEditingMeetingPublicId(null);
     setMeetingEditForm(emptyMeetingForm);
@@ -352,12 +436,266 @@ export function MeetingsPage() {
       dueDate: form.dueDate || null,
       originMeetingPublicId: meeting.publicId,
       seriesPublicId: meeting.seriesPublicId,
+      private: form.private,
     });
     setMeetingTaskForms((current) => ({
       ...current,
       [meeting.publicId]: emptyMeetingTaskForm,
     }));
     await load();
+  }
+
+  function openMeetingNotes(meeting: MeetingDto) {
+    setActiveNotesMeetingPublicId(meeting.publicId);
+    setEditingMeetingPublicId(null);
+    setNotesDraft(meeting.notes);
+    setLinkDrafts(meeting.links.map(toMeetingLinkForm));
+    setNewLinkForm(emptyMeetingLinkForm);
+  }
+
+  function closeMeetingNotes() {
+    setActiveNotesMeetingPublicId(null);
+    setNotesDraft("");
+    setLinkDrafts([]);
+    setNewLinkForm(emptyMeetingLinkForm);
+  }
+
+  function updateLinkDraft(index: number, changes: Partial<MeetingLinkFormState>) {
+    setLinkDrafts((current) =>
+      current.map((link, currentIndex) =>
+        currentIndex === index ? { ...link, ...changes } : link,
+      ),
+    );
+  }
+
+  function removeLinkDraft(index: number) {
+    setLinkDrafts((current) => current.filter((_link, currentIndex) => currentIndex !== index));
+  }
+
+  function addLinkDraft() {
+    setLinkDrafts((current) => [...current, newLinkForm]);
+    setNewLinkForm(emptyMeetingLinkForm);
+  }
+
+  async function submitMeetingNotes(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
+    event.preventDefault();
+    const pendingLink =
+      newLinkForm.label.trim() && newLinkForm.url.trim() ? [newLinkForm] : [];
+    const links = [...linkDrafts, ...pendingLink];
+    await api.meetings.update(meeting.publicId, {
+      title: meeting.title,
+      startsAt: meeting.startsAt,
+      meetingType: meeting.meetingType,
+      seriesPublicId: meeting.seriesPublicId,
+      summary: meeting.summary,
+      notes: notesDraft,
+      links,
+      attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
+      taskPublicIds: meeting.tasks.map((task) => task.publicId),
+      private: meeting.private,
+    });
+    setLinkDrafts(links);
+    setNewLinkForm(emptyMeetingLinkForm);
+    await load();
+  }
+
+  if (activeNotesMeeting) {
+    return (
+      <main className="page meeting-notes-page">
+        <header className="page-header meeting-notes-header">
+          <div className="meeting-notes-titlebar">
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={closeMeetingNotes}
+            >
+              <ArrowLeft aria-hidden="true" size={17} />
+              Back
+            </button>
+            <div>
+              <h2>{activeNotesMeeting.title}</h2>
+              <p>
+                {activeNotesMeeting.publicId} ·{" "}
+                {new Date(activeNotesMeeting.startsAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <button
+            className="primary-button icon-text-button"
+            type="submit"
+            form={`meeting-notes-form-${activeNotesMeeting.publicId}`}
+          >
+            <Save aria-hidden="true" size={17} />
+            Save notes
+          </button>
+        </header>
+
+        <form
+          className="meeting-notes-layout"
+          id={`meeting-notes-form-${activeNotesMeeting.publicId}`}
+          onSubmit={(event) => submitMeetingNotes(event, activeNotesMeeting)}
+        >
+          <section className="meeting-notes-editor" aria-label="Meeting note entry">
+            <div className="meeting-notes-meta">
+              <StatusBadge label={activeNotesMeeting.meetingType} />
+              {activeNotesMeeting.seriesPublicId ? (
+                <span>Series {activeNotesMeeting.seriesPublicId}</span>
+              ) : null}
+              <span>
+                {activeNotesMeeting.attendees.length > 0
+                  ? activeNotesMeeting.attendees.map((attendee) => attendee.name).join(", ")
+                  : "No attendees"}
+              </span>
+            </div>
+            <FormField label={`Notes for ${activeNotesMeeting.publicId}`}>
+              <textarea
+                autoFocus
+                className="meeting-notes-textarea"
+                value={notesDraft}
+                onChange={(event) => setNotesDraft(event.target.value)}
+              />
+            </FormField>
+          </section>
+
+          <aside className="meeting-notes-sidepanel">
+            <section className="notes-panel" aria-label="Structured meeting links">
+              <header className="notes-panel-header">
+                <h3>Links</h3>
+                <span className="lane-count">{countLabel(linkDrafts.length, "link")}</span>
+              </header>
+              {linkDrafts.length === 0 ? (
+                <p className="muted">No links</p>
+              ) : (
+                <div className="structured-link-list">
+                  {linkDrafts.map((link, index) => (
+                    <div className="structured-link-row" key={`${link.url}-${index}`}>
+                      <FormField label={`Link label ${index + 1}`}>
+                        <input
+                          value={link.label}
+                          onChange={(event) =>
+                            updateLinkDraft(index, { label: event.target.value })
+                          }
+                          required
+                        />
+                      </FormField>
+                      <FormField label={`Link URL ${index + 1}`}>
+                        <input
+                          type="url"
+                          value={link.url}
+                          onChange={(event) =>
+                            updateLinkDraft(index, { url: event.target.value })
+                          }
+                          required
+                        />
+                      </FormField>
+                      <FormField label={`Link type ${index + 1}`}>
+                        <select
+                          value={link.linkType}
+                          onChange={(event) =>
+                            updateLinkDraft(index, {
+                              linkType: event.target.value as MeetingLinkType,
+                            })
+                          }
+                        >
+                          {meetingLinkTypes.map((type) => (
+                            <option key={type.value} value={type.value}>
+                              {type.label}
+                            </option>
+                          ))}
+                        </select>
+                      </FormField>
+                      <div className="structured-link-actions">
+                        <a
+                          className="secondary-button icon-text-button structured-link-preview"
+                          href={link.url}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          <LinkIcon aria-hidden="true" size={16} />
+                          Open
+                        </a>
+                        <button
+                          aria-label={`Remove ${linkTypeLabel(link.linkType)} link ${link.label || index + 1}`}
+                          className="icon-button"
+                          type="button"
+                          onClick={() => removeLinkDraft(index)}
+                        >
+                          <Trash2 aria-hidden="true" size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="link-add-grid">
+                <FormField label="New link label">
+                  <input
+                    value={newLinkForm.label}
+                    onChange={(event) =>
+                      setNewLinkForm({ ...newLinkForm, label: event.target.value })
+                    }
+                  />
+                </FormField>
+                <FormField label="New link URL">
+                  <input
+                    type="url"
+                    value={newLinkForm.url}
+                    onChange={(event) =>
+                      setNewLinkForm({ ...newLinkForm, url: event.target.value })
+                    }
+                  />
+                </FormField>
+                <FormField label="New link type">
+                  <select
+                    value={newLinkForm.linkType}
+                    onChange={(event) =>
+                      setNewLinkForm({
+                        ...newLinkForm,
+                        linkType: event.target.value as MeetingLinkType,
+                      })
+                    }
+                  >
+                    {meetingLinkTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <button
+                  className="secondary-button icon-text-button"
+                  disabled={!newLinkForm.label.trim() || !newLinkForm.url.trim()}
+                  type="button"
+                  onClick={addLinkDraft}
+                >
+                  <Plus aria-hidden="true" size={16} />
+                  Add link
+                </button>
+              </div>
+            </section>
+
+            <section className="notes-panel" aria-label="Meeting work">
+              <header className="notes-panel-header">
+                <h3>Work</h3>
+                <span className="lane-count">{countLabel(activeNotesMeeting.tasks.length, "task")}</span>
+              </header>
+              {activeNotesMeeting.tasks.length === 0 ? (
+                <p className="muted">No tasks</p>
+              ) : (
+                <div className="task-links">
+                  {activeNotesMeeting.tasks.map((task) => (
+                    <span key={task.publicId}>
+                      <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+          </aside>
+        </form>
+      </main>
+    );
   }
 
   return (
@@ -459,6 +797,16 @@ export function MeetingsPage() {
               placeholder="Morgan, Taylor"
             />
           </FormField>
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={occurrenceForm.private}
+              onChange={(event) =>
+                setOccurrenceForm({ ...occurrenceForm, private: event.target.checked })
+              }
+            />
+            <span>Private</span>
+          </label>
           <button className="primary-button" type="submit">
             Create occurrence
           </button>
@@ -538,12 +886,22 @@ export function MeetingsPage() {
           legend="Meeting tasks"
           options={tasks.map((task) => ({
             publicId: task.publicId,
-            label: `${task.publicId} ${task.description}`,
+            label: taskOptionLabel(task),
           }))}
           selected={meetingForm.taskPublicIds}
           onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
         />
         <div className="form-actions">
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={meetingForm.private}
+              onChange={(event) =>
+                setMeetingForm({ ...meetingForm, private: event.target.checked })
+              }
+            />
+            <span>Private</span>
+          </label>
           <button className="primary-button" type="submit">
             Add meeting
           </button>
@@ -595,6 +953,7 @@ export function MeetingsPage() {
             <article
               aria-label={`Meeting ${meeting.publicId}`}
               className="meeting-card record-card-meeting"
+              id={`meeting-${meeting.publicId}`}
               key={meeting.publicId}
             >
               <div className="record-row meeting-row">
@@ -603,6 +962,7 @@ export function MeetingsPage() {
                   <span>{meeting.publicId}</span>
                 </div>
                 <StatusBadge label={meeting.meetingType} />
+                {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
                 <span>{new Date(meeting.startsAt).toLocaleString()}</span>
                 <span>{meeting.summary || "No summary"}</span>
                 <span>
@@ -616,11 +976,19 @@ export function MeetingsPage() {
                   ) : (
                     meeting.tasks.map((task) => (
                       <span key={task.publicId}>
-                        <strong>{task.publicId}</strong> {task.description}
+                        <strong>{task.publicId}</strong> <LinkedText text={task.description} />
                       </span>
                     ))
                   )}
                 </div>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => openMeetingNotes(meeting)}
+                  aria-label={`Open notes for ${meeting.publicId}`}
+                >
+                  Notes
+                </button>
                 <button
                   className="secondary-button"
                   type="button"
@@ -726,13 +1094,26 @@ export function MeetingsPage() {
                     legend={`Meeting tasks for ${meeting.publicId}`}
                     options={tasks.map((task) => ({
                       publicId: task.publicId,
-                      label: `${task.publicId} ${task.description}`,
+                      label: taskOptionLabel(task),
                     }))}
                     selected={meetingEditForm.taskPublicIds}
                     onChange={(taskPublicIds) =>
                       setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
                     }
                   />
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={meetingEditForm.private}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          private: event.target.checked,
+                        })
+                      }
+                    />
+                    <span>Private</span>
+                  </label>
                   <div className="form-actions">
                     <button className="primary-button" type="submit">
                       Save meeting {meeting.publicId}
@@ -806,6 +1187,18 @@ export function MeetingsPage() {
                     }
                   />
                 </FormField>
+                <label className="checkbox-line">
+                  <input
+                    type="checkbox"
+                    checked={getMeetingTaskForm(meeting.publicId).private}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        private: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Private</span>
+                </label>
                 <button className="primary-button" type="submit">
                   Add task to {meeting.publicId}
                 </button>

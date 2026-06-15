@@ -18,6 +18,8 @@ export type TaskRow = {
   due_date: string | null;
   reminder_mode: TaskReminderMode;
   last_reminder_sent_at: string | null;
+  private: number;
+  created_by_user_id: number | null;
   archived_at: string | null;
   assignee_public_id: string | null;
   assignee_name: string | null;
@@ -41,6 +43,8 @@ const taskSelect = `
            FROM task_reminder_events
            WHERE task_reminder_events.task_id = tasks.id
          ) AS last_reminder_sent_at,
+         tasks.private,
+         tasks.created_by_user_id,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
          people.name AS assignee_name,
@@ -73,22 +77,34 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     reminderMode: row.reminder_mode,
     lastReminderSentAt: row.last_reminder_sent_at,
     alert: getTaskAlert(row.due_date, row.status, config.dueSoonDays),
+    private: row.private === 1,
     archived: row.archived_at !== null,
   };
+}
+
+function visibleTaskCondition() {
+  return "(tasks.private = 0 OR tasks.created_by_user_id = ?)";
+}
+
+function canMakePrivate(createdByUserId: number | null, userId: number) {
+  return createdByUserId === null || createdByUserId === userId;
 }
 
 function getTaskByPublicId(
   db: AppDatabase,
   config: AppConfig,
   publicId: string,
+  userId: number,
   includeArchived = false,
 ) {
   const row = db
     .prepare(
       `${taskSelect}
-       WHERE tasks.public_id = ? ${includeArchived ? "" : "AND tasks.archived_at IS NULL"}`,
+       WHERE tasks.public_id = ?
+       AND ${visibleTaskCondition()}
+       ${includeArchived ? "" : "AND tasks.archived_at IS NULL"}`,
     )
-    .get(publicId) as TaskRow | undefined;
+    .get(publicId, userId) as TaskRow | undefined;
 
   if (!row) throw notFound("Task not found");
   return mapTaskRow(row, config);
@@ -101,6 +117,7 @@ function resolveRelations(
     originMeetingPublicId?: string | null;
     seriesPublicId?: string | null;
   },
+  userId: number,
 ): ResolvedTaskRelations {
   const assignee = input.assigneePublicId
     ? (db
@@ -114,8 +131,16 @@ function resolveRelations(
 
   const meeting = input.originMeetingPublicId
     ? (db
-        .prepare("SELECT id, series_id FROM meetings WHERE public_id = ? AND archived_at IS NULL")
-        .get(input.originMeetingPublicId) as { id: number; series_id: number | null } | undefined)
+        .prepare(
+          `SELECT id, series_id
+           FROM meetings
+           WHERE public_id = ?
+           AND (private = 0 OR created_by_user_id = ?)
+           AND archived_at IS NULL`,
+        )
+        .get(input.originMeetingPublicId, userId) as
+        | { id: number; series_id: number | null }
+        | undefined)
     : null;
 
   if (input.originMeetingPublicId && !meeting) {
@@ -147,8 +172,9 @@ export function taskRoutes(
   const router = Router();
 
   router.get("/", (req, res) => {
-    const conditions = ["tasks.archived_at IS NULL"];
-    const params: string[] = [];
+    const userId = req.user?.id ?? 0;
+    const conditions = ["tasks.archived_at IS NULL", visibleTaskCondition()];
+    const params: Array<string | number> = [userId];
 
     if (typeof req.query.assigneePublicId === "string" && req.query.assigneePublicId) {
       conditions.push("people.public_id = ?");
@@ -180,13 +206,14 @@ export function taskRoutes(
     try {
       const input = parseBody(req, taskInputSchema);
       const task = withTransaction(db, () => {
-        const relations = resolveRelations(db, input);
+        const userId = req.user?.id ?? 0;
+        const relations = resolveRelations(db, input, userId);
         const publicId = nextPublicId(db, "T");
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
@@ -197,6 +224,8 @@ export function taskRoutes(
             relations.originMeetingId,
             relations.seriesId,
             input.reminderMode,
+            input.private ? 1 : 0,
+            userId,
           );
 
         if (relations.originMeetingId) {
@@ -206,7 +235,7 @@ export function taskRoutes(
           );
         }
 
-        const created = getTaskByPublicId(db, config, publicId);
+        const created = getTaskByPublicId(db, config, publicId, userId);
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: created.publicId,
@@ -236,13 +265,18 @@ export function taskRoutes(
     }
   });
 
-  router.get("/:publicId/audit", (req, res) => {
-    res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
+  router.get("/:publicId/audit", (req, res, next) => {
+    try {
+      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0);
+      res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ task: getTaskByPublicId(db, config, req.params.publicId) });
+      res.json({ task: getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0) });
     } catch (error) {
       next(error);
     }
@@ -252,13 +286,29 @@ export function taskRoutes(
     try {
       const input = parseBody(req, taskInputSchema);
       const task = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
         const existing = db
-          .prepare("SELECT id FROM tasks WHERE public_id = ? AND archived_at IS NULL")
-          .get(req.params.publicId) as { id: number } | undefined;
+          .prepare(
+            `SELECT id, created_by_user_id, private
+             FROM tasks
+             WHERE public_id = ?
+             AND ${visibleTaskCondition()}
+             AND archived_at IS NULL`,
+          )
+          .get(req.params.publicId, userId) as
+          | { id: number; created_by_user_id: number | null; private: number }
+          | undefined;
         if (!existing) throw notFound("Task not found");
-        const before = getTaskByPublicId(db, config, req.params.publicId);
+        if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
+          throw badRequest("Only the creator can make this task private");
+        }
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
 
-        const relations = resolveRelations(db, input);
+        const relations = resolveRelations(db, input, userId);
+        const createdByUserId =
+          input.private && existing.created_by_user_id === null
+            ? userId
+            : existing.created_by_user_id;
         db.prepare(
           `UPDATE tasks
            SET description = ?,
@@ -268,6 +318,8 @@ export function taskRoutes(
                origin_meeting_id = ?,
                series_id = ?,
                reminder_mode = ?,
+               private = ?,
+               created_by_user_id = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
         ).run(
@@ -278,6 +330,8 @@ export function taskRoutes(
           relations.originMeetingId,
           relations.seriesId,
           input.reminderMode,
+          input.private ? 1 : 0,
+          createdByUserId,
           existing.id,
         );
 
@@ -289,7 +343,7 @@ export function taskRoutes(
           );
         }
 
-        const updated = getTaskByPublicId(db, config, req.params.publicId);
+        const updated = getTaskByPublicId(db, config, req.params.publicId, userId);
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: updated.publicId,
@@ -310,6 +364,7 @@ export function taskRoutes(
 
   router.post("/:publicId/reminders", async (req, res, next) => {
     try {
+      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0);
       const reminder = await sendManualTaskReminder(
         db,
         config,
@@ -326,14 +381,17 @@ export function taskRoutes(
   router.post("/:publicId/archive", (req, res, next) => {
     try {
       withTransaction(db, () => {
-        const before = getTaskByPublicId(db, config, req.params.publicId);
+        const userId = req.user?.id ?? 0;
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
         const result = db
           .prepare(
             `UPDATE tasks
              SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NULL`,
           )
-          .run(req.params.publicId);
+          .run(req.params.publicId, userId);
 
         if (result.changes === 0) throw notFound("Task not found");
         recordAuditEvent(db, {

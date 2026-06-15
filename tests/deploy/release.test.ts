@@ -3,7 +3,7 @@ import { createReleaseId, runtimePaths } from "../../deploy/lib/release";
 
 describe("deployment releases", () => {
   it("lists only runtime paths needed by the server", () => {
-    expect(runtimePaths).toEqual(["dist", "package.json", "package-lock.json"]);
+    expect(runtimePaths).toEqual(["dist", "package.json", "package-lock.json", "scripts"]);
   });
 
   it("requires a git sha", () => {

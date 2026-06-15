@@ -3,9 +3,12 @@ import type {
   AuditLogDto,
   DecisionDto,
   MeetingDto,
+  MeetingLinkType,
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
+  PersonMergeResultDto,
+  PersonRelatedRecordsDto,
   TaskDto,
   TaskReminderMode,
   TaskStatus,
@@ -47,6 +50,7 @@ export type DashboardTask = {
   status: TaskStatus;
   dueDate: string | null;
   alert: AlertState | null;
+  private: boolean;
 };
 
 export type DashboardResponse = {
@@ -72,6 +76,7 @@ type TaskInput = {
   originMeetingPublicId?: string | null;
   seriesPublicId?: string | null;
   reminderMode?: TaskReminderMode;
+  private?: boolean;
 };
 
 export type TaskReminderResponse = {
@@ -90,8 +95,17 @@ type MeetingInput = {
   meetingType: MeetingType;
   seriesPublicId?: string | null;
   summary: string;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   taskPublicIds: string[];
+  private?: boolean;
+};
+
+type MeetingLinkInput = {
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 type MeetingSeriesInput = {
@@ -104,7 +118,10 @@ type OccurrenceInput = {
   title?: string;
   startsAt: string;
   summary: string;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
+  private?: boolean;
 };
 
 type DecisionInput = {
@@ -147,8 +164,17 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/people/${publicId}/archive`, { method: "POST" }),
+    merge: (sourcePublicId: string, body: { targetPublicId: string }) =>
+      request<PersonMergeResultDto>(`/api/people/${sourcePublicId}/merge`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/people/${publicId}/audit`),
+    records: (publicId: string) =>
+      request<PersonRelatedRecordsDto>(`/api/people/${publicId}/records`),
   },
   tasks: {
     list: (query = "") => request<{ tasks: TaskDto[] }>(`/api/tasks${query}`),

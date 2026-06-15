@@ -1,4 +1,5 @@
 import { CalendarCheck } from "lucide-react";
+import { BrandMark } from "./BrandMark";
 import { sectionOrder, type AppSection } from "./shellNavigation";
 
 export function IconRail({
@@ -11,9 +12,9 @@ export function IconRail({
   version: string;
 }) {
   return (
-    <aside className="icon-rail" aria-label="Task Manager">
+    <aside className="icon-rail" aria-label="Followthrough">
       <div className="app-mark" aria-hidden="true">
-        TM
+        <BrandMark />
       </div>
       <nav className="icon-rail-nav" aria-label="Primary sections">
         {sectionOrder.map(({ section: item, icon: Icon }) => (

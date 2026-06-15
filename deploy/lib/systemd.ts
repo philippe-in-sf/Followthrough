@@ -7,7 +7,7 @@ export function renderSystemdUnit(site: DeploySite) {
   const serviceGroup = validateNonRootLinuxAccountName(site.serviceGroup, "serviceGroup");
 
   return `[Unit]
-Description=Web UI Task Manager
+Description=Followthrough
 After=network.target
 
 [Service]

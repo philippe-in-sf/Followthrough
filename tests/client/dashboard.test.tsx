@@ -21,6 +21,8 @@ const avery: PersonDto = {
   archived: false,
 };
 
+const deckUrl = "https://docs.google.com/presentation/d/example/edit#slide=id.g36488bc6fbc_0_3";
+
 function json(data: unknown, status = 200) {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
@@ -43,6 +45,7 @@ function setupAppFetch() {
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "overdue",
+      private: false,
       archived: false,
     },
     {
@@ -56,6 +59,21 @@ function setupAppFetch() {
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "dueSoon",
+      private: false,
+      archived: false,
+    },
+    {
+      publicId: "T004",
+      description: `Do the All Hands deck (${deckUrl})`,
+      assignee: avery,
+      status: "Open",
+      dueDate: "2026-06-17",
+      originMeetingPublicId: null,
+      seriesPublicId: null,
+      reminderMode: "automatic",
+      lastReminderSentAt: null,
+      alert: null,
+      private: false,
       archived: false,
     },
   ];
@@ -89,8 +107,18 @@ function setupAppFetch() {
       meetingType: "recurring",
       seriesPublicId: "S001",
       summary: "Launch readiness",
+      notes: "Previous launch notes",
+      links: [
+        {
+          id: 1,
+          label: "Launch agenda",
+          url: "https://example.com/agenda",
+          linkType: "agenda",
+        },
+      ],
       attendees: [avery],
       tasks: [tasks[1]],
+      private: false,
       archived: false,
     },
   ];
@@ -212,6 +240,7 @@ function setupAppFetch() {
         reminderMode: body.reminderMode ?? "automatic",
         lastReminderSentAt: null,
         alert: null,
+        private: body.private ?? false,
         archived: false,
       };
       tasks.push(task);
@@ -307,10 +336,13 @@ function setupAppFetch() {
         meetingType: "recurring",
         seriesPublicId: "S001",
         summary: body.summary,
+        notes: body.notes ?? meetings[0]?.notes ?? "",
+        links: body.links ?? meetings[0]?.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [tasks[1]],
+        private: body.private ?? false,
         archived: false,
       };
       meetings.unshift(meeting);
@@ -332,10 +364,13 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        notes: body.notes ?? "",
+        links: body.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [],
+        private: body.private ?? false,
         archived: false,
       };
       meetings.push(meeting);
@@ -362,6 +397,8 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        notes: body.notes ?? meetings[0].notes,
+        links: body.links ?? meetings[0].links,
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
@@ -413,16 +450,58 @@ describe("dashboard and workspace flows", () => {
     });
   });
 
+  it("opens dashboard tasks, meetings, and decisions in their detail views", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open task T099" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    });
+    const taskCard = await screen.findByLabelText("Task T099");
+    expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open meeting M010 Leadership sync/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
+    });
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).getByRole("heading", { name: "Edit details for M010" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open decision D001 Use SQLite/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Decision")).toHaveValue("Use SQLite");
+    expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
+  });
+
   it("creates and edits standalone tasks and records decisions", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    expect(screen.queryByLabelText("Reminder mode")).not.toBeInTheDocument();
     await userEvent.type(await screen.findByLabelText("Task description"), "Draft rollout notes");
     await userEvent.selectOptions(screen.getByLabelText("Task assignee"), "P001");
     await userEvent.selectOptions(screen.getByLabelText("Task status"), "In Progress");
     await userEvent.type(screen.getByLabelText("Task due date"), "2026-06-18");
     await userEvent.click(screen.getByRole("button", { name: "Add task" }));
+    const taskCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
+    expect(JSON.parse(String(taskCreateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({ reminderMode: "manual" }),
+    );
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
 
     const overdueTasks = await screen.findByRole("region", { name: "Overdue tasks" });
@@ -441,6 +520,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+    expect(within(taskCard).queryByLabelText("Reminder mode for T099")).not.toBeInTheDocument();
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
     await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
@@ -479,6 +559,13 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
     ).toBeInTheDocument();
+    const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
+    expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
+    expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
+    expect(within(meetingTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(
+      "href",
+      deckUrl,
+    );
 
     await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
     await userEvent.type(screen.getByLabelText("Occurrence start"), "2026-06-16T09:00");
@@ -492,6 +579,52 @@ describe("dashboard and workspace flows", () => {
       ),
     ).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Carry roadmap").length).toBeGreaterThan(1));
+  });
+
+  it("edits meeting notes and structured links", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Open notes for M010" }),
+    );
+
+    const notesField = await screen.findByLabelText("Notes for M010");
+    expect(notesField).toHaveValue("Previous launch notes");
+    expect(screen.getByDisplayValue("Launch agenda")).toBeInTheDocument();
+
+    await userEvent.clear(notesField);
+    await userEvent.type(notesField, "Live launch notes");
+    await userEvent.type(screen.getByLabelText("New link label"), "Customer deck");
+    await userEvent.type(screen.getByLabelText("New link URL"), "https://example.com/deck");
+    await userEvent.selectOptions(screen.getByLabelText("New link type"), "work");
+    await userEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect(await screen.findByDisplayValue("Customer deck")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
+
+    const patchCall = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.find(
+        ([input, init]) => String(input) === "/api/meetings/M010" && init?.method === "PATCH",
+      );
+    const body = JSON.parse(String(patchCall?.[1]?.body));
+
+    expect(body.notes).toBe("Live launch notes");
+    expect(body.links).toEqual([
+      {
+        label: "Launch agenda",
+        url: "https://example.com/agenda",
+        linkType: "agenda",
+      },
+      {
+        label: "Customer deck",
+        url: "https://example.com/deck",
+        linkType: "work",
+      },
+    ]);
   });
 
   it("creates tasks inside a meeting and edits meeting details", async () => {
@@ -528,6 +661,15 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(refreshedMeetingCard).getByRole("heading", { name: "Edit details for M010" }),
     ).toBeInTheDocument();
+    const meetingEditTaskOptions = within(refreshedMeetingCard).getByRole("group", {
+      name: "Meeting tasks for M010",
+    });
+    expect(meetingEditTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
+    expect(meetingEditTaskOptions).not.toHaveTextContent("https://docs.google.com");
+    expect(within(meetingEditTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(
+      "href",
+      deckUrl,
+    );
 
     await userEvent.clear(within(refreshedMeetingCard).getByLabelText("Meeting title for M010"));
     await userEvent.type(

@@ -1,6 +1,7 @@
 export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
 export type TaskReminderMode = "automatic" | "manual";
 export type MeetingType = "single" | "recurring";
+export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "person";
 
@@ -22,7 +23,46 @@ export type TaskDto = {
   reminderMode: TaskReminderMode;
   lastReminderSentAt: string | null;
   alert: AlertState | null;
+  private: boolean;
   archived: boolean;
+};
+
+export type PersonRelatedTaskDto = {
+  publicId: string;
+  description: string;
+  status: TaskStatus;
+  dueDate: string | null;
+  private: boolean;
+};
+
+export type PersonRelatedMeetingDto = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  meetingType: MeetingType;
+  private: boolean;
+};
+
+export type PersonRelatedDecisionDto = {
+  publicId: string;
+  decisionText: string;
+  decisionDate: string;
+  context: string;
+  meetingPublicId: string;
+};
+
+export type PersonRelatedRecordsDto = {
+  person: PersonDto;
+  tasks: PersonRelatedTaskDto[];
+  meetings: PersonRelatedMeetingDto[];
+  decisions: PersonRelatedDecisionDto[];
+};
+
+export type PersonMergeResultDto = {
+  sourcePerson: PersonDto;
+  targetPerson: PersonDto;
+  movedTasks: number;
+  movedMeetingAttendances: number;
 };
 
 export type MeetingDto = {
@@ -32,9 +72,19 @@ export type MeetingDto = {
   meetingType: MeetingType;
   seriesPublicId: string | null;
   summary: string;
+  notes: string;
+  links: MeetingLinkDto[];
   attendees: PersonDto[];
   tasks: TaskDto[];
+  private: boolean;
   archived: boolean;
+};
+
+export type MeetingLinkDto = {
+  id: number;
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 export type MeetingSeriesDto = {

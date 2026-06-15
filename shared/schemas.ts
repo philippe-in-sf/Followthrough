@@ -2,12 +2,17 @@ import { z } from "zod";
 
 export const taskStatusSchema = z.enum(["Open", "In Progress", "Blocked", "Done"]);
 export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
+export const meetingLinkTypeSchema = z.enum(["agenda", "work", "reference", "other"]);
 
 export const publicIdSchema = z.string().regex(/^[A-Z][0-9]{3,}$/);
 
 export const personInputSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().trim().email().optional().or(z.literal("")),
+});
+
+export const personMergeInputSchema = z.object({
+  targetPublicId: publicIdSchema,
 });
 
 export const taskInputSchema = z.object({
@@ -17,7 +22,14 @@ export const taskInputSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   originMeetingPublicId: publicIdSchema.optional().nullable(),
   seriesPublicId: publicIdSchema.optional().nullable(),
-  reminderMode: taskReminderModeSchema.default("automatic"),
+  reminderMode: taskReminderModeSchema.default("manual"),
+  private: z.boolean().default(false),
+});
+
+export const meetingLinkInputSchema = z.object({
+  label: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  linkType: meetingLinkTypeSchema.default("reference"),
 });
 
 export const meetingInputSchema = z.object({
@@ -26,8 +38,16 @@ export const meetingInputSchema = z.object({
   meetingType: z.enum(["single", "recurring"]),
   seriesPublicId: publicIdSchema.optional().nullable(),
   summary: z.string().trim().default(""),
+  notes: z.string().default(""),
+  links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
   taskPublicIds: z.array(publicIdSchema).default([]),
+  private: z.boolean().default(false),
+});
+
+export const meetingUpdateInputSchema = meetingInputSchema.extend({
+  notes: z.string().optional(),
+  links: z.array(meetingLinkInputSchema).optional(),
 });
 
 export const meetingSeriesInputSchema = z.object({

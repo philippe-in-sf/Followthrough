@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
+import { loadConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 import type { EmailMessage, EmailSender } from "../../server/email/mailer";
 import { sendAutomaticTaskReminders } from "../../server/tasks/reminders";
@@ -19,7 +20,11 @@ async function setup(options: { personEmail?: string } = {}) {
       sentEmails.push(message);
     }),
   };
-  const app = createApp({ db, emailSender });
+  const app = createApp({
+    db,
+    emailSender,
+    config: { ...loadConfig(), appBaseUrl: "https://philippe-tasks.net" },
+  });
   const signup = await request(app).post("/api/auth/signup").send({
     name: "Editor",
     email: "editor@example.com",
@@ -60,7 +65,7 @@ describe("tasks", () => {
 
     expect(created.status).toBe(201);
     expect(created.body.task.publicId).toBe("T001");
-    expect(created.body.task.reminderMode).toBe("automatic");
+    expect(created.body.task.reminderMode).toBe("manual");
     expect(created.body.task.alert).toBe("dueSoon");
 
     const filtered = await request(app)
@@ -171,6 +176,15 @@ describe("tasks", () => {
       expect.objectContaining({
         to: "avery@example.com",
         subject: "T001 is due soon: Send notes",
+        text: [
+          "Hi Avery,",
+          "",
+          "Just a reminder that Philippe will want to talk about a task assigned to you soon.  The notes that this humble computer has say: Send notes (task number: T001).   The status is currently set as Open, with a due date of 2026-06-12.",
+          "",
+          "If you have any questions, please see Philippe.",
+          "",
+          "To manually manage tasks, ask for access to https://philippe-tasks.net.",
+        ].join("\n"),
       }),
     ]);
 
@@ -229,5 +243,45 @@ describe("tasks", () => {
       { taskPublicId: "T001", reason: "already_sent_today" },
     ]);
     expect(sentEmails).toHaveLength(1);
+  });
+
+  it("keeps private tasks visible only to their creator", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    const privateTask = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private task",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+      private: true,
+    });
+
+    expect(privateTask.status).toBe(201);
+    expect(privateTask.body.task.private).toBe(true);
+
+    const ownerList = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(ownerList.body.tasks.map((task: { publicId: string }) => task.publicId)).toContain(
+      "T001",
+    );
+
+    const viewerList = await request(app).get("/api/tasks").set("Cookie", viewerCookie);
+    expect(viewerList.body.tasks.map((task: { publicId: string }) => task.publicId)).not.toContain(
+      "T001",
+    );
+
+    const viewerGet = await request(app).get("/api/tasks/T001").set("Cookie", viewerCookie);
+    expect(viewerGet.status).toBe(404);
+
+    const viewerAudit = await request(app)
+      .get("/api/tasks/T001/audit")
+      .set("Cookie", viewerCookie);
+    expect(viewerAudit.status).toBe(404);
   });
 });

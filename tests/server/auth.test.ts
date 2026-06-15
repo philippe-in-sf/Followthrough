@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../server/app";
+import { createUser } from "../../server/auth/userManagement";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
@@ -83,5 +84,31 @@ describe("auth", () => {
       .set("Cookie", login.headers["set-cookie"]);
 
     expect(logout.status).toBe(204);
+  });
+
+  it("creates a direct database user that can log in", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    const app = createApp({ db });
+
+    const user = await createUser(db, {
+      name: "Direct User",
+      email: "Direct@example.com",
+      password: "long-enough-password",
+    });
+
+    expect(user.email).toBe("direct@example.com");
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: "direct@example.com",
+      password: "long-enough-password",
+    });
+
+    expect(login.status).toBe(200);
+    expect(login.body.user).toMatchObject({
+      name: "Direct User",
+      email: "direct@example.com",
+    });
   });
 });
