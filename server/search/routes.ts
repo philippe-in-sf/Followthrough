@@ -100,9 +100,22 @@ export function searchRoutes(db: AppDatabase) {
              FROM meetings
              WHERE archived_at IS NULL
              AND (private = 0 OR created_by_user_id = ?)
-             AND (title LIKE ? OR summary LIKE ?)`,
+             AND (
+               title LIKE ?
+               OR summary LIKE ?
+               OR notes LIKE ?
+               OR EXISTS (
+                 SELECT 1
+                 FROM meeting_links
+                 WHERE meeting_links.meeting_id = meetings.id
+                 AND (meeting_links.label LIKE ? OR meeting_links.url LIKE ?)
+               )
+             )`,
           )
-          .all(userId, like, like) as Array<{ public_id: string; title: string }>
+          .all(userId, like, like, like, like, like) as Array<{
+          public_id: string;
+          title: string;
+        }>
       ).map((row) => ({
         type: "meeting" as const,
         publicId: row.public_id,

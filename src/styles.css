@@ -997,7 +997,7 @@ button:disabled {
 }
 
 .meeting-row {
-  grid-template-columns: minmax(180px, 1fr) auto auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto auto;
 }
 
 .task-row {
@@ -1089,6 +1089,104 @@ button:disabled {
 .person-edit-form .audit-log,
 .task-edit-form .audit-log {
   grid-column: 1 / -1;
+}
+
+.meeting-notes-page {
+  min-height: calc(100vh - 56px);
+}
+
+.meeting-notes-header {
+  align-items: center;
+}
+
+.meeting-notes-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-notes-titlebar h2,
+.meeting-notes-titlebar p {
+  margin: 0;
+}
+
+.meeting-notes-titlebar p {
+  color: #5b6475;
+  font-size: 0.88rem;
+}
+
+.meeting-notes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  align-items: start;
+  gap: 16px;
+}
+
+.meeting-notes-editor,
+.notes-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.meeting-notes-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #5b6475;
+}
+
+.meeting-notes-textarea {
+  min-height: 58vh;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.meeting-notes-sidepanel {
+  display: grid;
+  gap: 16px;
+}
+
+.notes-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notes-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.structured-link-list,
+.link-add-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.structured-link-row {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.structured-link-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.structured-link-preview {
+  text-decoration: none;
 }
 
 .audit-log {
@@ -1321,6 +1419,7 @@ button:disabled {
   .record-row,
   .meeting-row,
   .task-row,
+  .meeting-notes-layout,
   .series-row,
   .meeting-edit-form,
   .person-edit-form,
@@ -1349,9 +1448,15 @@ button:disabled {
   }
 
   .lane-header,
-  .series-row {
+  .series-row,
+  .meeting-notes-header,
+  .meeting-notes-titlebar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .meeting-notes-textarea {
+    min-height: 420px;
   }
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const taskStatusSchema = z.enum(["Open", "In Progress", "Blocked", "Done"]);
 export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
+export const meetingLinkTypeSchema = z.enum(["agenda", "work", "reference", "other"]);
 
 export const publicIdSchema = z.string().regex(/^[A-Z][0-9]{3,}$/);
 
@@ -25,15 +26,28 @@ export const taskInputSchema = z.object({
   private: z.boolean().default(false),
 });
 
+export const meetingLinkInputSchema = z.object({
+  label: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  linkType: meetingLinkTypeSchema.default("reference"),
+});
+
 export const meetingInputSchema = z.object({
   title: z.string().trim().min(1),
   startsAt: z.string().datetime(),
   meetingType: z.enum(["single", "recurring"]),
   seriesPublicId: publicIdSchema.optional().nullable(),
   summary: z.string().trim().default(""),
+  notes: z.string().default(""),
+  links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
   taskPublicIds: z.array(publicIdSchema).default([]),
   private: z.boolean().default(false),
+});
+
+export const meetingUpdateInputSchema = meetingInputSchema.extend({
+  notes: z.string().optional(),
+  links: z.array(meetingLinkInputSchema).optional(),
 });
 
 export const meetingSeriesInputSchema = z.object({

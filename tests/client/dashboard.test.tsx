@@ -107,6 +107,15 @@ function setupAppFetch() {
       meetingType: "recurring",
       seriesPublicId: "S001",
       summary: "Launch readiness",
+      notes: "Previous launch notes",
+      links: [
+        {
+          id: 1,
+          label: "Launch agenda",
+          url: "https://example.com/agenda",
+          linkType: "agenda",
+        },
+      ],
       attendees: [avery],
       tasks: [tasks[1]],
       private: false,
@@ -327,6 +336,8 @@ function setupAppFetch() {
         meetingType: "recurring",
         seriesPublicId: "S001",
         summary: body.summary,
+        notes: body.notes ?? meetings[0]?.notes ?? "",
+        links: body.links ?? meetings[0]?.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
@@ -353,6 +364,8 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        notes: body.notes ?? "",
+        links: body.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
@@ -384,6 +397,8 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        notes: body.notes ?? meetings[0].notes,
+        links: body.links ?? meetings[0].links,
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
@@ -564,6 +579,52 @@ describe("dashboard and workspace flows", () => {
       ),
     ).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Carry roadmap").length).toBeGreaterThan(1));
+  });
+
+  it("edits meeting notes and structured links", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Open notes for M010" }),
+    );
+
+    const notesField = await screen.findByLabelText("Notes for M010");
+    expect(notesField).toHaveValue("Previous launch notes");
+    expect(screen.getByDisplayValue("Launch agenda")).toBeInTheDocument();
+
+    await userEvent.clear(notesField);
+    await userEvent.type(notesField, "Live launch notes");
+    await userEvent.type(screen.getByLabelText("New link label"), "Customer deck");
+    await userEvent.type(screen.getByLabelText("New link URL"), "https://example.com/deck");
+    await userEvent.selectOptions(screen.getByLabelText("New link type"), "work");
+    await userEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect(await screen.findByDisplayValue("Customer deck")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
+
+    const patchCall = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.find(
+        ([input, init]) => String(input) === "/api/meetings/M010" && init?.method === "PATCH",
+      );
+    const body = JSON.parse(String(patchCall?.[1]?.body));
+
+    expect(body.notes).toBe("Live launch notes");
+    expect(body.links).toEqual([
+      {
+        label: "Launch agenda",
+        url: "https://example.com/agenda",
+        linkType: "agenda",
+      },
+      {
+        label: "Customer deck",
+        url: "https://example.com/deck",
+        linkType: "work",
+      },
+    ]);
   });
 
   it("creates tasks inside a meeting and edits meeting details", async () => {
