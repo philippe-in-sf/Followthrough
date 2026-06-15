@@ -10,6 +10,10 @@ export const personInputSchema = z.object({
   email: z.string().trim().email().optional().or(z.literal("")),
 });
 
+export const personMergeInputSchema = z.object({
+  targetPublicId: publicIdSchema,
+});
+
 export const taskInputSchema = z.object({
   description: z.string().trim().min(1),
   assigneePublicId: publicIdSchema.optional().nullable(),

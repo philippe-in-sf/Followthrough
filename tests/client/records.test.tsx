@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +8,7 @@ const originalFetch = globalThis.fetch;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  vi.restoreAllMocks();
 });
 
 function mockLoggedInFetch() {
@@ -238,6 +239,132 @@ describe("record pages", () => {
 
     expect(await screen.findByText("Avery Stone")).toBeInTheDocument();
     expect(screen.getByText("avery.stone@example.com")).toBeInTheDocument();
+  });
+
+  it("archives a person from the people display screen", async () => {
+    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
+      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
+      { publicId: "P002", name: "Morgan", email: "morgan@example.com", archived: false },
+    ];
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/me")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: { id: 1, name: "Editor", email: "editor@example.com" },
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            alerts: { overdue: [], dueSoon: [] },
+            openTasksByAssignee: [],
+            recentMeetings: [],
+            recentDecisions: [],
+            activeSeries: [],
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ people: [...people] }) } as Response);
+      }
+      if (url.endsWith("/audit") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ auditEvents: [] }) } as Response);
+      }
+      if (url.endsWith("/api/people/P002/archive") && method === "POST") {
+        people.splice(
+          people.findIndex((person) => person.publicId === "P002"),
+          1,
+        );
+        return Promise.resolve({ ok: true, status: 204 } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "People" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Archive P002" }));
+
+    expect(window.confirm).toHaveBeenCalledWith("Archive Morgan?");
+    await waitFor(() => expect(screen.queryByText("Morgan")).not.toBeInTheDocument());
+    expect(screen.getByText("Avery")).toBeInTheDocument();
+  });
+
+  it("merges one person record into another from the people display screen", async () => {
+    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
+      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
+      { publicId: "P002", name: "Avery Duplicate", email: "avery.dup@example.com", archived: false },
+    ];
+    let mergeBody: unknown = null;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/me")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: { id: 1, name: "Editor", email: "editor@example.com" },
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            alerts: { overdue: [], dueSoon: [] },
+            openTasksByAssignee: [],
+            recentMeetings: [],
+            recentDecisions: [],
+            activeSeries: [],
+          }),
+        } as Response);
+      }
+      if (url.endsWith("/api/people") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ people: [...people] }) } as Response);
+      }
+      if (url.endsWith("/audit") && method === "GET") {
+        return Promise.resolve({ ok: true, json: async () => ({ auditEvents: [] }) } as Response);
+      }
+      if (url.endsWith("/api/people/P002/merge") && method === "POST") {
+        mergeBody = JSON.parse(String(init?.body));
+        const sourcePerson = people.find((person) => person.publicId === "P002");
+        people.splice(
+          people.findIndex((person) => person.publicId === "P002"),
+          1,
+        );
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            movedMeetingAttendances: 0,
+            movedTasks: 0,
+            sourcePerson: { ...sourcePerson, archived: true },
+            targetPerson: people[0],
+          }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "People" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Merge from"), "P002");
+    await userEvent.selectOptions(screen.getByLabelText("Merge into"), "P001");
+    await userEvent.click(screen.getByRole("button", { name: "Merge people" }));
+
+    expect(window.confirm).toHaveBeenCalledWith("Merge Avery Duplicate into Avery?");
+    expect(mergeBody).toEqual({ targetPublicId: "P001" });
+    await waitFor(() => expect(screen.queryByText("Avery Duplicate")).not.toBeInTheDocument());
+    expect(screen.getByText("Avery")).toBeInTheDocument();
   });
 
   it("shows related records when a person record is selected", async () => {

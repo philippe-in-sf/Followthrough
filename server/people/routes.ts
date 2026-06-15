@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { personInputSchema } from "../../shared/schemas.js";
+import { personInputSchema, personMergeInputSchema } from "../../shared/schemas.js";
 import type {
   MeetingType,
+  PersonMergeResultDto,
   PersonRelatedDecisionDto,
   PersonRelatedMeetingDto,
   PersonRelatedTaskDto,
@@ -9,7 +10,7 @@ import type {
 } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
-import { notFound } from "../errors.js";
+import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 
@@ -18,6 +19,10 @@ type PersonRow = {
   name: string;
   email: string | null;
   archived_at: string | null;
+};
+
+type PersonWithIdRow = PersonRow & {
+  id: number;
 };
 
 type RelatedTaskRow = {
@@ -267,6 +272,120 @@ export function peopleRoutes(db: AppDatabase) {
       });
 
       res.json({ person: toPerson(row) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:publicId/merge", (req, res, next) => {
+    try {
+      const input = parseBody(req, personMergeInputSchema);
+      if (req.params.publicId === input.targetPublicId) {
+        throw badRequest("Choose two different people to merge");
+      }
+
+      const result = withTransaction(db, () => {
+        const source = db
+          .prepare(
+            `SELECT id, public_id, name, email, archived_at
+             FROM people
+             WHERE public_id = ? AND archived_at IS NULL`,
+          )
+          .get(req.params.publicId) as PersonWithIdRow | undefined;
+        const target = db
+          .prepare(
+            `SELECT id, public_id, name, email, archived_at
+             FROM people
+             WHERE public_id = ? AND archived_at IS NULL`,
+          )
+          .get(input.targetPublicId) as PersonWithIdRow | undefined;
+
+        if (!source) throw notFound("Source person not found");
+        if (!target) throw notFound("Target person not found");
+
+        const sourceId = source.id;
+        const targetId = target.id;
+        const taskResult = db
+          .prepare(
+            `UPDATE tasks
+             SET assignee_person_id = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE assignee_person_id = ?`,
+          )
+          .run(targetId, sourceId);
+        const meetingMoveCount = db
+          .prepare(
+            `SELECT COUNT(*) AS count
+             FROM meeting_attendees AS source_attendees
+             WHERE source_attendees.person_id = ?
+             AND NOT EXISTS (
+               SELECT 1
+               FROM meeting_attendees AS target_attendees
+               WHERE target_attendees.meeting_id = source_attendees.meeting_id
+               AND target_attendees.person_id = ?
+             )`,
+          )
+          .get(sourceId, targetId) as { count: number };
+
+        db.prepare(
+          `INSERT OR IGNORE INTO meeting_attendees (meeting_id, person_id, created_at)
+           SELECT meeting_id, ?, created_at
+           FROM meeting_attendees
+           WHERE person_id = ?`,
+        ).run(targetId, sourceId);
+        db.prepare("DELETE FROM meeting_attendees WHERE person_id = ?").run(sourceId);
+        db.prepare(
+          `UPDATE people
+           SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND archived_at IS NULL`,
+        ).run(sourceId);
+        db.prepare(
+          `UPDATE people
+           SET updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND archived_at IS NULL`,
+        ).run(targetId);
+
+        const archivedSource = db
+          .prepare("SELECT public_id, name, email, archived_at FROM people WHERE id = ?")
+          .get(sourceId) as PersonRow;
+        const updatedTarget = db
+          .prepare("SELECT public_id, name, email, archived_at FROM people WHERE id = ?")
+          .get(targetId) as PersonRow;
+        const movedTasks = Number(taskResult.changes);
+        const movedMeetingAttendances = Number(meetingMoveCount.count);
+
+        const changes = {
+          sourcePerson: toPerson(source),
+          targetPerson: toPerson(target),
+          movedTasks,
+          movedMeetingAttendances,
+        };
+
+        recordAuditEvent(db, {
+          entityType: "person",
+          entityPublicId: updatedTarget.public_id,
+          action: "merged_into",
+          userId: req.user?.id ?? null,
+          summary: `Merged person ${source.public_id} into ${target.public_id}`,
+          changes,
+        });
+        recordAuditEvent(db, {
+          entityType: "person",
+          entityPublicId: archivedSource.public_id,
+          action: "merged_from",
+          userId: req.user?.id ?? null,
+          summary: `Merged person into ${target.public_id}`,
+          changes,
+        });
+
+        return {
+          sourcePerson: toPerson(archivedSource),
+          targetPerson: toPerson(updatedTarget),
+          movedTasks,
+          movedMeetingAttendances,
+        } satisfies PersonMergeResultDto;
+      });
+
+      res.json(result);
     } catch (error) {
       next(error);
     }

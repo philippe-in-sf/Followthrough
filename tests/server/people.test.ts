@@ -166,6 +166,95 @@ describe("people", () => {
     ).toEqual(["D001"]);
   });
 
+  it("merges a source person into a target person", async () => {
+    const { app, cookie } = await loggedInApp();
+
+    await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Canonical", email: "canonical@example.com" });
+    await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Duplicate", email: "duplicate@example.com" });
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Move this assignment",
+      assigneePublicId: "P002",
+      status: "Open",
+      dueDate: "2026-06-12",
+    });
+    await request(app).post("/api/meetings").set("Cookie", cookie).send({
+      title: "Shared meeting",
+      startsAt: "2026-06-10T15:00:00.000Z",
+      meetingType: "single",
+      seriesPublicId: null,
+      summary: "",
+      attendeePublicIds: ["P001", "P002"],
+      taskPublicIds: [],
+    });
+    await request(app).post("/api/meetings").set("Cookie", cookie).send({
+      title: "Duplicate only meeting",
+      startsAt: "2026-06-11T15:00:00.000Z",
+      meetingType: "single",
+      seriesPublicId: null,
+      summary: "",
+      attendeePublicIds: ["P002"],
+      taskPublicIds: [],
+    });
+
+    const merge = await request(app)
+      .post("/api/people/P002/merge")
+      .set("Cookie", cookie)
+      .send({ targetPublicId: "P001" });
+
+    expect(merge.status).toBe(200);
+    expect(merge.body).toEqual(
+      expect.objectContaining({
+        movedMeetingAttendances: 1,
+        movedTasks: 1,
+        sourcePerson: expect.objectContaining({ publicId: "P002", archived: true }),
+        targetPerson: expect.objectContaining({ publicId: "P001", archived: false }),
+      }),
+    );
+
+    const targetRecords = await request(app).get("/api/people/P001/records").set("Cookie", cookie);
+    expect(targetRecords.body.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
+      "T001",
+    ]);
+    expect(
+      targetRecords.body.meetings.map((meeting: { publicId: string }) => meeting.publicId),
+    ).toEqual(["M002", "M001"]);
+
+    const sourceRecords = await request(app).get("/api/people/P002/records").set("Cookie", cookie);
+    expect(sourceRecords.status).toBe(404);
+
+    const targetAudit = await request(app).get("/api/people/P001/audit").set("Cookie", cookie);
+    const sourceAudit = await request(app).get("/api/people/P002/audit").set("Cookie", cookie);
+    expect(targetAudit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({ action: "merged_into", summary: "Merged person P002 into P001" }),
+    );
+    expect(sourceAudit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({ action: "merged_from", summary: "Merged person into P001" }),
+    );
+  });
+
+  it("rejects merging a person into themselves", async () => {
+    const { app, cookie } = await loggedInApp();
+    await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Avery", email: "avery@example.com" });
+
+    const merge = await request(app)
+      .post("/api/people/P001/merge")
+      .set("Cookie", cookie)
+      .send({ targetPublicId: "P001" });
+
+    expect(merge.status).toBe(400);
+    expect(merge.body.error).toBe("Choose two different people to merge");
+  });
+
   it("requires login", async () => {
     const { app } = await loggedInApp();
     const response = await request(app).get("/api/people");

@@ -57,6 +57,13 @@ export type PersonRelatedRecordsDto = {
   decisions: PersonRelatedDecisionDto[];
 };
 
+export type PersonMergeResultDto = {
+  sourcePerson: PersonDto;
+  targetPerson: PersonDto;
+  movedTasks: number;
+  movedMeetingAttendances: number;
+};
+
 export type MeetingDto = {
   publicId: string;
   title: string;

@@ -20,7 +20,10 @@ export function PeoplePage() {
   const [relatedRecords, setRelatedRecords] = useState<Record<string, PersonRelatedRecordsDto>>({});
   const [selectedPersonPublicId, setSelectedPersonPublicId] = useState<string | null>(null);
   const [editingPersonPublicId, setEditingPersonPublicId] = useState<string | null>(null);
+  const [mergeSourcePublicId, setMergeSourcePublicId] = useState("");
+  const [mergeTargetPublicId, setMergeTargetPublicId] = useState("");
   const [loadingRecordsPublicId, setLoadingRecordsPublicId] = useState<string | null>(null);
+  const [peopleAdminError, setPeopleAdminError] = useState("");
   const [recordsError, setRecordsError] = useState("");
 
   async function load() {
@@ -52,6 +55,61 @@ export function PeoplePage() {
     });
     formElement.reset();
     await load();
+  }
+
+  async function archivePerson(person: PersonDto) {
+    if (!window.confirm(`Archive ${person.name}?`)) return;
+
+    setPeopleAdminError("");
+    try {
+      await api.people.archive(person.publicId);
+      if (selectedPersonPublicId === person.publicId) setSelectedPersonPublicId(null);
+      if (editingPersonPublicId === person.publicId) setEditingPersonPublicId(null);
+      setRelatedRecords((current) => {
+        const next = { ...current };
+        delete next[person.publicId];
+        return next;
+      });
+      await load();
+    } catch {
+      setPeopleAdminError(`Could not archive ${person.name}`);
+    }
+  }
+
+  async function mergePeople(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const source = people.find((person) => person.publicId === mergeSourcePublicId);
+    const target = people.find((person) => person.publicId === mergeTargetPublicId);
+
+    if (!source || !target) {
+      setPeopleAdminError("Choose two people to merge");
+      return;
+    }
+
+    if (source.publicId === target.publicId) {
+      setPeopleAdminError("Choose two different people to merge");
+      return;
+    }
+
+    if (!window.confirm(`Merge ${source.name} into ${target.name}?`)) return;
+
+    setPeopleAdminError("");
+    try {
+      await api.people.merge(source.publicId, { targetPublicId: target.publicId });
+      if (selectedPersonPublicId === source.publicId) setSelectedPersonPublicId(null);
+      if (editingPersonPublicId === source.publicId) setEditingPersonPublicId(null);
+      setMergeSourcePublicId("");
+      setMergeTargetPublicId("");
+      setRelatedRecords((current) => {
+        const next = { ...current };
+        delete next[source.publicId];
+        delete next[target.publicId];
+        return next;
+      });
+      await load();
+    } catch {
+      setPeopleAdminError(`Could not merge ${source.name} into ${target.name}`);
+    }
   }
 
   function editPerson(person: PersonDto) {
@@ -103,6 +161,41 @@ export function PeoplePage() {
         </FormField>
         <button className="primary-button">Add person</button>
       </form>
+      {people.length > 1 ? (
+        <form aria-label="Merge people" className="people-admin-form" onSubmit={mergePeople}>
+          <h3>Admin</h3>
+          <FormField label="Merge from">
+            <select
+              value={mergeSourcePublicId}
+              onChange={(event) => setMergeSourcePublicId(event.target.value)}
+            >
+              <option value="">Select person</option>
+              {people.map((person) => (
+                <option key={person.publicId} value={person.publicId}>
+                  {person.name} ({person.publicId})
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Merge into">
+            <select
+              value={mergeTargetPublicId}
+              onChange={(event) => setMergeTargetPublicId(event.target.value)}
+            >
+              <option value="">Select person</option>
+              {people.map((person) => (
+                <option key={person.publicId} value={person.publicId}>
+                  {person.name} ({person.publicId})
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <button className="secondary-button" type="submit">
+            Merge people
+          </button>
+        </form>
+      ) : null}
+      {peopleAdminError ? <p className="form-error">{peopleAdminError}</p> : null}
       {people.length === 0 ? (
         <EmptyState title="No people" detail="Add people for assignees and attendees." />
       ) : (
@@ -129,13 +222,22 @@ export function PeoplePage() {
                   </div>
                   <span>{person.publicId}</span>
                 </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => editPerson(person)}
-                >
-                  Edit {person.publicId}
-                </button>
+                <div className="person-row-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => editPerson(person)}
+                  >
+                    Edit {person.publicId}
+                  </button>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={() => void archivePerson(person)}
+                  >
+                    Archive {person.publicId}
+                  </button>
+                </div>
               </article>
               {editingPersonPublicId === person.publicId ? (
                 <form

@@ -343,6 +343,7 @@ textarea {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .link-button,
 .icon-button {
   border: 0;
@@ -359,6 +360,12 @@ textarea {
 .secondary-button {
   background: #eef2f7;
   color: #1d2433;
+  padding: 9px 12px;
+}
+
+.danger-button {
+  background: #fee2e2;
+  color: #991b1b;
   padding: 9px 12px;
 }
 
@@ -616,6 +623,20 @@ button:disabled {
   min-width: min(220px, 100%);
 }
 
+.people-admin-form {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 240px) minmax(180px, 240px) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.people-admin-form h3 {
+  align-self: center;
+  margin: 0;
+  font-size: 1rem;
+}
+
 .filter-bar select {
   min-width: 180px;
   border: 1px solid #c8d0dc;
@@ -733,7 +754,10 @@ button:disabled {
   gap: 4px;
 }
 
-.person-row > .secondary-button {
+.person-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-self: center;
   margin-right: 14px;
 }
@@ -1291,7 +1315,11 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .person-row > .secondary-button {
+  .people-admin-form {
+    grid-template-columns: 1fr;
+  }
+
+  .person-row-actions {
     justify-self: start;
     margin: 0 14px 12px;
   }

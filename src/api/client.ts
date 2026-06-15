@@ -6,6 +6,7 @@ import type {
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
+  PersonMergeResultDto,
   PersonRelatedRecordsDto,
   TaskDto,
   TaskReminderMode,
@@ -150,6 +151,13 @@ export const api = {
     update: (publicId: string, body: { name: string; email?: string }) =>
       request<{ person: PersonDto }>(`/api/people/${publicId}`, {
         method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    archive: (publicId: string) =>
+      request<void>(`/api/people/${publicId}/archive`, { method: "POST" }),
+    merge: (sourcePublicId: string, body: { targetPublicId: string }) =>
+      request<PersonMergeResultDto>(`/api/people/${sourcePublicId}/merge`, {
+        method: "POST",
         body: JSON.stringify(body),
       }),
     audit: (publicId: string) =>
