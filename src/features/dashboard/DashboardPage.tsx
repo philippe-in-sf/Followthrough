@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type DashboardTask } from "../../api/client";
+import { api, type DashboardMeeting, type DashboardTask } from "../../api/client";
+import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { EmptyState } from "../../components/EmptyState";
 import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -36,8 +37,59 @@ function TaskLine({
           <small>{task.assignee?.name ?? "Unassigned"}</small>
           {task.dueDate ? <small>{task.dueDate}</small> : null}
           {task.private ? <small>Private</small> : null}
+          {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+          {hasClearedBlockers(task) ? (
+            <StatusBadge label="Blocker cleared" tone="good" />
+          ) : null}
         </span>
+        {hasBlockers(task) ? (
+          <span
+            className={`compact-blocker-text ${
+              hasClearedBlockers(task) ? "compact-blocker-text-cleared" : ""
+            }`}
+          >
+            <LinkedText text={task.blockers} />
+          </span>
+        ) : null}
       </span>
+    </li>
+  );
+}
+
+function MeetingLine({
+  meeting,
+  onOpenMeeting,
+}: {
+  meeting: DashboardMeeting;
+  onOpenMeeting: (publicId: string) => void;
+}) {
+  return (
+    <li className="compact-clickable-item">
+      <button
+        className="compact-record-button compact-record-button-stacked"
+        type="button"
+        onClick={() => onOpenMeeting(meeting.publicId)}
+        aria-label={`Open meeting ${meeting.publicId} ${meeting.title}`}
+      >
+        <strong>{meeting.publicId}</strong>
+        <span>
+          {meeting.title}
+          {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+          {hasClearedBlockers(meeting) ? (
+            <StatusBadge label="Blocker cleared" tone="good" />
+          ) : null}
+        </span>
+        <small>{new Date(meeting.startsAt).toLocaleString()}</small>
+        {hasBlockers(meeting) ? (
+          <span
+            className={`compact-blocker-text ${
+              hasClearedBlockers(meeting) ? "compact-blocker-text-cleared" : ""
+            }`}
+          >
+            <LinkedText text={meeting.blockers} />
+          </span>
+        ) : null}
+      </button>
     </li>
   );
 }
@@ -67,9 +119,49 @@ export function DashboardPage({
           <h3>Due soon</h3>
           <strong>{summary?.alerts.dueSoon.length ?? 0}</strong>
         </section>
+        <section className="summary-panel summary-panel-bad">
+          <h3>Blockers</h3>
+          <strong>
+            {summary
+              ? summary.activeBlockers.tasks.length + summary.activeBlockers.meetings.length
+              : 0}
+          </strong>
+        </section>
       </div>
       {summary ? (
         <div className="dashboard-grid">
+          <section className="dashboard-section">
+            <h3>Active blockers</h3>
+            {summary.activeBlockers.tasks.length === 0 &&
+            summary.activeBlockers.meetings.length === 0 ? (
+              <EmptyState title="No blockers" detail="Tasks and meetings with active blockers will appear here." />
+            ) : (
+              <div className="dashboard-blocker-list">
+                {summary.activeBlockers.meetings.length > 0 ? (
+                  <ul className="compact-list">
+                    {summary.activeBlockers.meetings.map((meeting) => (
+                      <MeetingLine
+                        key={meeting.publicId}
+                        meeting={meeting}
+                        onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
+                      />
+                    ))}
+                  </ul>
+                ) : null}
+                {summary.activeBlockers.tasks.length > 0 ? (
+                  <ul className="compact-list compact-task-list">
+                    {summary.activeBlockers.tasks.map((task) => (
+                      <TaskLine
+                        key={task.publicId}
+                        task={task}
+                        onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                      />
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            )}
+          </section>
           <section className="dashboard-section">
             <h3>Overdue tasks</h3>
             {summary.alerts.overdue.length === 0 ? (
@@ -112,6 +204,12 @@ export function DashboardPage({
                   <li key={group.assignee?.publicId ?? "unassigned"}>
                     <strong>{group.assignee?.name ?? "Unassigned"}</strong>
                     <span>{group.tasks.length} open</span>
+                    {group.tasks.some((task) => hasActiveBlockers(task)) ? (
+                      <StatusBadge
+                        label={`${group.tasks.filter((task) => hasActiveBlockers(task)).length} blockers`}
+                        tone="bad"
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -124,20 +222,11 @@ export function DashboardPage({
             ) : (
               <ul className="compact-list">
                 {summary.recentMeetings.map((meeting) => (
-                  <li className="compact-clickable-item" key={meeting.publicId}>
-                    <button
-                      className="compact-record-button"
-                      type="button"
-                      onClick={() =>
-                        onOpenRecord({ type: "meeting", publicId: meeting.publicId })
-                      }
-                      aria-label={`Open meeting ${meeting.publicId} ${meeting.title}`}
-                    >
-                      <strong>{meeting.publicId}</strong>
-                      <span>{meeting.title}</span>
-                      <small>{new Date(meeting.startsAt).toLocaleString()}</small>
-                    </button>
-                  </li>
+                  <MeetingLine
+                    key={meeting.publicId}
+                    meeting={meeting}
+                    onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
+                  />
                 ))}
               </ul>
             )}

@@ -473,6 +473,10 @@ button:disabled {
   margin-top: 8px;
 }
 
+.summary-panel-bad {
+  border-left: 6px solid #dc2626;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -580,6 +584,14 @@ button:disabled {
   padding: 10px 12px;
 }
 
+.compact-record-button-stacked {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.compact-record-button-stacked .compact-blocker-text {
+  grid-column: 2 / -1;
+}
+
 .compact-task-body {
   display: grid;
   gap: 4px;
@@ -600,9 +612,29 @@ button:disabled {
 .compact-task-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   max-width: 100%;
   min-width: 0;
+}
+
+.compact-blocker-text {
+  display: block;
+  color: #991b1b;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.compact-blocker-text-cleared {
+  color: #166534;
+  font-weight: 600;
+}
+
+.dashboard-blocker-list {
+  display: grid;
+  gap: 10px;
 }
 
 .compact-list small,
@@ -857,6 +889,15 @@ button:disabled {
   font-size: 0.84rem;
 }
 
+.person-related-list .status-badge {
+  margin-left: 6px;
+}
+
+.person-related-blocker {
+  color: #991b1b;
+  font-weight: 700;
+}
+
 .lane-stack {
   display: grid;
   gap: 16px;
@@ -1013,9 +1054,58 @@ button:disabled {
   padding: 8px 14px;
 }
 
+.blocker-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  margin: 0;
+  border-top: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #991b1b;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  padding: 10px 14px;
+}
+
+.blocker-note span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.blocker-note small {
+  color: #7f1d1d;
+  white-space: nowrap;
+}
+
+.blocker-note-cleared {
+  border-top-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.blocker-note-cleared small {
+  color: #166534;
+}
+
 .task-links {
   display: grid;
   gap: 4px;
+}
+
+.task-links > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-link-blocker {
+  flex-basis: 100%;
+  color: #991b1b;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .series-list {
@@ -1145,6 +1235,11 @@ button:disabled {
   min-height: 58vh;
   resize: vertical;
   line-height: 1.5;
+}
+
+.meeting-blockers-textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .meeting-notes-sidepanel {

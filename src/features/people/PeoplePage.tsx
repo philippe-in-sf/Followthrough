@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useState } from "react";
 import type { AuditLogDto, PersonDto, PersonRelatedRecordsDto } from "../../../shared/types";
 import { api } from "../../api/client";
+import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { LinkedText } from "../../components/LinkedText";
+import { StatusBadge } from "../../components/StatusBadge";
 
 function formatDate(value: string | null) {
   return value ?? "No due date";
@@ -320,7 +322,18 @@ export function PeoplePage() {
                                 </strong>
                                 <span>
                                   {meeting.publicId} - {formatMeetingTime(meeting.startsAt)}
+                                  {hasActiveBlockers(meeting) ? (
+                                    <StatusBadge label="Blocker" tone="bad" />
+                                  ) : null}
+                                  {hasClearedBlockers(meeting) ? (
+                                    <StatusBadge label="Blocker cleared" tone="good" />
+                                  ) : null}
                                 </span>
+                                {hasBlockers(meeting) ? (
+                                  <span className="person-related-blocker">
+                                    <LinkedText text={meeting.blockers} />
+                                  </span>
+                                ) : null}
                               </li>
                             ))}
                           </ul>
@@ -339,7 +352,18 @@ export function PeoplePage() {
                                 </strong>
                                 <span>
                                   {task.publicId} - {task.status} - {formatDate(task.dueDate)}
+                                  {hasActiveBlockers(task) ? (
+                                    <StatusBadge label="Blocker" tone="bad" />
+                                  ) : null}
+                                  {hasClearedBlockers(task) ? (
+                                    <StatusBadge label="Blocker cleared" tone="good" />
+                                  ) : null}
                                 </span>
+                                {hasBlockers(task) ? (
+                                  <span className="person-related-blocker">
+                                    <LinkedText text={task.blockers} />
+                                  </span>
+                                ) : null}
                               </li>
                             ))}
                           </ul>

@@ -6,12 +6,22 @@ import { getTaskAlert } from "../tasks/alerts.js";
 type DashboardTaskRow = {
   public_id: string;
   description: string;
+  blockers: string;
+  blockers_cleared_at: string | null;
   status: "Open" | "In Progress" | "Blocked" | "Done";
   due_date: string | null;
   private: number;
   assignee_public_id: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
+};
+
+type DashboardMeeting = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  blockers: string;
+  blockersClearedAt: string | null;
 };
 
 export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
@@ -21,7 +31,8 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
     const userId = req.user?.id ?? 0;
     const taskRows = db
       .prepare(
-        `SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+        `SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.blockers_cleared_at,
+                tasks.status, tasks.due_date,
                 tasks.private,
                 people.public_id AS assignee_public_id,
                 people.name AS assignee_name,
@@ -38,6 +49,8 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
     const tasks = taskRows.map((row) => ({
       publicId: row.public_id,
       description: row.description,
+      blockers: row.blockers,
+      blockersClearedAt: row.blockers_cleared_at,
       status: row.status,
       dueDate: row.due_date,
       private: row.private === 1,
@@ -64,14 +77,29 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
 
     const recentMeetings = db
       .prepare(
-        `SELECT public_id AS publicId, title, starts_at AS startsAt
+        `SELECT public_id AS publicId, title, starts_at AS startsAt,
+                blockers, blockers_cleared_at AS blockersClearedAt
          FROM meetings
          WHERE archived_at IS NULL
          AND (private = 0 OR created_by_user_id = ?)
          ORDER BY starts_at DESC
          LIMIT 5`,
       )
-      .all(userId);
+      .all(userId) as DashboardMeeting[];
+
+    const activeBlockerMeetings = db
+      .prepare(
+        `SELECT public_id AS publicId, title, starts_at AS startsAt,
+                blockers, blockers_cleared_at AS blockersClearedAt
+         FROM meetings
+         WHERE archived_at IS NULL
+         AND TRIM(blockers) <> ''
+         AND blockers_cleared_at IS NULL
+         AND (private = 0 OR created_by_user_id = ?)
+         ORDER BY starts_at DESC
+         LIMIT 8`,
+      )
+      .all(userId) as DashboardMeeting[];
 
     const recentDecisions = db
       .prepare(
@@ -100,6 +128,12 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
         dueSoon: tasks.filter((task) => task.alert === "dueSoon"),
       },
       openTasksByAssignee: Array.from(grouped.values()),
+      activeBlockers: {
+        tasks: tasks.filter(
+          (task) => task.blockers.trim() && task.blockersClearedAt === null,
+        ),
+        meetings: activeBlockerMeetings,
+      },
       recentMeetings,
       recentDecisions,
       activeSeries: series,

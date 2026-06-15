@@ -7,6 +7,7 @@ import type {
   TaskStatus,
 } from "../../../shared/types";
 import { ApiError, api } from "../../api/client";
+import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
@@ -26,6 +27,8 @@ type TaskLane = {
 
 type TaskFormState = {
   description: string;
+  blockers: string;
+  blockersCleared: boolean;
   assigneePublicId: string;
   status: TaskStatus;
   dueDate: string;
@@ -36,6 +39,8 @@ type TaskFormState = {
 
 const emptyTaskForm: TaskFormState = {
   description: "",
+  blockers: "",
+  blockersCleared: false,
   assigneePublicId: "",
   status: "Open",
   dueDate: "",
@@ -49,10 +54,27 @@ function countLabel(count: number, singular: string) {
 }
 
 function taskCardTone(task: TaskDto) {
+  if (hasActiveBlockers(task)) return "record-card-bad";
   if (task.alert === "overdue") return "record-card-bad";
   if (task.alert === "dueSoon") return "record-card-warn";
   if (task.status === "Done") return "record-card-good";
   return "record-card-info";
+}
+
+function BlockerNote({ task }: { task: TaskDto }) {
+  if (!hasBlockers(task)) return null;
+
+  return (
+    <p className={`blocker-note ${hasClearedBlockers(task) ? "blocker-note-cleared" : ""}`}>
+      <strong>{hasClearedBlockers(task) ? "Cleared blocker" : "Blocker"}</strong>
+      <span>
+        <LinkedText text={task.blockers} />
+      </span>
+      {task.blockersClearedAt ? (
+        <small>Cleared {new Date(task.blockersClearedAt).toLocaleString()}</small>
+      ) : null}
+    </p>
+  );
 }
 
 export function TasksPage({
@@ -85,12 +107,24 @@ export function TasksPage({
   }, [assigneePublicId, status, alert]);
 
   const taskLanes = useMemo<TaskLane[]>(() => {
-    const overdue = tasks.filter((task) => task.alert === "overdue");
-    const dueSoon = tasks.filter((task) => task.alert === "dueSoon");
-    const active = tasks.filter((task) => !task.alert && task.status !== "Done");
-    const done = tasks.filter((task) => !task.alert && task.status === "Done");
+    const blocked = tasks.filter((task) => hasActiveBlockers(task));
+    const overdue = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "overdue");
+    const dueSoon = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "dueSoon");
+    const active = tasks.filter(
+      (task) => !hasActiveBlockers(task) && !task.alert && task.status !== "Done",
+    );
+    const done = tasks.filter(
+      (task) => !hasActiveBlockers(task) && !task.alert && task.status === "Done",
+    );
 
     const lanes: TaskLane[] = [
+      {
+        key: "blockers",
+        title: "Blockers",
+        ariaLabel: "Tasks with blockers",
+        tone: "bad",
+        tasks: blocked,
+      },
       {
         key: "overdue",
         title: "Overdue",
@@ -153,6 +187,8 @@ export function TasksPage({
     event.preventDefault();
     const body = {
       description: form.description,
+      blockers: form.blockers,
+      blockersCleared: form.blockersCleared,
       assigneePublicId: form.assigneePublicId || null,
       status: form.status,
       dueDate: form.dueDate || null,
@@ -171,6 +207,8 @@ export function TasksPage({
     setEditingTaskPublicId(task.publicId);
     setTaskEditForm({
       description: task.description,
+      blockers: task.blockers,
+      blockersCleared: task.blockersClearedAt !== null,
       assigneePublicId: task.assignee?.publicId ?? "",
       status: task.status,
       dueDate: task.dueDate ?? "",
@@ -194,6 +232,8 @@ export function TasksPage({
     event.preventDefault();
     await api.tasks.update(task.publicId, {
       description: taskEditForm.description,
+      blockers: taskEditForm.blockers,
+      blockersCleared: taskEditForm.blockersCleared,
       assigneePublicId: taskEditForm.assigneePublicId || null,
       status: taskEditForm.status,
       dueDate: taskEditForm.dueDate || null,
@@ -237,6 +277,18 @@ export function TasksPage({
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
             required
+          />
+        </FormField>
+        <FormField label="Task blockers">
+          <textarea
+            value={form.blockers}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                blockers: event.target.value,
+                blockersCleared: event.target.value.trim() ? form.blockersCleared : false,
+              })
+            }
           />
         </FormField>
         <FormField label="Task assignee">
@@ -358,6 +410,10 @@ export function TasksPage({
                         <StatusBadge label="Overdue" tone="bad" />
                       ) : null}
                       {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                      {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                      {hasClearedBlockers(task) ? (
+                        <StatusBadge label="Blocker cleared" tone="good" />
+                      ) : null}
                       <span>{task.assignee?.name ?? "Unassigned"}</span>
                       <span>{task.dueDate ?? "No due date"}</span>
                       <button
@@ -386,6 +442,7 @@ export function TasksPage({
                     {reminderFeedback[task.publicId] ? (
                       <p className="task-reminder-feedback">{reminderFeedback[task.publicId]}</p>
                     ) : null}
+                    <BlockerNote task={task} />
                     {editingTaskPublicId === task.publicId ? (
                       <>
                         <form
@@ -403,6 +460,20 @@ export function TasksPage({
                                 })
                               }
                               required
+                            />
+                          </FormField>
+                          <FormField label={`Task blockers for ${task.publicId}`}>
+                            <textarea
+                              value={taskEditForm.blockers}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockers: event.target.value,
+                                  blockersCleared: event.target.value.trim()
+                                    ? taskEditForm.blockersCleared
+                                    : false,
+                                })
+                              }
                             />
                           </FormField>
                           <FormField label={`Task assignee for ${task.publicId}`}>
@@ -461,6 +532,20 @@ export function TasksPage({
                               }
                             />
                             <span>Private</span>
+                          </label>
+                          <label className="checkbox-line">
+                            <input
+                              type="checkbox"
+                              checked={taskEditForm.blockersCleared}
+                              disabled={!taskEditForm.blockers.trim()}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockersCleared: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>Blocker cleared</span>
                           </label>
                           <div className="form-actions">
                             <button className="primary-button" type="submit">
