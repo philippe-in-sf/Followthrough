@@ -38,6 +38,7 @@ describe("auth shell", () => {
         json: async () => ({
           alerts: { overdue: [], dueSoon: [] },
           openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],

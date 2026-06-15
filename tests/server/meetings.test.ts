@@ -41,6 +41,7 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        blockers: "Waiting on launch owner",
         notes: "Keep these notes.",
         links: [
           {
@@ -55,7 +56,33 @@ describe("meetings", () => {
 
     expect(meeting.status).toBe(201);
     expect(meeting.body.meeting.publicId).toBe("M001");
+    expect(meeting.body.meeting.blockers).toBe("Waiting on launch owner");
+    expect(meeting.body.meeting.blockersClearedAt).toBeNull();
     expect(meeting.body.meeting.attendees[0].publicId).toBe(personPublicId);
+
+    const cleared = await request(app)
+      .patch("/api/meetings/M001")
+      .set("Cookie", cookie)
+      .send({
+        title: "Planning",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Discussed launch work.",
+        blockersCleared: true,
+        notes: "Keep these notes.",
+        links: [
+          {
+            label: "Planning agenda",
+            url: "https://example.com/planning-agenda",
+            linkType: "agenda",
+          },
+        ],
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+      });
+
+    expect(cleared.body.meeting.blockers).toBe("Waiting on launch owner");
+    expect(cleared.body.meeting.blockersClearedAt).toEqual(expect.any(String));
   });
 
   it("records meeting audit history", async () => {
@@ -69,6 +96,7 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        blockers: "Need product sign-off",
         notes: "Keep these notes.",
         links: [
           {
@@ -113,6 +141,8 @@ describe("meetings", () => {
     expect(audit.body.auditEvents[0].changes.after.title).toBe("Updated planning");
 
     const updatedMeeting = await request(app).get("/api/meetings/M001").set("Cookie", cookie);
+    expect(updatedMeeting.body.meeting.blockers).toBe("Need product sign-off");
+    expect(updatedMeeting.body.meeting.blockersClearedAt).toBeNull();
     expect(updatedMeeting.body.meeting.notes).toBe("Keep these notes.");
     expect(updatedMeeting.body.meeting.links).toEqual([
       expect.objectContaining({

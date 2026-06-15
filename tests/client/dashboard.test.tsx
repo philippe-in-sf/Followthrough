@@ -37,6 +37,8 @@ function setupAppFetch() {
     {
       publicId: "T099",
       description: "Prep launch plan",
+      blockers: "Waiting on finance numbers",
+      blockersClearedAt: null,
       assignee: avery,
       status: "Open",
       dueDate: "2026-06-08",
@@ -51,6 +53,8 @@ function setupAppFetch() {
     {
       publicId: "T010",
       description: "Carry roadmap",
+      blockers: "Legal review is slow",
+      blockersClearedAt: "2026-06-09T13:00:00.000Z",
       assignee: avery,
       status: "In Progress",
       dueDate: "2026-06-15",
@@ -65,6 +69,8 @@ function setupAppFetch() {
     {
       publicId: "T004",
       description: `Do the All Hands deck (${deckUrl})`,
+      blockers: "",
+      blockersClearedAt: null,
       assignee: avery,
       status: "Open",
       dueDate: "2026-06-17",
@@ -107,6 +113,8 @@ function setupAppFetch() {
       meetingType: "recurring",
       seriesPublicId: "S001",
       summary: "Launch readiness",
+      blockers: "Need agenda owner",
+      blockersClearedAt: null,
       notes: "Previous launch notes",
       links: [
         {
@@ -181,10 +189,24 @@ function setupAppFetch() {
           dueSoon: tasks.filter((task) => task.alert === "dueSoon"),
         },
         openTasksByAssignee: [{ assignee: avery, tasks }],
+        activeBlockers: {
+          tasks: tasks.filter((task) => task.blockers && !task.blockersClearedAt),
+          meetings: meetings
+            .filter((meeting) => meeting.blockers && !meeting.blockersClearedAt)
+            .map((meeting) => ({
+              publicId: meeting.publicId,
+              title: meeting.title,
+              startsAt: meeting.startsAt,
+              blockers: meeting.blockers,
+              blockersClearedAt: meeting.blockersClearedAt,
+            })),
+        },
         recentMeetings: meetings.map((meeting) => ({
           publicId: meeting.publicId,
           title: meeting.title,
           startsAt: meeting.startsAt,
+          blockers: meeting.blockers,
+          blockersClearedAt: meeting.blockersClearedAt,
         })),
         recentDecisions: decisions.map((decision) => ({
           publicId: decision.publicId,
@@ -232,6 +254,8 @@ function setupAppFetch() {
       const task: TaskDto = {
         publicId: "T100",
         description: body.description,
+        blockers: body.blockers ?? "",
+        blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:10:00.000Z" : null,
         assignee: avery,
         status: body.status,
         dueDate: body.dueDate,
@@ -280,6 +304,13 @@ function setupAppFetch() {
       tasks[0] = {
         ...tasks[0],
         description: body.description,
+        blockers: body.blockers ?? tasks[0].blockers,
+        blockersClearedAt:
+          body.blockersCleared === undefined
+            ? tasks[0].blockersClearedAt
+            : body.blockersCleared && (body.blockers ?? tasks[0].blockers)
+              ? "2026-06-09T12:15:00.000Z"
+              : null,
         status: body.status,
         reminderMode: body.reminderMode ?? tasks[0].reminderMode,
       };
@@ -336,6 +367,8 @@ function setupAppFetch() {
         meetingType: "recurring",
         seriesPublicId: "S001",
         summary: body.summary,
+        blockers: body.blockers ?? "",
+        blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:18:00.000Z" : null,
         notes: body.notes ?? meetings[0]?.notes ?? "",
         links: body.links ?? meetings[0]?.links ?? [],
         attendees: body.attendeePublicIds
@@ -364,6 +397,8 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        blockers: body.blockers ?? "",
+        blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:20:00.000Z" : null,
         notes: body.notes ?? "",
         links: body.links ?? [],
         attendees: body.attendeePublicIds
@@ -397,6 +432,13 @@ function setupAppFetch() {
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
+        blockers: body.blockers ?? meetings[0].blockers,
+        blockersClearedAt:
+          body.blockersCleared === undefined
+            ? meetings[0].blockersClearedAt
+            : body.blockersCleared && (body.blockers ?? meetings[0].blockers)
+              ? "2026-06-09T12:25:00.000Z"
+              : null,
         notes: body.notes ?? meetings[0].notes,
         links: body.links ?? meetings[0].links,
         attendees: body.attendeePublicIds
@@ -435,9 +477,11 @@ describe("dashboard and workspace flows", () => {
     setupAppFetch();
     render(<App />);
 
-    expect(await screen.findByText("T099")).toBeInTheDocument();
-    expect(screen.getByText("Prep launch plan")).toBeInTheDocument();
-    expect(screen.getByText("Leadership sync")).toBeInTheDocument();
+    expect((await screen.findAllByText("T099")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Prep launch plan").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Waiting on finance numbers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Need agenda owner").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Leadership sync").length).toBeGreaterThan(0);
     expect(screen.getByText("Use SQLite")).toBeInTheDocument();
     expect(screen.getByText("Project sync")).toBeInTheDocument();
 
@@ -454,7 +498,7 @@ describe("dashboard and workspace flows", () => {
     setupAppFetch();
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Open task T099" }));
+    await userEvent.click((await screen.findAllByRole("button", { name: "Open task T099" }))[0]);
 
     await waitFor(() => {
       expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
@@ -464,7 +508,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
     await userEvent.click(
-      await screen.findByRole("button", { name: /Open meeting M010 Leadership sync/i }),
+      (await screen.findAllByRole("button", { name: /Open meeting M010 Leadership sync/i }))[0],
     );
 
     await waitFor(() => {
@@ -500,13 +544,14 @@ describe("dashboard and workspace flows", () => {
       .reverse()
       .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
     expect(JSON.parse(String(taskCreateCall?.[1]?.body))).toEqual(
-      expect.objectContaining({ reminderMode: "manual" }),
+      expect.objectContaining({ blockers: "", blockersCleared: false, reminderMode: "manual" }),
     );
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
 
-    const overdueTasks = await screen.findByRole("region", { name: "Overdue tasks" });
-    expect(within(overdueTasks).getByText("Prep launch plan")).toBeInTheDocument();
-    expect(within(overdueTasks).getByText("1 task")).toBeInTheDocument();
+    const blockedTasks = await screen.findByRole("region", { name: "Tasks with blockers" });
+    expect(within(blockedTasks).getByText("Prep launch plan")).toBeInTheDocument();
+    expect(within(blockedTasks).getByText("Waiting on finance numbers")).toBeInTheDocument();
+    expect(within(blockedTasks).getByText("1 task")).toBeInTheDocument();
 
     const dueSoonTasks = screen.getByRole("region", { name: "Due soon tasks" });
     expect(within(dueSoonTasks).getByText("Carry roadmap")).toBeInTheDocument();
@@ -521,6 +566,9 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
     expect(within(taskCard).queryByLabelText("Reminder mode for T099")).not.toBeInTheDocument();
+    expect(within(taskCard).getByLabelText("Task blockers for T099")).toHaveValue(
+      "Waiting on finance numbers",
+    );
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
     await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
@@ -528,10 +576,21 @@ describe("dashboard and workspace flows", () => {
       within(taskCard).getByLabelText("Task description for T099"),
       "Prep launch materials",
     );
+    await userEvent.click(within(taskCard).getByLabelText("Blocker cleared"));
     await userEvent.click(within(taskCard).getByRole("button", { name: "Save task T099" }));
     expect(await screen.findByText("Prep launch materials")).toBeInTheDocument();
+    const taskUpdateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/tasks/T099" && init?.method === "PATCH");
+    expect(JSON.parse(String(taskUpdateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        blockers: "Waiting on finance numbers",
+        blockersCleared: true,
+      }),
+    );
 
     const refreshedTaskCard = await screen.findByLabelText("Task T099");
+    expect(within(refreshedTaskCard).getAllByText("Blocker cleared").length).toBeGreaterThan(0);
     expect(within(refreshedTaskCard).queryByText("Updated task details")).not.toBeInTheDocument();
     await userEvent.click(
       within(refreshedTaskCard).getByRole("button", { name: "Edit details for T099" }),
@@ -552,9 +611,12 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     expect(await screen.findByText("Leadership sync")).toBeInTheDocument();
+    expect(screen.getByText("Need agenda owner")).toBeInTheDocument();
     expect(screen.getByText("Carry roadmap")).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Past meetings" })).getByText("Leadership sync"),
+      within(screen.getByRole("region", { name: "Meetings with blockers" })).getByText(
+        "Leadership sync",
+      ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
@@ -592,11 +654,14 @@ describe("dashboard and workspace flows", () => {
     );
 
     const notesField = await screen.findByLabelText("Notes for M010");
+    const blockersField = screen.getByLabelText("Blockers for M010");
+    expect(blockersField).toHaveValue("Need agenda owner");
     expect(notesField).toHaveValue("Previous launch notes");
     expect(screen.getByDisplayValue("Launch agenda")).toBeInTheDocument();
 
     await userEvent.clear(notesField);
     await userEvent.type(notesField, "Live launch notes");
+    await userEvent.click(screen.getByLabelText("Blocker cleared"));
     await userEvent.type(screen.getByLabelText("New link label"), "Customer deck");
     await userEvent.type(screen.getByLabelText("New link URL"), "https://example.com/deck");
     await userEvent.selectOptions(screen.getByLabelText("New link type"), "work");
@@ -612,6 +677,8 @@ describe("dashboard and workspace flows", () => {
       );
     const body = JSON.parse(String(patchCall?.[1]?.body));
 
+    expect(body.blockers).toBe("Need agenda owner");
+    expect(body.blockersCleared).toBe(true);
     expect(body.notes).toBe("Live launch notes");
     expect(body.links).toEqual([
       {
@@ -640,6 +707,10 @@ describe("dashboard and workspace flows", () => {
       within(meetingCard).getByLabelText("New task description for M010"),
       "Capture action items",
     );
+    await userEvent.type(
+      within(meetingCard).getByLabelText("New task blockers for M010"),
+      "Need customer list",
+    );
     await userEvent.selectOptions(
       within(meetingCard).getByLabelText("New task assignee for M010"),
       "P001",
@@ -650,8 +721,18 @@ describe("dashboard and workspace flows", () => {
     );
     await userEvent.type(within(meetingCard).getByLabelText("New task due date for M010"), "2026-06-20");
     await userEvent.click(within(meetingCard).getByRole("button", { name: "Add task to M010" }));
+    const meetingTaskCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
+    expect(JSON.parse(String(meetingTaskCreateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        blockers: "Need customer list",
+        blockersCleared: false,
+      }),
+    );
 
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
+    expect(await screen.findByText("Need customer list")).toBeInTheDocument();
     expect(await screen.findByText("Added task T100")).toBeInTheDocument();
 
     const refreshedMeetingCard = await screen.findByLabelText("Meeting M010");

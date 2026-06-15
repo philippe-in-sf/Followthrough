@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { taskInputSchema } from "../../shared/schemas.js";
+import { taskInputSchema, taskUpdateInputSchema } from "../../shared/schemas.js";
 import type { TaskDto, TaskReminderMode, TaskStatus } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
+import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import type { EmailSender } from "../email/mailer.js";
@@ -14,6 +15,8 @@ import { sendManualTaskReminder } from "./reminders.js";
 export type TaskRow = {
   public_id: string;
   description: string;
+  blockers: string;
+  blockers_cleared_at: string | null;
   status: TaskStatus;
   due_date: string | null;
   reminder_mode: TaskReminderMode;
@@ -36,7 +39,8 @@ type ResolvedTaskRelations = {
 };
 
 const taskSelect = `
-  SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.blockers_cleared_at,
+         tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (
            SELECT MAX(sent_at)
@@ -62,6 +66,8 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
   return {
     publicId: row.public_id,
     description: row.description,
+    blockers: row.blockers,
+    blockersClearedAt: row.blockers_cleared_at,
     assignee: row.assignee_public_id
       ? {
           publicId: row.assignee_public_id,
@@ -209,15 +215,21 @@ export function taskRoutes(
         const userId = req.user?.id ?? 0;
         const relations = resolveRelations(db, input, userId);
         const publicId = nextPublicId(db, "T");
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers: input.blockers,
+          requestedCleared: input.blockersCleared,
+        });
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, blockers, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
             input.description,
+            input.blockers,
+            blockersClearedAt,
             relations.assigneePersonId,
             input.status,
             input.dueDate ?? null,
@@ -284,19 +296,25 @@ export function taskRoutes(
 
   router.patch("/:publicId", (req, res, next) => {
     try {
-      const input = parseBody(req, taskInputSchema);
+      const input = parseBody(req, taskUpdateInputSchema);
       const task = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
         const existing = db
           .prepare(
-            `SELECT id, created_by_user_id, private
+            `SELECT id, blockers, blockers_cleared_at, created_by_user_id, private
              FROM tasks
              WHERE public_id = ?
              AND ${visibleTaskCondition()}
              AND archived_at IS NULL`,
           )
           .get(req.params.publicId, userId) as
-          | { id: number; created_by_user_id: number | null; private: number }
+          | {
+              id: number;
+              blockers: string;
+              blockers_cleared_at: string | null;
+              created_by_user_id: number | null;
+              private: number;
+            }
           | undefined;
         if (!existing) throw notFound("Task not found");
         if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
@@ -309,9 +327,17 @@ export function taskRoutes(
           input.private && existing.created_by_user_id === null
             ? userId
             : existing.created_by_user_id;
+        const blockers = input.blockers ?? existing.blockers;
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers,
+          requestedCleared: input.blockersCleared,
+          existingClearedAt: existing.blockers_cleared_at,
+        });
         db.prepare(
           `UPDATE tasks
            SET description = ?,
+               blockers = ?,
+               blockers_cleared_at = ?,
                assignee_person_id = ?,
                status = ?,
                due_date = ?,
@@ -324,6 +350,8 @@ export function taskRoutes(
            WHERE id = ?`,
         ).run(
           input.description,
+          blockers,
+          blockersClearedAt,
           relations.assigneePersonId,
           input.status,
           input.dueDate ?? null,

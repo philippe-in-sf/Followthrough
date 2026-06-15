@@ -11,6 +11,7 @@ import type {
   TaskDto,
 } from "../../../shared/types";
 import { api } from "../../api/client";
+import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
@@ -25,6 +26,8 @@ type MeetingFormState = {
   meetingType: MeetingType;
   seriesPublicId: string;
   summary: string;
+  blockers: string;
+  blockersCleared: boolean;
   attendeePublicIds: string[];
   attendeeNames: string;
   taskPublicIds: string[];
@@ -42,6 +45,8 @@ type OccurrenceFormState = {
   startsAt: string;
   title: string;
   summary: string;
+  blockers: string;
+  blockersCleared: boolean;
   attendeePublicIds: string[];
   attendeeNames: string;
   private: boolean;
@@ -49,6 +54,8 @@ type OccurrenceFormState = {
 
 type MeetingTaskFormState = {
   description: string;
+  blockers: string;
+  blockersCleared: boolean;
   assigneePublicId: string;
   status: TaskDto["status"];
   dueDate: string;
@@ -65,7 +72,7 @@ type MeetingLane = {
   key: string;
   title: string;
   ariaLabel: string;
-  tone: "info" | "neutral";
+  tone: "bad" | "info" | "neutral";
   meetings: MeetingDto[];
 };
 
@@ -76,6 +83,8 @@ const emptyMeetingForm: MeetingFormState = {
   meetingType: "single",
   seriesPublicId: "",
   summary: "",
+  blockers: "",
+  blockersCleared: false,
   attendeePublicIds: [],
   attendeeNames: "",
   taskPublicIds: [],
@@ -93,6 +102,8 @@ const emptyOccurrenceForm: OccurrenceFormState = {
   startsAt: "",
   title: "",
   summary: "",
+  blockers: "",
+  blockersCleared: false,
   attendeePublicIds: [],
   attendeeNames: "",
   private: false,
@@ -100,6 +111,8 @@ const emptyOccurrenceForm: OccurrenceFormState = {
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
   description: "",
+  blockers: "",
+  blockersCleared: false,
   assigneePublicId: "",
   status: "Open",
   dueDate: "",
@@ -166,6 +179,22 @@ function linkTypeLabel(value: MeetingLinkType) {
   return meetingLinkTypes.find((type) => type.value === value)?.label ?? "Link";
 }
 
+function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
+  if (!hasBlockers(meeting)) return null;
+
+  return (
+    <p className={`blocker-note ${hasClearedBlockers(meeting) ? "blocker-note-cleared" : ""}`}>
+      <strong>{hasClearedBlockers(meeting) ? "Cleared blocker" : "Blocker"}</strong>
+      <span>
+        <LinkedText text={meeting.blockers} />
+      </span>
+      {meeting.blockersClearedAt ? (
+        <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
+      ) : null}
+    </p>
+  );
+}
+
 function CheckboxGroup({
   legend,
   options,
@@ -220,6 +249,8 @@ export function MeetingsPage({
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [activeNotesMeetingPublicId, setActiveNotesMeetingPublicId] = useState<string | null>(null);
+  const [blockersDraft, setBlockersDraft] = useState("");
+  const [blockersClearedDraft, setBlockersClearedDraft] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [linkDrafts, setLinkDrafts] = useState<MeetingLinkFormState[]>([]);
   const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
@@ -227,14 +258,24 @@ export function MeetingsPage({
 
   const meetingLanes = useMemo<MeetingLane[]>(() => {
     const now = Date.now();
+    const blocked = meetings
+      .filter((meeting) => hasActiveBlockers(meeting))
+      .sort((left, right) => new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime());
     const upcoming = meetings
-      .filter((meeting) => new Date(meeting.startsAt).getTime() >= now)
+      .filter((meeting) => !hasActiveBlockers(meeting) && new Date(meeting.startsAt).getTime() >= now)
       .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
     const past = meetings
-      .filter((meeting) => new Date(meeting.startsAt).getTime() < now)
+      .filter((meeting) => !hasActiveBlockers(meeting) && new Date(meeting.startsAt).getTime() < now)
       .sort((left, right) => new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime());
 
     const lanes: MeetingLane[] = [
+      {
+        key: "blockers",
+        title: "Blockers",
+        ariaLabel: "Meetings with blockers",
+        tone: "bad",
+        meetings: blocked,
+      },
       {
         key: "upcoming",
         title: "Upcoming",
@@ -330,6 +371,8 @@ export function MeetingsPage({
       seriesPublicId:
         meetingForm.meetingType === "recurring" ? meetingForm.seriesPublicId || null : null,
       summary: meetingForm.summary,
+      blockers: meetingForm.blockers,
+      blockersCleared: meetingForm.blockersCleared,
       attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
       private: meetingForm.private,
@@ -350,6 +393,8 @@ export function MeetingsPage({
       title: occurrenceForm.title,
       startsAt: toApiDateTime(occurrenceForm.startsAt),
       summary: occurrenceForm.summary,
+      blockers: occurrenceForm.blockers,
+      blockersCleared: occurrenceForm.blockersCleared,
       attendeePublicIds,
       private: occurrenceForm.private,
     });
@@ -366,6 +411,8 @@ export function MeetingsPage({
       meetingType: meeting.meetingType,
       seriesPublicId: meeting.seriesPublicId ?? "",
       summary: meeting.summary,
+      blockers: meeting.blockers,
+      blockersCleared: meeting.blockersClearedAt !== null,
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
       attendeeNames: "",
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
@@ -398,6 +445,8 @@ export function MeetingsPage({
           ? meetingEditForm.seriesPublicId || null
           : null,
       summary: meetingEditForm.summary,
+      blockers: meetingEditForm.blockers,
+      blockersCleared: meetingEditForm.blockersCleared,
       notes: meeting.notes,
       links: meeting.links.map(toMeetingLinkForm),
       attendeePublicIds,
@@ -431,6 +480,8 @@ export function MeetingsPage({
     const form = getMeetingTaskForm(meeting.publicId);
     await api.tasks.create({
       description: form.description,
+      blockers: form.blockers,
+      blockersCleared: form.blockersCleared,
       assigneePublicId: form.assigneePublicId || null,
       status: form.status,
       dueDate: form.dueDate || null,
@@ -448,6 +499,8 @@ export function MeetingsPage({
   function openMeetingNotes(meeting: MeetingDto) {
     setActiveNotesMeetingPublicId(meeting.publicId);
     setEditingMeetingPublicId(null);
+    setBlockersDraft(meeting.blockers);
+    setBlockersClearedDraft(meeting.blockersClearedAt !== null);
     setNotesDraft(meeting.notes);
     setLinkDrafts(meeting.links.map(toMeetingLinkForm));
     setNewLinkForm(emptyMeetingLinkForm);
@@ -455,6 +508,8 @@ export function MeetingsPage({
 
   function closeMeetingNotes() {
     setActiveNotesMeetingPublicId(null);
+    setBlockersDraft("");
+    setBlockersClearedDraft(false);
     setNotesDraft("");
     setLinkDrafts([]);
     setNewLinkForm(emptyMeetingLinkForm);
@@ -488,6 +543,8 @@ export function MeetingsPage({
       meetingType: meeting.meetingType,
       seriesPublicId: meeting.seriesPublicId,
       summary: meeting.summary,
+      blockers: blockersDraft,
+      blockersCleared: blockersClearedDraft,
       notes: notesDraft,
       links,
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
@@ -546,7 +603,32 @@ export function MeetingsPage({
                   ? activeNotesMeeting.attendees.map((attendee) => attendee.name).join(", ")
                   : "No attendees"}
               </span>
+              {hasActiveBlockers(activeNotesMeeting) ? (
+                <StatusBadge label="Blocker" tone="bad" />
+              ) : null}
+              {hasClearedBlockers(activeNotesMeeting) ? (
+                <StatusBadge label="Blocker cleared" tone="good" />
+              ) : null}
             </div>
+            <FormField label={`Blockers for ${activeNotesMeeting.publicId}`}>
+              <textarea
+                className="meeting-blockers-textarea"
+                value={blockersDraft}
+                onChange={(event) => {
+                  setBlockersDraft(event.target.value);
+                  if (!event.target.value.trim()) setBlockersClearedDraft(false);
+                }}
+              />
+            </FormField>
+            <label className="checkbox-line">
+              <input
+                type="checkbox"
+                checked={blockersClearedDraft}
+                disabled={!blockersDraft.trim()}
+                onChange={(event) => setBlockersClearedDraft(event.target.checked)}
+              />
+              <span>Blocker cleared</span>
+            </label>
             <FormField label={`Notes for ${activeNotesMeeting.publicId}`}>
               <textarea
                 autoFocus
@@ -687,6 +769,15 @@ export function MeetingsPage({
                   {activeNotesMeeting.tasks.map((task) => (
                     <span key={task.publicId}>
                       <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                      {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                      {hasClearedBlockers(task) ? (
+                        <StatusBadge label="Blocker cleared" tone="good" />
+                      ) : null}
+                      {hasBlockers(task) ? (
+                        <small className="task-link-blocker">
+                          <LinkedText text={task.blockers} />
+                        </small>
+                      ) : null}
                     </span>
                   ))}
                 </div>
@@ -780,6 +871,20 @@ export function MeetingsPage({
               }
             />
           </FormField>
+          <FormField label="Occurrence blockers">
+            <textarea
+              value={occurrenceForm.blockers}
+              onChange={(event) =>
+                setOccurrenceForm({
+                  ...occurrenceForm,
+                  blockers: event.target.value,
+                  blockersCleared: event.target.value.trim()
+                    ? occurrenceForm.blockersCleared
+                    : false,
+                })
+              }
+            />
+          </FormField>
           <CheckboxGroup
             legend="Existing occurrence attendees"
             options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
@@ -867,6 +972,18 @@ export function MeetingsPage({
             onChange={(event) => setMeetingForm({ ...meetingForm, summary: event.target.value })}
           />
         </FormField>
+        <FormField label="Meeting blockers">
+          <textarea
+            value={meetingForm.blockers}
+            onChange={(event) =>
+              setMeetingForm({
+                ...meetingForm,
+                blockers: event.target.value,
+                blockersCleared: event.target.value.trim() ? meetingForm.blockersCleared : false,
+              })
+            }
+          />
+        </FormField>
         <CheckboxGroup
           legend="Existing attendees"
           options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
@@ -950,12 +1067,14 @@ export function MeetingsPage({
               </header>
               <div className="record-list">
                 {lane.meetings.map((meeting) => (
-            <article
-              aria-label={`Meeting ${meeting.publicId}`}
-              className="meeting-card record-card-meeting"
-              id={`meeting-${meeting.publicId}`}
-              key={meeting.publicId}
-            >
+              <article
+                aria-label={`Meeting ${meeting.publicId}`}
+                className={`meeting-card ${
+                  hasActiveBlockers(meeting) ? "record-card-bad" : "record-card-meeting"
+                }`}
+                id={`meeting-${meeting.publicId}`}
+                key={meeting.publicId}
+              >
               <div className="record-row meeting-row">
                 <div>
                   <strong>{meeting.title}</strong>
@@ -963,6 +1082,10 @@ export function MeetingsPage({
                 </div>
                 <StatusBadge label={meeting.meetingType} />
                 {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                {hasClearedBlockers(meeting) ? (
+                  <StatusBadge label="Blocker cleared" tone="good" />
+                ) : null}
                 <span>{new Date(meeting.startsAt).toLocaleString()}</span>
                 <span>{meeting.summary || "No summary"}</span>
                 <span>
@@ -977,6 +1100,15 @@ export function MeetingsPage({
                     meeting.tasks.map((task) => (
                       <span key={task.publicId}>
                         <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                        {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                        {hasClearedBlockers(task) ? (
+                          <StatusBadge label="Blocker cleared" tone="good" />
+                        ) : null}
+                        {hasBlockers(task) ? (
+                          <small className="task-link-blocker">
+                            <LinkedText text={task.blockers} />
+                          </small>
+                        ) : null}
                       </span>
                     ))
                   )}
@@ -998,6 +1130,7 @@ export function MeetingsPage({
                   Edit details
                 </button>
               </div>
+              <MeetingBlockerNote meeting={meeting} />
               {editingMeetingPublicId === meeting.publicId ? (
                 <form
                   className="meeting-edit-form"
@@ -1067,6 +1200,20 @@ export function MeetingsPage({
                       }
                     />
                   </FormField>
+                  <FormField label={`Meeting blockers for ${meeting.publicId}`}>
+                    <textarea
+                      value={meetingEditForm.blockers}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          blockers: event.target.value,
+                          blockersCleared: event.target.value.trim()
+                            ? meetingEditForm.blockersCleared
+                            : false,
+                        })
+                      }
+                    />
+                  </FormField>
                   <CheckboxGroup
                     legend={`Existing attendees for ${meeting.publicId}`}
                     options={people.map((person) => ({
@@ -1114,6 +1261,20 @@ export function MeetingsPage({
                     />
                     <span>Private</span>
                   </label>
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={meetingEditForm.blockersCleared}
+                      disabled={!meetingEditForm.blockers.trim()}
+                      onChange={(event) =>
+                        setMeetingEditForm({
+                          ...meetingEditForm,
+                          blockersCleared: event.target.checked,
+                        })
+                      }
+                    />
+                    <span>Blocker cleared</span>
+                  </label>
                   <div className="form-actions">
                     <button className="primary-button" type="submit">
                       Save meeting {meeting.publicId}
@@ -1142,6 +1303,19 @@ export function MeetingsPage({
                       })
                     }
                     required
+                  />
+                </FormField>
+                <FormField label={`New task blockers for ${meeting.publicId}`}>
+                  <textarea
+                    value={getMeetingTaskForm(meeting.publicId).blockers}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        blockers: event.target.value,
+                        blockersCleared: event.target.value.trim()
+                          ? getMeetingTaskForm(meeting.publicId).blockersCleared
+                          : false,
+                      })
+                    }
                   />
                 </FormField>
                 <FormField label={`New task assignee for ${meeting.publicId}`}>
