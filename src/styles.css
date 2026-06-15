@@ -623,18 +623,26 @@ button:disabled {
   min-width: min(220px, 100%);
 }
 
-.people-admin-form {
+.people-admin-panel {
   display: grid;
-  grid-template-columns: auto minmax(180px, 240px) minmax(180px, 240px) auto;
-  align-items: end;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-.people-admin-form h3 {
-  align-self: center;
+.people-admin-panel h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.people-admin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.people-admin-form .form-field {
+  width: min(240px, 100%);
 }
 
 .filter-bar select {
@@ -754,10 +762,7 @@ button:disabled {
   gap: 4px;
 }
 
-.person-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.person-row-edit {
   align-self: center;
   margin-right: 14px;
 }
@@ -1316,10 +1321,15 @@ button:disabled {
   }
 
   .people-admin-form {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .person-row-actions {
+  .people-admin-form .form-field {
+    width: 100%;
+  }
+
+  .person-row-edit {
     justify-self: start;
     margin: 0 14px 12px;
   }

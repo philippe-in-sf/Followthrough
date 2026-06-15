@@ -241,7 +241,7 @@ describe("record pages", () => {
     expect(screen.getByText("avery.stone@example.com")).toBeInTheDocument();
   });
 
-  it("archives a person from the people display screen", async () => {
+  it("archives a person from a single admin control", async () => {
     const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
       { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
       { publicId: "P002", name: "Morgan", email: "morgan@example.com", archived: false },
@@ -290,7 +290,9 @@ describe("record pages", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "People" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Archive P002" }));
+    expect(screen.queryByRole("button", { name: "Archive P002" })).not.toBeInTheDocument();
+    await userEvent.selectOptions(await screen.findByLabelText("Archive person"), "P002");
+    await userEvent.click(screen.getByRole("button", { name: "Archive selected person" }));
 
     expect(window.confirm).toHaveBeenCalledWith("Archive Morgan?");
     await waitFor(() => expect(screen.queryByText("Morgan")).not.toBeInTheDocument());

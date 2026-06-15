@@ -20,6 +20,7 @@ export function PeoplePage() {
   const [relatedRecords, setRelatedRecords] = useState<Record<string, PersonRelatedRecordsDto>>({});
   const [selectedPersonPublicId, setSelectedPersonPublicId] = useState<string | null>(null);
   const [editingPersonPublicId, setEditingPersonPublicId] = useState<string | null>(null);
+  const [archivePersonPublicId, setArchivePersonPublicId] = useState("");
   const [mergeSourcePublicId, setMergeSourcePublicId] = useState("");
   const [mergeTargetPublicId, setMergeTargetPublicId] = useState("");
   const [loadingRecordsPublicId, setLoadingRecordsPublicId] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function PeoplePage() {
       await api.people.archive(person.publicId);
       if (selectedPersonPublicId === person.publicId) setSelectedPersonPublicId(null);
       if (editingPersonPublicId === person.publicId) setEditingPersonPublicId(null);
+      setArchivePersonPublicId("");
       setRelatedRecords((current) => {
         const next = { ...current };
         delete next[person.publicId];
@@ -74,6 +76,17 @@ export function PeoplePage() {
     } catch {
       setPeopleAdminError(`Could not archive ${person.name}`);
     }
+  }
+
+  async function archiveSelectedPerson(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const person = people.find((item) => item.publicId === archivePersonPublicId);
+    if (!person) {
+      setPeopleAdminError("Choose a person to archive");
+      return;
+    }
+
+    await archivePerson(person);
   }
 
   async function mergePeople(event: FormEvent<HTMLFormElement>) {
@@ -161,39 +174,65 @@ export function PeoplePage() {
         </FormField>
         <button className="primary-button">Add person</button>
       </form>
-      {people.length > 1 ? (
-        <form aria-label="Merge people" className="people-admin-form" onSubmit={mergePeople}>
+      {people.length > 0 ? (
+        <section aria-label="People admin" className="people-admin-panel">
           <h3>Admin</h3>
-          <FormField label="Merge from">
-            <select
-              value={mergeSourcePublicId}
-              onChange={(event) => setMergeSourcePublicId(event.target.value)}
-            >
-              <option value="">Select person</option>
-              {people.map((person) => (
-                <option key={person.publicId} value={person.publicId}>
-                  {person.name} ({person.publicId})
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Merge into">
-            <select
-              value={mergeTargetPublicId}
-              onChange={(event) => setMergeTargetPublicId(event.target.value)}
-            >
-              <option value="">Select person</option>
-              {people.map((person) => (
-                <option key={person.publicId} value={person.publicId}>
-                  {person.name} ({person.publicId})
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <button className="secondary-button" type="submit">
-            Merge people
-          </button>
-        </form>
+          {people.length > 1 ? (
+            <form aria-label="Merge people" className="people-admin-form" onSubmit={mergePeople}>
+              <FormField label="Merge from">
+                <select
+                  value={mergeSourcePublicId}
+                  onChange={(event) => setMergeSourcePublicId(event.target.value)}
+                >
+                  <option value="">Select person</option>
+                  {people.map((person) => (
+                    <option key={person.publicId} value={person.publicId}>
+                      {person.name} ({person.publicId})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Merge into">
+                <select
+                  value={mergeTargetPublicId}
+                  onChange={(event) => setMergeTargetPublicId(event.target.value)}
+                >
+                  <option value="">Select person</option>
+                  {people.map((person) => (
+                    <option key={person.publicId} value={person.publicId}>
+                      {person.name} ({person.publicId})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <button className="secondary-button" type="submit">
+                Merge people
+              </button>
+            </form>
+          ) : null}
+          <form
+            aria-label="Archive person admin"
+            className="people-admin-form people-archive-form"
+            onSubmit={archiveSelectedPerson}
+          >
+            <FormField label="Archive person">
+              <select
+                value={archivePersonPublicId}
+                onChange={(event) => setArchivePersonPublicId(event.target.value)}
+              >
+                <option value="">Select person</option>
+                {people.map((person) => (
+                  <option key={person.publicId} value={person.publicId}>
+                    {person.name} ({person.publicId})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <button className="danger-button" type="submit">
+              Archive selected person
+            </button>
+          </form>
+        </section>
       ) : null}
       {peopleAdminError ? <p className="form-error">{peopleAdminError}</p> : null}
       {people.length === 0 ? (
@@ -222,22 +261,13 @@ export function PeoplePage() {
                   </div>
                   <span>{person.publicId}</span>
                 </button>
-                <div className="person-row-actions">
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => editPerson(person)}
-                  >
-                    Edit {person.publicId}
-                  </button>
-                  <button
-                    className="danger-button"
-                    type="button"
-                    onClick={() => void archivePerson(person)}
-                  >
-                    Archive {person.publicId}
-                  </button>
-                </div>
+                <button
+                  className="secondary-button person-row-edit"
+                  type="button"
+                  onClick={() => editPerson(person)}
+                >
+                  Edit {person.publicId}
+                </button>
               </article>
               {editingPersonPublicId === person.publicId ? (
                 <form
