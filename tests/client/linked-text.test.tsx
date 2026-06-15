@@ -11,8 +11,8 @@ describe("LinkedText", () => {
       </p>,
     );
 
-    expect(container).toHaveTextContent("Read the deck (link).");
-    const link = screen.getByRole("link", { name: "link" });
+    expect(container).toHaveTextContent("Read the deck (Link).");
+    const link = screen.getByRole("link", { name: "Link" });
     expect(link).toHaveAttribute(
       "href",
       "https://docs.google.com/presentation/d/example/edit#slide=id.g1",

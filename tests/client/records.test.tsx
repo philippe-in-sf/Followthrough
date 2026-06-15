@@ -451,8 +451,8 @@ describe("record pages", () => {
     expect(within(related).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
     expect(within(related).getByText("Planning sync")).toBeInTheDocument();
     expect(within(related).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
-    expect(related).toHaveTextContent("Send notes (link)");
-    expect(within(related).getByRole("link", { name: "link" })).toHaveAttribute(
+    expect(related).toHaveTextContent("Send notes (Link)");
+    expect(within(related).getByRole("link", { name: "Link" })).toHaveAttribute(
       "href",
       "https://docs.google.com/presentation/d/example/edit#slide=id.g1",
     );

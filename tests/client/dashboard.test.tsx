@@ -21,6 +21,8 @@ const avery: PersonDto = {
   archived: false,
 };
 
+const deckUrl = "https://docs.google.com/presentation/d/example/edit#slide=id.g36488bc6fbc_0_3";
+
 function json(data: unknown, status = 200) {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
@@ -57,6 +59,20 @@ function setupAppFetch() {
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "dueSoon",
+      private: false,
+      archived: false,
+    },
+    {
+      publicId: "T004",
+      description: `Do the All Hands deck (${deckUrl})`,
+      assignee: avery,
+      status: "Open",
+      dueDate: "2026-06-17",
+      originMeetingPublicId: null,
+      seriesPublicId: null,
+      reminderMode: "automatic",
+      lastReminderSentAt: null,
+      alert: null,
       private: false,
       archived: false,
     },
@@ -528,6 +544,13 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
     ).toBeInTheDocument();
+    const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
+    expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
+    expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
+    expect(within(meetingTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(
+      "href",
+      deckUrl,
+    );
 
     await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
     await userEvent.type(screen.getByLabelText("Occurrence start"), "2026-06-16T09:00");
@@ -577,6 +600,15 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(refreshedMeetingCard).getByRole("heading", { name: "Edit details for M010" }),
     ).toBeInTheDocument();
+    const meetingEditTaskOptions = within(refreshedMeetingCard).getByRole("group", {
+      name: "Meeting tasks for M010",
+    });
+    expect(meetingEditTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
+    expect(meetingEditTaskOptions).not.toHaveTextContent("https://docs.google.com");
+    expect(within(meetingEditTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(
+      "href",
+      deckUrl,
+    );
 
     await userEvent.clear(within(refreshedMeetingCard).getByLabelText("Meeting title for M010"));
     await userEvent.type(

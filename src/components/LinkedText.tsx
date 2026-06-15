@@ -51,7 +51,7 @@ export function LinkedText({ text }: { text: string }) {
 
     parts.push(
       <a className="inline-text-link" href={url} key={`${url}-${index}`} rel="noreferrer" target="_blank">
-        link
+        Link
       </a>,
     );
 

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AuditLogDto,
   MeetingDto,
@@ -121,6 +121,14 @@ function countLabel(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function taskOptionLabel(task: TaskDto) {
+  return (
+    <>
+      {task.publicId} <LinkedText text={task.description} />
+    </>
+  );
+}
+
 function CheckboxGroup({
   legend,
   options,
@@ -128,7 +136,7 @@ function CheckboxGroup({
   onChange,
 }: {
   legend: string;
-  options: Array<{ publicId: string; label: string }>;
+  options: Array<{ publicId: string; label: ReactNode }>;
   selected: string[];
   onChange: (values: string[]) => void;
 }) {
@@ -577,7 +585,7 @@ export function MeetingsPage({
           legend="Meeting tasks"
           options={tasks.map((task) => ({
             publicId: task.publicId,
-            label: `${task.publicId} ${task.description}`,
+            label: taskOptionLabel(task),
           }))}
           selected={meetingForm.taskPublicIds}
           onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
@@ -777,7 +785,7 @@ export function MeetingsPage({
                     legend={`Meeting tasks for ${meeting.publicId}`}
                     options={tasks.map((task) => ({
                       publicId: task.publicId,
-                      label: `${task.publicId} ${task.description}`,
+                      label: taskOptionLabel(task),
                     }))}
                     selected={meetingEditForm.taskPublicIds}
                     onChange={(taskPublicIds) =>

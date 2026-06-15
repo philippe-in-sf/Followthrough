@@ -708,6 +708,20 @@ button:disabled {
   gap: 8px;
 }
 
+.checkbox-group label {
+  align-items: flex-start;
+  max-width: 100%;
+}
+
+.checkbox-group label > input {
+  margin-top: 2px;
+}
+
+.checkbox-group label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .record-list {
   display: grid;
   gap: 8px;
