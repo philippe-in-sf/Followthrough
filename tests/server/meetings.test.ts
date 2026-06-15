@@ -41,6 +41,14 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        notes: "Keep these notes.",
+        links: [
+          {
+            label: "Planning agenda",
+            url: "https://example.com/planning-agenda",
+            linkType: "agenda",
+          },
+        ],
         attendeePublicIds: [personPublicId],
         taskPublicIds: [],
       });
@@ -61,6 +69,14 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        notes: "Keep these notes.",
+        links: [
+          {
+            label: "Planning agenda",
+            url: "https://example.com/planning-agenda",
+            linkType: "agenda",
+          },
+        ],
         attendeePublicIds: [personPublicId],
         taskPublicIds: [],
       });
@@ -95,6 +111,16 @@ describe("meetings", () => {
       }),
     ]);
     expect(audit.body.auditEvents[0].changes.after.title).toBe("Updated planning");
+
+    const updatedMeeting = await request(app).get("/api/meetings/M001").set("Cookie", cookie);
+    expect(updatedMeeting.body.meeting.notes).toBe("Keep these notes.");
+    expect(updatedMeeting.body.meeting.links).toEqual([
+      expect.objectContaining({
+        label: "Planning agenda",
+        url: "https://example.com/planning-agenda",
+        linkType: "agenda",
+      }),
+    ]);
   });
 
   it("creates next recurring occurrence and carries open tasks", async () => {
@@ -118,6 +144,14 @@ describe("meetings", () => {
         meetingType: "recurring",
         seriesPublicId: series.body.series.publicId,
         summary: "First instance.",
+        notes: "First notes.",
+        links: [
+          {
+            label: "Standing agenda",
+            url: "https://example.com/agenda",
+            linkType: "agenda",
+          },
+        ],
         attendeePublicIds: [personPublicId],
         taskPublicIds: [],
       });
@@ -144,6 +178,14 @@ describe("meetings", () => {
       .send({
         startsAt: "2026-06-16T15:00:00.000Z",
         summary: "Second instance.",
+        notes: "Second notes.",
+        links: [
+          {
+            label: "Follow-up deck",
+            url: "https://example.com/deck",
+            linkType: "work",
+          },
+        ],
         attendeePublicIds: [personPublicId],
       });
 
@@ -151,6 +193,19 @@ describe("meetings", () => {
     expect(next.body.meeting.publicId).toBe("M002");
     expect(next.body.meeting.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
       "T001",
+    ]);
+    expect(next.body.meeting.notes).toBe("First notes.\n\nSecond notes.");
+    expect(next.body.meeting.links).toEqual([
+      expect.objectContaining({
+        label: "Standing agenda",
+        url: "https://example.com/agenda",
+        linkType: "agenda",
+      }),
+      expect.objectContaining({
+        label: "Follow-up deck",
+        url: "https://example.com/deck",
+        linkType: "work",
+      }),
     ]);
   });
 

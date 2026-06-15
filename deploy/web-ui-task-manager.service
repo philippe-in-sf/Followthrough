@@ -1,5 +1,5 @@
 [Unit]
-Description=Web UI Task Manager
+Description=Followthrough
 After=network.target
 
 [Service]

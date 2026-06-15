@@ -3,6 +3,7 @@ import type {
   AuditLogDto,
   DecisionDto,
   MeetingDto,
+  MeetingLinkType,
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
@@ -94,9 +95,17 @@ type MeetingInput = {
   meetingType: MeetingType;
   seriesPublicId?: string | null;
   summary: string;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   taskPublicIds: string[];
   private?: boolean;
+};
+
+type MeetingLinkInput = {
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 type MeetingSeriesInput = {
@@ -109,6 +118,8 @@ type OccurrenceInput = {
   title?: string;
   startsAt: string;
   summary: string;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   private?: boolean;
 };

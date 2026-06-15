@@ -37,6 +37,14 @@ async function setup() {
       startsAt: "2026-06-09T15:00:00.000Z",
       meetingType: "single",
       summary: "Packet timing.",
+      notes: "Roadmap agenda notes.",
+      links: [
+        {
+          label: "Board agenda",
+          url: "https://example.com/board-agenda",
+          linkType: "agenda",
+        },
+      ],
       attendeePublicIds: [person.body.person.publicId],
       taskPublicIds: ["T001"],
     });
@@ -75,6 +83,20 @@ describe("search and dashboard", () => {
     expect(response.body.results.map((result: { type: string }) => result.type)).toEqual(
       expect.arrayContaining(["task", "meeting", "decision"]),
     );
+  });
+
+  it("searches meeting notes and structured links", async () => {
+    const { app, cookie } = await setup();
+
+    const notesResponse = await request(app).get("/api/search?q=Roadmap").set("Cookie", cookie);
+    const linkResponse = await request(app).get("/api/search?q=board-agenda").set("Cookie", cookie);
+
+    expect(notesResponse.body.results).toEqual([
+      expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
+    expect(linkResponse.body.results).toEqual([
+      expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
   });
 
   it("returns dashboard summaries and alerts", async () => {

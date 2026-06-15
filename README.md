@@ -1,15 +1,15 @@
-# Web UI Task Manager
+# Followthrough
 
-A single-server multi-user task manager for meetings, tasks, standalone tasks, decisions, and shared people records. Users log in only to enter and use the app. Meeting attendees and task assignees are tracked in the shared People list and do not need accounts.
+A single-server multi-user task manager for meetings, notes, tasks, standalone tasks, decisions, and shared people records. Users log in only to enter and use the app. Meeting attendees and task assignees are tracked in the shared People list and do not need accounts.
 
 ## Features
 
 - Invite-code signup and simple session login
 - Shared People list for assignees and meeting attendees
-- Meetings with date/time, attendees, summary, linked tasks, and public IDs like `M001`
+- Meetings with date/time, attendees, summary, notes, structured links, linked tasks, and public IDs like `M001`
 - Single meetings and recurring meeting series
 - Manual next-occurrence creation for recurring meetings
-- Recurring occurrences carry over the same unfinished series tasks
+- Recurring occurrences carry over unfinished series tasks, notes, and structured links
 - Tasks with description, assignee, status, due date, optional creator-only privacy, alerts, and public IDs like `T001`
 - Standalone tasks outside meetings
 - Manual and automatic email reminders for outstanding tasks

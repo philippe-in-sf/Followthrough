@@ -1,6 +1,7 @@
 export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
 export type TaskReminderMode = "automatic" | "manual";
 export type MeetingType = "single" | "recurring";
+export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "person";
 
@@ -71,10 +72,19 @@ export type MeetingDto = {
   meetingType: MeetingType;
   seriesPublicId: string | null;
   summary: string;
+  notes: string;
+  links: MeetingLinkDto[];
   attendees: PersonDto[];
   tasks: TaskDto[];
   private: boolean;
   archived: boolean;
+};
+
+export type MeetingLinkDto = {
+  id: number;
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 export type MeetingSeriesDto = {
