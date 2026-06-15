@@ -65,7 +65,7 @@ describe("tasks", () => {
 
     expect(created.status).toBe(201);
     expect(created.body.task.publicId).toBe("T001");
-    expect(created.body.task.reminderMode).toBe("automatic");
+    expect(created.body.task.reminderMode).toBe("manual");
     expect(created.body.task.alert).toBe("dueSoon");
 
     const filtered = await request(app)

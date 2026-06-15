@@ -17,7 +17,7 @@ export const taskInputSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   originMeetingPublicId: publicIdSchema.optional().nullable(),
   seriesPublicId: publicIdSchema.optional().nullable(),
-  reminderMode: taskReminderModeSchema.default("automatic"),
+  reminderMode: taskReminderModeSchema.default("manual"),
   private: z.boolean().default(false),
 });
 

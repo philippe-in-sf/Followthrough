@@ -4,7 +4,6 @@ import type {
   AuditLogDto,
   PersonDto,
   TaskDto,
-  TaskReminderMode,
   TaskStatus,
 } from "../../../shared/types";
 import { ApiError, api } from "../../api/client";
@@ -16,10 +15,6 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
-const reminderModes: Array<{ value: TaskReminderMode; label: string }> = [
-  { value: "automatic", label: "Automatic" },
-  { value: "manual", label: "Manual only" },
-];
 
 type TaskLane = {
   key: string;
@@ -36,7 +31,6 @@ type TaskFormState = {
   dueDate: string;
   originMeetingPublicId: string | null;
   seriesPublicId: string | null;
-  reminderMode: TaskReminderMode;
   private: boolean;
 };
 
@@ -47,7 +41,6 @@ const emptyTaskForm: TaskFormState = {
   dueDate: "",
   originMeetingPublicId: null,
   seriesPublicId: null,
-  reminderMode: "automatic",
   private: false,
 };
 
@@ -165,7 +158,7 @@ export function TasksPage({
       dueDate: form.dueDate || null,
       originMeetingPublicId: form.originMeetingPublicId,
       seriesPublicId: form.seriesPublicId,
-      reminderMode: form.reminderMode,
+      reminderMode: "manual" as const,
       private: form.private,
     };
 
@@ -183,7 +176,6 @@ export function TasksPage({
       dueDate: task.dueDate ?? "",
       originMeetingPublicId: task.originMeetingPublicId,
       seriesPublicId: task.seriesPublicId,
-      reminderMode: task.reminderMode,
       private: task.private,
     });
   }
@@ -207,7 +199,7 @@ export function TasksPage({
       dueDate: taskEditForm.dueDate || null,
       originMeetingPublicId: taskEditForm.originMeetingPublicId,
       seriesPublicId: taskEditForm.seriesPublicId,
-      reminderMode: taskEditForm.reminderMode,
+      reminderMode: "manual" as const,
       private: taskEditForm.private,
     });
     setEditingTaskPublicId(null);
@@ -278,20 +270,6 @@ export function TasksPage({
             value={form.dueDate}
             onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
           />
-        </FormField>
-        <FormField label="Reminder mode">
-          <select
-            value={form.reminderMode}
-            onChange={(event) =>
-              setForm({ ...form, reminderMode: event.target.value as TaskReminderMode })
-            }
-          >
-            {reminderModes.map((mode) => (
-              <option key={mode.value} value={mode.value}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
         </FormField>
         <div className="form-actions">
           <label className="checkbox-line">
@@ -379,9 +357,6 @@ export function TasksPage({
                       {task.alert === "overdue" ? (
                         <StatusBadge label="Overdue" tone="bad" />
                       ) : null}
-                      <StatusBadge
-                        label={task.reminderMode === "automatic" ? "Auto reminders" : "Manual only"}
-                      />
                       {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
                       <span>{task.assignee?.name ?? "Unassigned"}</span>
                       <span>{task.dueDate ?? "No due date"}</span>
@@ -473,23 +448,6 @@ export function TasksPage({
                                 setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
                               }
                             />
-                          </FormField>
-                          <FormField label={`Reminder mode for ${task.publicId}`}>
-                            <select
-                              value={taskEditForm.reminderMode}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  reminderMode: event.target.value as TaskReminderMode,
-                                })
-                              }
-                            >
-                              {reminderModes.map((mode) => (
-                                <option key={mode.value} value={mode.value}>
-                                  {mode.label}
-                                </option>
-                              ))}
-                            </select>
                           </FormField>
                           <label className="checkbox-line">
                             <input

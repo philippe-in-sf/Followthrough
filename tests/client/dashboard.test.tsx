@@ -459,11 +459,18 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    expect(screen.queryByLabelText("Reminder mode")).not.toBeInTheDocument();
     await userEvent.type(await screen.findByLabelText("Task description"), "Draft rollout notes");
     await userEvent.selectOptions(screen.getByLabelText("Task assignee"), "P001");
     await userEvent.selectOptions(screen.getByLabelText("Task status"), "In Progress");
     await userEvent.type(screen.getByLabelText("Task due date"), "2026-06-18");
     await userEvent.click(screen.getByRole("button", { name: "Add task" }));
+    const taskCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
+    expect(JSON.parse(String(taskCreateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({ reminderMode: "manual" }),
+    );
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
 
     const overdueTasks = await screen.findByRole("region", { name: "Overdue tasks" });
@@ -482,6 +489,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
+    expect(within(taskCard).queryByLabelText("Reminder mode for T099")).not.toBeInTheDocument();
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
     await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
