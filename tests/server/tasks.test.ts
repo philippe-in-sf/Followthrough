@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
+import { loadConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 import type { EmailMessage, EmailSender } from "../../server/email/mailer";
 import { sendAutomaticTaskReminders } from "../../server/tasks/reminders";
@@ -19,7 +20,11 @@ async function setup(options: { personEmail?: string } = {}) {
       sentEmails.push(message);
     }),
   };
-  const app = createApp({ db, emailSender });
+  const app = createApp({
+    db,
+    emailSender,
+    config: { ...loadConfig(), appBaseUrl: "https://philippe-tasks.net" },
+  });
   const signup = await request(app).post("/api/auth/signup").send({
     name: "Editor",
     email: "editor@example.com",
@@ -171,6 +176,15 @@ describe("tasks", () => {
       expect.objectContaining({
         to: "avery@example.com",
         subject: "T001 is due soon: Send notes",
+        text: [
+          "Hi Avery,",
+          "",
+          "Just a reminder that Philippe will want to talk about a task assigned to you soon.  The notes that this humble computer has say: Send notes (task number: T001).   The status is currently set as Open, with a due date of 2026-06-12.",
+          "",
+          "If you have any questions, please see Philippe.",
+          "",
+          "To manually manage tasks, ask for access to https://philippe-tasks.net.",
+        ].join("\n"),
       }),
     ]);
 

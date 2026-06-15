@@ -82,13 +82,13 @@ function reminderSubject(row: ReminderTaskRow, config: AppConfig) {
   return `Task reminder: ${row.public_id} ${row.description}`;
 }
 
-function appLinkLine(config: AppConfig) {
-  if (!config.appBaseUrl) return null;
+function appAccessUrl(config: AppConfig) {
+  const baseUrl = config.appBaseUrl || "https://philippe-tasks.net";
 
   try {
-    return `Open the task manager: ${new URL(config.appBaseUrl).toString()}`;
+    return new URL(baseUrl).toString().replace(/\/$/, "");
   } catch {
-    return `Open the task manager: ${config.appBaseUrl}`;
+    return baseUrl.replace(/\/+$/, "");
   }
 }
 
@@ -96,7 +96,7 @@ function buildTaskReminderEmail(row: ReminderTaskRow, config: AppConfig): EmailM
   const recipient = requireActiveAssigneeEmail(row);
   const dueDate = row.due_date ?? "No due date";
   const greeting = row.assignee_name ? `Hi ${row.assignee_name},` : "Hi,";
-  const linkLine = appLinkLine(config);
+  const accessUrl = appAccessUrl(config);
 
   return {
     to: recipient,
@@ -104,12 +104,11 @@ function buildTaskReminderEmail(row: ReminderTaskRow, config: AppConfig): EmailM
     text: [
       greeting,
       "",
-      `Reminder for ${row.public_id}: ${row.description}`,
-      `Status: ${row.status}`,
-      `Due date: ${dueDate}`,
+      `Just a reminder that Philippe will want to talk about a task assigned to you soon.  The notes that this humble computer has say: ${row.description} (task number: ${row.public_id}).   The status is currently set as ${row.status}, with a due date of ${dueDate}.`,
       "",
-      "This task is still outstanding in the shared task manager.",
-      ...(linkLine ? ["", linkLine] : []),
+      "If you have any questions, please see Philippe.",
+      "",
+      `To manually manage tasks, ask for access to ${accessUrl}.`,
     ].join("\n"),
   };
 }
