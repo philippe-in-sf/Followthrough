@@ -524,6 +524,10 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.get("/", (req, res) => {
     const userId = req.user?.id ?? 0;
+    const archiveCondition =
+      req.query.archived === "true"
+        ? "meetings.archived_at IS NOT NULL"
+        : "meetings.archived_at IS NULL";
     const rows = db
       .prepare(
         `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
@@ -533,7 +537,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
                 meetings.created_by_user_id, meetings.archived_at
          FROM meetings
          LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
-         WHERE meetings.archived_at IS NULL
+         WHERE ${archiveCondition}
          AND ${visibleMeetingCondition()}
          ORDER BY meetings.starts_at DESC`,
       )
@@ -553,7 +557,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.get("/:publicId/audit", (req, res, next) => {
     try {
-      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0);
+      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0, true);
       res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
     } catch (error) {
       next(error);
@@ -684,6 +688,49 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         });
       });
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  meetingsRouter.post("/:publicId/restore", (req, res, next) => {
+    try {
+      const meeting = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
+        const existing = getMeetingRow(db, req.params.publicId, userId, true);
+        const before = toMeeting(db, config, existing, userId);
+        if (!before.archived) throw badRequest("Meeting is not archived");
+
+        const result = db
+          .prepare(
+            `UPDATE meetings
+             SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NOT NULL`,
+          )
+          .run(req.params.publicId, userId);
+
+        if (result.changes === 0) throw notFound("Meeting not found");
+        const after = toMeeting(
+          db,
+          config,
+          getMeetingRow(db, req.params.publicId, userId),
+          userId,
+        );
+        recordAuditEvent(db, {
+          entityType: "meeting",
+          entityPublicId: after.publicId,
+          action: "restored",
+          userId: req.user?.id ?? null,
+          summary: "Restored meeting",
+          changes: { before, after },
+        });
+
+        return after;
+      });
+
+      res.json({ meeting });
     } catch (error) {
       next(error);
     }

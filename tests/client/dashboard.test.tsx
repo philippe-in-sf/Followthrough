@@ -102,6 +102,7 @@ function setupAppFetch() {
       archived: false,
     },
   ];
+  const archivedTasks: TaskDto[] = [];
 
   const decisions: DecisionDto[] = [
     {
@@ -149,6 +150,7 @@ function setupAppFetch() {
       archived: false,
     },
   ];
+  const archivedMeetings: MeetingDto[] = [];
 
   const taskAudits: Record<string, AuditLogDto[]> = {
     T099: [
@@ -262,7 +264,11 @@ function setupAppFetch() {
       return json({ person }, 201);
     }
 
-    if (url.pathname === "/api/tasks" && method === "GET") return json({ tasks });
+    if (url.pathname === "/api/tasks" && method === "GET") {
+      return json({
+        tasks: url.searchParams.get("archived") === "true" ? archivedTasks : tasks,
+      });
+    }
 
     const taskAuditMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/audit$/);
     if (taskAuditMatch && method === "GET") {
@@ -351,6 +357,24 @@ function setupAppFetch() {
       return json({ task: tasks[0] });
     }
 
+    if (url.pathname === "/api/tasks/T099/archive" && method === "POST") {
+      const index = tasks.findIndex((task) => task.publicId === "T099");
+      if (index >= 0) {
+        const [task] = tasks.splice(index, 1);
+        archivedTasks.unshift({ ...task, archived: true });
+      }
+      return json(null, 204);
+    }
+
+    if (url.pathname === "/api/tasks/T099/restore" && method === "POST") {
+      const index = archivedTasks.findIndex((task) => task.publicId === "T099");
+      if (index < 0) return json({});
+      const [task] = archivedTasks.splice(index, 1);
+      const restored = { ...task, archived: false };
+      tasks.unshift(restored);
+      return json({ task: restored });
+    }
+
     if (url.pathname === "/api/decisions" && method === "GET") return json({ decisions });
 
     if (url.pathname === "/api/decisions" && method === "POST") {
@@ -403,7 +427,11 @@ function setupAppFetch() {
       return json({ meeting }, 201);
     }
 
-    if (url.pathname === "/api/meetings" && method === "GET") return json({ meetings });
+    if (url.pathname === "/api/meetings" && method === "GET") {
+      return json({
+        meetings: url.searchParams.get("archived") === "true" ? archivedMeetings : meetings,
+      });
+    }
 
     const meetingAuditMatch = url.pathname.match(/^\/api\/meetings\/([^/]+)\/audit$/);
     if (meetingAuditMatch && method === "GET") {
@@ -485,11 +513,30 @@ function setupAppFetch() {
       return json({ meeting: meetings[0] });
     }
 
+    if (url.pathname === "/api/meetings/M010/archive" && method === "POST") {
+      const index = meetings.findIndex((meeting) => meeting.publicId === "M010");
+      if (index >= 0) {
+        const [meeting] = meetings.splice(index, 1);
+        archivedMeetings.unshift({ ...meeting, archived: true });
+      }
+      return json(null, 204);
+    }
+
+    if (url.pathname === "/api/meetings/M010/restore" && method === "POST") {
+      const index = archivedMeetings.findIndex((meeting) => meeting.publicId === "M010");
+      if (index < 0) return json({});
+      const [meeting] = archivedMeetings.splice(index, 1);
+      const restored = { ...meeting, archived: false };
+      meetings.unshift(restored);
+      return json({ meeting: restored });
+    }
+
     return json({});
   }) as typeof fetch;
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
 });
 
@@ -642,6 +689,106 @@ describe("dashboard and workspace flows", () => {
     await userEvent.type(screen.getByLabelText("Decision context"), "Recurring governance");
     await userEvent.click(screen.getByRole("button", { name: "Add decision" }));
     expect(await screen.findByText("Adopt weekly review")).toBeInTheDocument();
+  });
+
+  it("archives and restores tasks and meetings from detail views only", async () => {
+    setupAppFetch();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    const taskCard = await screen.findByLabelText("Task T099");
+    expect(
+      within(taskCard).queryByRole("button", { name: "Archive task T099" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: /Expand task T099/i }));
+    expect(
+      within(taskCard).queryByRole("button", { name: "Archive task T099" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Archive task T099" }));
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Archive task T099"));
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/tasks/T099/archive" && init?.method === "POST",
+        ),
+    ).toBe(true);
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Task T099")).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(within(screen.getByRole("main")).getByRole("button", { name: "Archived" }));
+    const archivedTaskCard = await expandTaskCard("T099");
+    expect(within(archivedTaskCard).getAllByText("Archived").length).toBeGreaterThan(0);
+    expect(
+      within(archivedTaskCard).queryByRole("button", { name: "Archive task T099" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(archivedTaskCard).getByRole("button", { name: "Restore task T099" }),
+    );
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/tasks/T099/restore" && init?.method === "POST",
+        ),
+    ).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Meetings" }));
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(
+      within(meetingCard).queryByRole("button", { name: "Archive meeting M010" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: /Expand meeting M010/i }),
+    );
+    expect(
+      within(meetingCard).queryByRole("button", { name: "Archive meeting M010" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Edit details for M010" }),
+    );
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Archive meeting M010" }),
+    );
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Archive meeting M010"));
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/meetings/M010/archive" && init?.method === "POST",
+        ),
+    ).toBe(true);
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Meeting M010")).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(within(screen.getByRole("main")).getByRole("button", { name: "Archived" }));
+    const archivedMeetingCard = await expandMeetingCard("M010");
+    expect(within(archivedMeetingCard).getAllByText("Archived").length).toBeGreaterThan(0);
+    expect(
+      within(archivedMeetingCard).queryByRole("button", { name: "Archive meeting M010" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(archivedMeetingCard).getByRole("button", { name: "Restore meeting M010" }),
+    );
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/meetings/M010/restore" && init?.method === "POST",
+        ),
+    ).toBe(true);
   });
 
   it("shows meetings and creates a recurring occurrence with carried tasks", async () => {

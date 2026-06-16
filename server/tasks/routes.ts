@@ -181,7 +181,12 @@ export function taskRoutes(
 
   router.get("/", (req, res) => {
     const userId = req.user?.id ?? 0;
-    const conditions = ["tasks.archived_at IS NULL", visibleTaskCondition()];
+    const conditions = [
+      req.query.archived === "true"
+        ? "tasks.archived_at IS NOT NULL"
+        : "tasks.archived_at IS NULL",
+      visibleTaskCondition(),
+    ];
     const params: Array<string | number> = [userId];
 
     if (typeof req.query.assigneePublicId === "string" && req.query.assigneePublicId) {
@@ -282,7 +287,7 @@ export function taskRoutes(
 
   router.get("/:publicId/audit", (req, res, next) => {
     try {
-      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0);
+      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0, true);
       res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
     } catch (error) {
       next(error);
@@ -439,6 +444,42 @@ export function taskRoutes(
         });
       });
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:publicId/restore", (req, res, next) => {
+    try {
+      const task = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId, true);
+        if (!before.archived) throw badRequest("Task is not archived");
+
+        const result = db
+          .prepare(
+            `UPDATE tasks
+             SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NOT NULL`,
+          )
+          .run(req.params.publicId, userId);
+
+        if (result.changes === 0) throw notFound("Task not found");
+        const after = getTaskByPublicId(db, config, req.params.publicId, userId);
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: after.publicId,
+          action: "restored",
+          userId: req.user?.id ?? null,
+          summary: "Restored task",
+          changes: { before, after },
+        });
+        return after;
+      });
+
+      res.json({ task });
     } catch (error) {
       next(error);
     }

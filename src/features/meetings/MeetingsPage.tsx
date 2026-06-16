@@ -1,5 +1,14 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  ChevronDown,
+  LinkIcon,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import type {
   AuditLogDto,
   MeetingDto,
@@ -76,6 +85,8 @@ type MeetingLane = {
   tone: "bad" | "info" | "neutral";
   meetings: MeetingDto[];
 };
+
+type MeetingArchiveView = "active" | "archived";
 
 const emptyMeetingForm: MeetingFormState = {
   publicId: "",
@@ -270,21 +281,35 @@ function CheckboxGroup({
   return (
     <fieldset className="checkbox-group">
       <legend>{legend}</legend>
+      <div className="checkbox-group-summary">
+        <span>
+          {selected.length > 0
+            ? `${selected.length} selected`
+            : "None selected"}
+        </span>
+        {selected.length > 0 ? (
+          <button className="link-button" type="button" onClick={() => onChange([])}>
+            Clear
+          </button>
+        ) : null}
+      </div>
       {options.length === 0 ? (
-        <span className="muted">None</span>
+        <span className="muted checkbox-group-empty">None</span>
       ) : (
-        options.map((option) => (
-          <label key={option.publicId}>
-            <input
-              type="checkbox"
-              checked={selected.includes(option.publicId)}
-              onChange={(event) =>
-                onChange(toggleValue(selected, option.publicId, event.target.checked))
-              }
-            />
-            <span>{option.label}</span>
-          </label>
-        ))
+        <div className="checkbox-option-list">
+          {options.map((option) => (
+            <label key={option.publicId}>
+              <input
+                type="checkbox"
+                checked={selected.includes(option.publicId)}
+                onChange={(event) =>
+                  onChange(toggleValue(selected, option.publicId, event.target.checked))
+                }
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
       )}
     </fieldset>
   );
@@ -301,6 +326,7 @@ export function MeetingsPage({
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
   const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
@@ -320,7 +346,26 @@ export function MeetingsPage({
   const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
   const meetingLoadRequestId = useRef(0);
 
+  const meetingQuery = useMemo(
+    () => (meetingArchiveView === "archived" ? "?archived=true" : ""),
+    [meetingArchiveView],
+  );
+
   const meetingLanes = useMemo<MeetingLane[]>(() => {
+    if (meetingArchiveView === "archived") {
+      return meetings.length > 0
+        ? [
+            {
+              key: "archived",
+              title: "Archived",
+              ariaLabel: "Archived meetings",
+              tone: "neutral",
+              meetings,
+            },
+          ]
+        : [];
+    }
+
     const now = Date.now();
     const blocked = meetings
       .filter((meeting) => hasActiveBlockers(meeting))
@@ -357,7 +402,7 @@ export function MeetingsPage({
     ];
 
     return lanes.filter((lane) => lane.meetings.length > 0);
-  }, [meetings]);
+  }, [meetingArchiveView, meetings]);
 
   const activeNotesMeeting = useMemo(
     () => meetings.find((meeting) => meeting.publicId === activeNotesMeetingPublicId) ?? null,
@@ -368,7 +413,7 @@ export function MeetingsPage({
     const requestId = meetingLoadRequestId.current + 1;
     meetingLoadRequestId.current = requestId;
     const [meetingResult, seriesResult, peopleResult, taskResult] = await Promise.all([
-      api.meetings.list(),
+      api.meetings.list(meetingQuery),
       api.series.list(),
       api.people.list(),
       api.tasks.list(),
@@ -391,7 +436,7 @@ export function MeetingsPage({
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [meetingQuery]);
 
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
     const attendeeIds = new Set(selectedIds);
@@ -533,6 +578,33 @@ export function MeetingsPage({
     });
     setEditingMeetingPublicId(null);
     setMeetingEditForm(emptyMeetingForm);
+    await load();
+  }
+
+  async function archiveMeeting(meeting: MeetingDto) {
+    const confirmed = window.confirm(
+      `Archive meeting ${meeting.publicId}? You can restore it later.`,
+    );
+    if (!confirmed) return;
+
+    await api.meetings.archive(meeting.publicId);
+    setEditingMeetingPublicId(null);
+    setMeetingEditForm(emptyMeetingForm);
+    setExpandedMeetingPublicIds((current) => {
+      const next = { ...current };
+      delete next[meeting.publicId];
+      return next;
+    });
+    await load();
+  }
+
+  async function restoreMeeting(meeting: MeetingDto) {
+    await api.meetings.restore(meeting.publicId);
+    setExpandedMeetingPublicIds((current) => {
+      const next = { ...current };
+      delete next[meeting.publicId];
+      return next;
+    });
     await load();
   }
 
@@ -877,9 +949,29 @@ export function MeetingsPage({
     <main className="page">
       <header className="page-header">
         <h2>Meetings</h2>
+        <div className="record-view-toggle" role="group" aria-label="Meeting archive view">
+          <button
+            aria-pressed={meetingArchiveView === "active"}
+            className={meetingArchiveView === "active" ? "active" : ""}
+            type="button"
+            onClick={() => setMeetingArchiveView("active")}
+          >
+            Active
+          </button>
+          <button
+            aria-pressed={meetingArchiveView === "archived"}
+            className={meetingArchiveView === "archived" ? "active" : ""}
+            type="button"
+            onClick={() => setMeetingArchiveView("archived")}
+          >
+            Archived
+          </button>
+        </div>
       </header>
-      <div className="form-grid">
-        <form className="editor-form" onSubmit={submitSeries}>
+      {meetingArchiveView === "active" ? (
+      <>
+      <div className="form-grid meeting-tools-grid">
+        <form className="editor-form meeting-tool-form" onSubmit={submitSeries}>
           <h3>Meeting series</h3>
           <FormField label="Series title">
             <input
@@ -911,7 +1003,7 @@ export function MeetingsPage({
             Add series
           </button>
         </form>
-        <form className="editor-form" onSubmit={submitOccurrence}>
+        <form className="editor-form meeting-tool-form" onSubmit={submitOccurrence}>
           <h3>Next occurrence</h3>
           <FormField label="Occurrence series">
             <select
@@ -978,7 +1070,7 @@ export function MeetingsPage({
             }
           />
           <FormField label="Occurrence attendee names">
-            <textarea
+            <input
               value={occurrenceForm.attendeeNames}
               onChange={(event) =>
                 setOccurrenceForm({ ...occurrenceForm, attendeeNames: event.target.value })
@@ -1001,7 +1093,7 @@ export function MeetingsPage({
           </button>
         </form>
       </div>
-      <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
+      <form className="editor-form meeting-editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <h3>Add meeting</h3>
         <FormField label="Meeting title">
           <input
@@ -1077,7 +1169,7 @@ export function MeetingsPage({
           }
         />
         <FormField label="New attendee names">
-          <textarea
+          <input
             value={meetingForm.attendeeNames}
             onChange={(event) => setMeetingForm({ ...meetingForm, attendeeNames: event.target.value })}
             placeholder="Morgan, Taylor"
@@ -1108,11 +1200,20 @@ export function MeetingsPage({
           </button>
         </div>
       </form>
+      </>
+      ) : null}
       {meetings.length === 0 ? (
-        <EmptyState title="No meetings" detail="Create a single meeting or start a recurring series." />
+        <EmptyState
+          title={meetingArchiveView === "archived" ? "No archived meetings" : "No meetings"}
+          detail={
+            meetingArchiveView === "archived"
+              ? "Archived meetings will appear here when you need to retrieve old context."
+              : "Create a single meeting or start a recurring series."
+          }
+        />
       ) : (
         <div className="lane-stack">
-          {series.length > 0 ? (
+          {meetingArchiveView === "active" && series.length > 0 ? (
             <section aria-label="Recurring series" className="record-lane record-lane-meeting">
               <header className="lane-header">
                 <div>
@@ -1158,7 +1259,11 @@ export function MeetingsPage({
               <article
                 aria-label={`Meeting ${meeting.publicId}`}
                 className={`meeting-card ${
-                  hasActiveBlockers(meeting) ? "record-card-bad" : "record-card-meeting"
+                  meeting.archived
+                    ? "record-card-neutral"
+                    : hasActiveBlockers(meeting)
+                      ? "record-card-bad"
+                      : "record-card-meeting"
                 }`}
                 id={`meeting-${meeting.publicId}`}
                 key={meeting.publicId}
@@ -1183,6 +1288,7 @@ export function MeetingsPage({
                 <span className="meeting-summary-meta">
                   <StatusBadge label={meeting.meetingType} />
                   {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                  {meeting.archived ? <StatusBadge label="Archived" /> : null}
                   {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
                   {hasClearedBlockers(meeting) ? (
                     <StatusBadge label="Blocker cleared" tone="good" />
@@ -1211,6 +1317,7 @@ export function MeetingsPage({
                           <span className="hint-chip">Series {meeting.seriesPublicId}</span>
                         ) : null}
                         {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                        {meeting.archived ? <StatusBadge label="Archived" /> : null}
                       </div>
                     </section>
                     <section className="meeting-detail-section">
@@ -1233,6 +1340,18 @@ export function MeetingsPage({
                     </section>
                   </div>
                   <div className="meeting-card-actions">
+                    {meeting.archived ? (
+                    <button
+                      className="secondary-button icon-text-button"
+                      type="button"
+                      onClick={() => restoreMeeting(meeting)}
+                      aria-label={`Restore meeting ${meeting.publicId}`}
+                    >
+                      <RotateCcw aria-hidden="true" size={16} />
+                      Restore meeting
+                    </button>
+                    ) : (
+                    <>
                     <button
                       className="secondary-button"
                       type="button"
@@ -1249,6 +1368,8 @@ export function MeetingsPage({
                     >
                       Edit details
                     </button>
+                    </>
+                    )}
                   </div>
                   <MeetingBlockerNote meeting={meeting} />
               {editingMeetingPublicId === meeting.publicId ? (
@@ -1346,7 +1467,7 @@ export function MeetingsPage({
                     }
                   />
                   <FormField label={`New attendee names for ${meeting.publicId}`}>
-                    <textarea
+                    <input
                       value={meetingEditForm.attendeeNames}
                       onChange={(event) =>
                         setMeetingEditForm({
@@ -1409,9 +1530,18 @@ export function MeetingsPage({
                     >
                       Cancel edit {meeting.publicId}
                     </button>
+                    <button
+                      className="danger-button icon-text-button"
+                      type="button"
+                      onClick={() => archiveMeeting(meeting)}
+                    >
+                      <Archive aria-hidden="true" size={16} />
+                      Archive meeting {meeting.publicId}
+                    </button>
                   </div>
                 </form>
               ) : null}
+              {!meeting.archived ? (
               <form className="meeting-task-form" onSubmit={(event) => submitMeetingTask(event, meeting)}>
                 <h3>Add task to {meeting.publicId}</h3>
                 <FormField label={`New task description for ${meeting.publicId}`}>
@@ -1507,6 +1637,7 @@ export function MeetingsPage({
                   Add task to {meeting.publicId}
                 </button>
               </form>
+              ) : null}
               <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
                 </div>
               ) : null}

@@ -206,13 +206,17 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/tasks/${publicId}/archive`, { method: "POST" }),
+    restore: (publicId: string) =>
+      request<{ task: TaskDto }>(`/api/tasks/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/tasks/${publicId}/audit`),
     sendReminder: (publicId: string) =>
       request<TaskReminderResponse>(`/api/tasks/${publicId}/reminders`, { method: "POST" }),
   },
   meetings: {
-    list: () => request<{ meetings: MeetingDto[] }>("/api/meetings"),
+    list: (query = "") => request<{ meetings: MeetingDto[] }>(`/api/meetings${query}`),
     create: (body: MeetingInput) =>
       request<{ meeting: MeetingDto }>("/api/meetings", {
         method: "POST",
@@ -223,6 +227,10 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/meetings/${publicId}/archive`, { method: "POST" }),
+    restore: (publicId: string) =>
+      request<{ meeting: MeetingDto }>(`/api/meetings/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/meetings/${publicId}/audit`),
   },

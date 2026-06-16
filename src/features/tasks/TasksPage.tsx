@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Mail } from "lucide-react";
+import { Archive, ChevronDown, Mail, RotateCcw } from "lucide-react";
 import type {
   AuditLogDto,
   PersonDto,
@@ -21,9 +21,11 @@ type TaskLane = {
   key: string;
   title: string;
   ariaLabel: string;
-  tone: "bad" | "warn" | "info" | "good";
+  tone: "bad" | "warn" | "info" | "good" | "neutral";
   tasks: TaskDto[];
 };
+
+type TaskArchiveView = "active" | "archived";
 
 type TaskFormState = {
   description: string;
@@ -61,6 +63,7 @@ function singleLineText(value: string, fallback: string) {
 }
 
 function taskCardTone(task: TaskDto) {
+  if (task.archived) return "record-card-neutral";
   if (hasActiveBlockers(task)) return "record-card-bad";
   if (task.alert === "overdue") return "record-card-bad";
   if (task.alert === "dueSoon") return "record-card-warn";
@@ -80,6 +83,7 @@ export function TasksPage({
   const [assigneePublicId, setAssigneePublicId] = useState("");
   const [status, setStatus] = useState("");
   const [alert, setAlert] = useState("");
+  const [taskArchiveView, setTaskArchiveView] = useState<TaskArchiveView>("active");
   const [form, setForm] = useState<TaskFormState>(emptyTaskForm);
   const [editingTaskPublicId, setEditingTaskPublicId] = useState<string | null>(null);
   const [taskEditForm, setTaskEditForm] = useState<TaskFormState>(emptyTaskForm);
@@ -91,14 +95,29 @@ export function TasksPage({
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
+    if (taskArchiveView === "archived") params.set("archived", "true");
     if (assigneePublicId) params.set("assigneePublicId", assigneePublicId);
     if (status) params.set("status", status);
     if (alert) params.set("alert", alert);
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [assigneePublicId, status, alert]);
+  }, [assigneePublicId, status, alert, taskArchiveView]);
 
   const taskLanes = useMemo<TaskLane[]>(() => {
+    if (taskArchiveView === "archived") {
+      return tasks.length > 0
+        ? [
+            {
+              key: "archived",
+              title: "Archived",
+              ariaLabel: "Archived tasks",
+              tone: "neutral",
+              tasks,
+            },
+          ]
+        : [];
+    }
+
     const blocked = tasks.filter((task) => hasActiveBlockers(task));
     const overdue = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "overdue");
     const dueSoon = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "dueSoon");
@@ -148,7 +167,7 @@ export function TasksPage({
     ];
 
     return lanes.filter((lane) => lane.tasks.length > 0);
-  }, [tasks]);
+  }, [taskArchiveView, tasks]);
 
   async function loadTasks() {
     const requestId = taskLoadRequestId.current + 1;
@@ -275,11 +294,55 @@ export function TasksPage({
     }
   }
 
+  async function archiveTask(task: TaskDto) {
+    const confirmed = window.confirm(`Archive task ${task.publicId}? You can restore it later.`);
+    if (!confirmed) return;
+
+    await api.tasks.archive(task.publicId);
+    setEditingTaskPublicId(null);
+    setTaskEditForm(emptyTaskForm);
+    setExpandedTaskPublicIds((current) => {
+      const next = { ...current };
+      delete next[task.publicId];
+      return next;
+    });
+    await loadTasks();
+  }
+
+  async function restoreTask(task: TaskDto) {
+    await api.tasks.restore(task.publicId);
+    setExpandedTaskPublicIds((current) => {
+      const next = { ...current };
+      delete next[task.publicId];
+      return next;
+    });
+    await loadTasks();
+  }
+
   return (
     <main className="page">
       <header className="page-header">
         <h2>Tasks</h2>
+        <div className="record-view-toggle" role="group" aria-label="Task archive view">
+          <button
+            aria-pressed={taskArchiveView === "active"}
+            className={taskArchiveView === "active" ? "active" : ""}
+            type="button"
+            onClick={() => setTaskArchiveView("active")}
+          >
+            Active
+          </button>
+          <button
+            aria-pressed={taskArchiveView === "archived"}
+            className={taskArchiveView === "archived" ? "active" : ""}
+            type="button"
+            onClick={() => setTaskArchiveView("archived")}
+          >
+            Archived
+          </button>
+        </div>
       </header>
+      {taskArchiveView === "active" ? (
       <form className="editor-form" onSubmit={submitTask}>
         <FormField label="Task description">
           <input
@@ -352,6 +415,7 @@ export function TasksPage({
           </button>
         </div>
       </form>
+      ) : null}
       <div className="filter-bar">
         <select
           aria-label="Filter assignee"
@@ -386,7 +450,14 @@ export function TasksPage({
         </select>
       </div>
       {tasks.length === 0 ? (
-        <EmptyState title="No tasks" detail="Create tasks from meetings or as standalone work." />
+        <EmptyState
+          title={taskArchiveView === "archived" ? "No archived tasks" : "No tasks"}
+          detail={
+            taskArchiveView === "archived"
+              ? "Archived tasks will appear here when you need to retrieve old work."
+              : "Create tasks from meetings or as standalone work."
+          }
+        />
       ) : (
         <div className="lane-stack">
           {taskLanes.map((lane) => (
@@ -440,6 +511,7 @@ export function TasksPage({
                           <StatusBadge label="Overdue" tone="bad" />
                         ) : null}
                         {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                        {task.archived ? <StatusBadge label="Archived" /> : null}
                         {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
                         {hasClearedBlockers(task) ? (
                           <StatusBadge label="Blocker cleared" tone="good" />
@@ -466,6 +538,7 @@ export function TasksPage({
                                 <span className="hint-chip">Series {task.seriesPublicId}</span>
                               ) : null}
                               {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                              {task.archived ? <StatusBadge label="Archived" /> : null}
                             </div>
                           </section>
                           <section className="task-detail-section">
@@ -485,6 +558,18 @@ export function TasksPage({
                           </section>
                         </div>
                         <div className="task-card-actions">
+                          {task.archived ? (
+                          <button
+                            className="secondary-button icon-text-button"
+                            type="button"
+                            onClick={() => restoreTask(task)}
+                            aria-label={`Restore task ${task.publicId}`}
+                          >
+                            <RotateCcw aria-hidden="true" size={16} />
+                            Restore task
+                          </button>
+                          ) : (
+                          <>
                           <button
                             className="secondary-button icon-text-button"
                             type="button"
@@ -507,6 +592,8 @@ export function TasksPage({
                           >
                             Edit details
                           </button>
+                          </>
+                          )}
                         </div>
                         {reminderFeedback[task.publicId] ? (
                           <p className="task-reminder-feedback">
@@ -641,6 +728,14 @@ export function TasksPage({
                               }}
                             >
                               Cancel edit {task.publicId}
+                            </button>
+                            <button
+                              className="danger-button icon-text-button"
+                              type="button"
+                              onClick={() => archiveTask(task)}
+                            >
+                              <Archive aria-hidden="true" size={16} />
+                              Archive task {task.publicId}
                             </button>
                           </div>
                         </form>

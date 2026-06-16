@@ -115,6 +115,28 @@ describe("tasks", () => {
 
     const archived = await request(app).post("/api/tasks/T001/archive").set("Cookie", cookie);
     expect(archived.status).toBe(204);
+
+    const activeAfterArchive = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(
+      activeAfterArchive.body.tasks.map((task: { publicId: string }) => task.publicId),
+    ).not.toContain("T001");
+
+    const archivedList = await request(app).get("/api/tasks?archived=true").set("Cookie", cookie);
+    expect(archivedList.body.tasks).toEqual([
+      expect.objectContaining({ publicId: "T001", archived: true }),
+    ]);
+
+    const archivedAudit = await request(app).get("/api/tasks/T001/audit").set("Cookie", cookie);
+    expect(archivedAudit.status).toBe(200);
+
+    const restored = await request(app).post("/api/tasks/T001/restore").set("Cookie", cookie);
+    expect(restored.status).toBe(200);
+    expect(restored.body.task).toEqual(expect.objectContaining({ publicId: "T001", archived: false }));
+
+    const activeAfterRestore = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(
+      activeAfterRestore.body.tasks.map((task: { publicId: string }) => task.publicId),
+    ).toContain("T001");
   });
 
   it("records task audit history", async () => {

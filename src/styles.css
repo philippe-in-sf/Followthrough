@@ -398,6 +398,31 @@ button:disabled {
   color: #1d2433;
 }
 
+.record-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #c8d0dc;
+  border-radius: 8px;
+  background: #eef2f7;
+  padding: 3px;
+}
+
+.record-view-toggle button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b4354;
+  cursor: pointer;
+  padding: 7px 11px;
+}
+
+.record-view-toggle button.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
 .global-search-wrap {
   position: relative;
   flex: 1;
@@ -692,6 +717,12 @@ button:disabled {
   gap: 16px;
 }
 
+.meeting-tools-grid {
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
 .editor-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -704,6 +735,23 @@ button:disabled {
   padding: 14px;
 }
 
+.meeting-tool-form,
+.meeting-editor-form {
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.meeting-tool-form {
+  align-self: start;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+
+.meeting-editor-form {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: start;
+}
+
 .editor-form h3 {
   grid-column: 1 / -1;
 }
@@ -711,6 +759,11 @@ button:disabled {
 .editor-form textarea {
   min-height: 82px;
   resize: vertical;
+}
+
+.meeting-tool-form textarea,
+.meeting-editor-form textarea {
+  min-height: 62px;
 }
 
 .form-actions {
@@ -721,16 +774,43 @@ button:disabled {
 
 .checkbox-group {
   display: grid;
-  gap: 8px;
+  align-self: stretch;
+  gap: 7px;
+  min-width: 0;
   border: 1px solid #d9dee7;
   border-radius: 8px;
-  padding: 10px;
+  background: #ffffff;
+  padding: 8px;
 }
 
 .checkbox-group legend {
   padding: 0 4px;
   color: #3b4354;
   font-size: 0.9rem;
+}
+
+.checkbox-group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  color: #5b6475;
+  font-size: 0.84rem;
+}
+
+.checkbox-group-summary .link-button {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.checkbox-option-list {
+  display: grid;
+  gap: 4px;
+  max-height: 128px;
+  overflow-y: auto;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 6px;
 }
 
 .checkbox-group label,
@@ -743,6 +823,13 @@ button:disabled {
 .checkbox-group label {
   align-items: flex-start;
   max-width: 100%;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 5px 6px;
+}
+
+.checkbox-group label:hover {
+  background: #eef2f7;
 }
 
 .checkbox-group label > input {
@@ -752,6 +839,12 @@ button:disabled {
 .checkbox-group label > span {
   min-width: 0;
   overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.checkbox-group-empty {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 7px;
 }
 
 .record-list {
@@ -1014,6 +1107,10 @@ button:disabled {
 
 .record-card-meeting {
   border-left-color: #0f766e;
+}
+
+.record-card-neutral {
+  border-left-color: #64748b;
 }
 
 .meeting-card .record-row,
@@ -1817,6 +1914,15 @@ button:disabled {
 
   .page {
     padding: 16px 14px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .record-view-toggle {
+    width: fit-content;
   }
 
   .record-row,
