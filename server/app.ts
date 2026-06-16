@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
+import { readChangelog, renderChangelogHtml } from "./changelog.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import { dashboardRoutes } from "./dashboard/routes.js";
 import { decisionRoutes } from "./decisions/routes.js";
@@ -37,6 +38,14 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.get("/api/version", (_req, res) => {
     res.json({ version: appVersion });
+  });
+
+  app.get("/api/changelog", (_req, res) => {
+    res.type("text/markdown").send(readChangelog());
+  });
+
+  app.get("/changelog", (_req, res) => {
+    res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
   });
 
   app.use("/api/auth", authRoutes(db, config));

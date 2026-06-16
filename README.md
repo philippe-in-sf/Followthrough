@@ -12,6 +12,7 @@ A single-server multi-user task manager for meetings, notes, tasks, standalone t
 - Recurring occurrences carry over unfinished series tasks, notes, and structured links
 - Tasks with description, assignee, status, due date, optional creator-only privacy, alerts, and public IDs like `T001`
 - Standalone tasks outside meetings
+- Active and archived views for retrieving old tasks and meetings
 - Manual and automatic email reminders for outstanding tasks
 - Meetings with optional creator-only privacy
 - Decisions with optional meeting link and public IDs like `D001`
@@ -76,15 +77,18 @@ NODE_ENV=production npm start
 
 The production server serves both the API and built frontend from one Express process. Keep `DATABASE_PATH` pointed at persistent storage.
 
+The public changelog is available at `/changelog`, with Markdown available at `/api/changelog`.
+
 ## Verification
 
 ```bash
 npm run test
 npm run check
+npm run changelog:check
 npm run build
 ```
 
-These cover server routes, database behavior, auth, recurring carry-over, search/dashboard APIs, and frontend workflows.
+These cover server routes, database behavior, auth, recurring carry-over, search/dashboard APIs, frontend workflows, and the release-note rule.
 
 ## Linux SSH Deployment
 
@@ -145,13 +149,16 @@ npm run version:patch
 npm run deploy -- production
 ```
 
-Each deploy should include a package version bump. The running app exposes the current version at `/api/version` and shows it in the sidebar footer for logged-in users.
+Each deploy should include a package version bump and a matching `CHANGELOG.md` entry for that exact version. The running app exposes the current version at `/api/version`, serves public release notes at `/changelog`, and shows the version in the sidebar footer for logged-in users.
+
+Deployment runs `npm run changelog:check` before type checks, tests, and build. If `package.json` says `1.2.3`, `CHANGELOG.md` must contain a `## 1.2.3` release section with at least one bullet. Yes, this is bureaucracy. It is also cheaper than archaeology.
 
 Before copying files, deployment asks the remote site for `http://127.0.0.1:<port>/api/version` over SSH. If the remote site already reports the same package version, deployment fails and asks for a version bump. If an older site does not have `/api/version` yet, deployment continues.
 
 The deploy command runs local verification and build once:
 
 ```bash
+npm run changelog:check
 npm run check
 npm run test
 npm run build
