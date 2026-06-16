@@ -38,6 +38,7 @@ function setupAppFetch() {
       publicId: "T099",
       description: "Prep launch plan",
       blockers: "Waiting on finance numbers",
+      notes: "Finance owner pinged; waiting on workbook.",
       blockersClearedAt: null,
       assignee: avery,
       status: "Open",
@@ -54,6 +55,7 @@ function setupAppFetch() {
       publicId: "T010",
       description: "Carry roadmap",
       blockers: "Legal review is slow",
+      notes: "Roadmap handoff is drafted.",
       blockersClearedAt: "2026-06-09T13:00:00.000Z",
       assignee: avery,
       status: "In Progress",
@@ -70,6 +72,7 @@ function setupAppFetch() {
       publicId: "T004",
       description: `Do the All Hands deck (${deckUrl})`,
       blockers: "",
+      notes: "",
       blockersClearedAt: null,
       assignee: avery,
       status: "Open",
@@ -255,6 +258,7 @@ function setupAppFetch() {
         publicId: "T100",
         description: body.description,
         blockers: body.blockers ?? "",
+        notes: body.notes ?? "",
         blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:10:00.000Z" : null,
         assignee: avery,
         status: body.status,
@@ -305,6 +309,7 @@ function setupAppFetch() {
         ...tasks[0],
         description: body.description,
         blockers: body.blockers ?? tasks[0].blockers,
+        notes: body.notes ?? tasks[0].notes,
         blockersClearedAt:
           body.blockersCleared === undefined
             ? tasks[0].blockersClearedAt
@@ -536,6 +541,7 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
     expect(screen.queryByLabelText("Reminder mode")).not.toBeInTheDocument();
     await userEvent.type(await screen.findByLabelText("Task description"), "Draft rollout notes");
+    await userEvent.type(screen.getByLabelText("Task notes"), "Initial rollout draft saved.");
     await userEvent.selectOptions(screen.getByLabelText("Task assignee"), "P001");
     await userEvent.selectOptions(screen.getByLabelText("Task status"), "In Progress");
     await userEvent.type(screen.getByLabelText("Task due date"), "2026-06-18");
@@ -544,9 +550,15 @@ describe("dashboard and workspace flows", () => {
       .reverse()
       .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
     expect(JSON.parse(String(taskCreateCall?.[1]?.body))).toEqual(
-      expect.objectContaining({ blockers: "", blockersCleared: false, reminderMode: "manual" }),
+      expect.objectContaining({
+        blockers: "",
+        blockersCleared: false,
+        notes: "Initial rollout draft saved.",
+        reminderMode: "manual",
+      }),
     );
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
+    expect(await screen.findByText("Initial rollout draft saved.")).toBeInTheDocument();
 
     const blockedTasks = await screen.findByRole("region", { name: "Tasks with blockers" });
     expect(within(blockedTasks).getByText("Prep launch plan")).toBeInTheDocument();
@@ -569,12 +581,20 @@ describe("dashboard and workspace flows", () => {
     expect(within(taskCard).getByLabelText("Task blockers for T099")).toHaveValue(
       "Waiting on finance numbers",
     );
+    expect(within(taskCard).getByLabelText("Task notes for T099")).toHaveValue(
+      "Finance owner pinged; waiting on workbook.",
+    );
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
     await userEvent.clear(within(taskCard).getByLabelText("Task description for T099"));
     await userEvent.type(
       within(taskCard).getByLabelText("Task description for T099"),
       "Prep launch materials",
+    );
+    await userEvent.clear(within(taskCard).getByLabelText("Task notes for T099"));
+    await userEvent.type(
+      within(taskCard).getByLabelText("Task notes for T099"),
+      "Finance sent workbook; prepping launch materials.",
     );
     await userEvent.click(within(taskCard).getByLabelText("Blocker cleared"));
     await userEvent.click(within(taskCard).getByRole("button", { name: "Save task T099" }));
@@ -586,6 +606,7 @@ describe("dashboard and workspace flows", () => {
       expect.objectContaining({
         blockers: "Waiting on finance numbers",
         blockersCleared: true,
+        notes: "Finance sent workbook; prepping launch materials.",
       }),
     );
 
@@ -629,8 +650,11 @@ describe("dashboard and workspace flows", () => {
       deckUrl,
     );
 
+    const futureOccurrenceDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
     await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
-    await userEvent.type(screen.getByLabelText("Occurrence start"), "2026-06-16T09:00");
+    await userEvent.type(screen.getByLabelText("Occurrence start"), `${futureOccurrenceDate}T09:00`);
     await userEvent.type(screen.getByLabelText("Occurrence title"), "Project sync follow-up");
     await userEvent.click(screen.getByRole("button", { name: "Create occurrence" }));
 
@@ -711,6 +735,10 @@ describe("dashboard and workspace flows", () => {
       within(meetingCard).getByLabelText("New task blockers for M010"),
       "Need customer list",
     );
+    await userEvent.type(
+      within(meetingCard).getByLabelText("New task notes for M010"),
+      "Customer list request sent.",
+    );
     await userEvent.selectOptions(
       within(meetingCard).getByLabelText("New task assignee for M010"),
       "P001",
@@ -728,11 +756,13 @@ describe("dashboard and workspace flows", () => {
       expect.objectContaining({
         blockers: "Need customer list",
         blockersCleared: false,
+        notes: "Customer list request sent.",
       }),
     );
 
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
     expect(await screen.findByText("Need customer list")).toBeInTheDocument();
+    expect(await screen.findByText("Customer list request sent.")).toBeInTheDocument();
     expect(await screen.findByText("Added task T100")).toBeInTheDocument();
 
     const refreshedMeetingCard = await screen.findByLabelText("Meeting M010");

@@ -28,6 +28,7 @@ type TaskLane = {
 type TaskFormState = {
   description: string;
   blockers: string;
+  notes: string;
   blockersCleared: boolean;
   assigneePublicId: string;
   status: TaskStatus;
@@ -40,6 +41,7 @@ type TaskFormState = {
 const emptyTaskForm: TaskFormState = {
   description: "",
   blockers: "",
+  notes: "",
   blockersCleared: false,
   assigneePublicId: "",
   status: "Open",
@@ -73,6 +75,20 @@ function BlockerNote({ task }: { task: TaskDto }) {
       {task.blockersClearedAt ? (
         <small>Cleared {new Date(task.blockersClearedAt).toLocaleString()}</small>
       ) : null}
+    </p>
+  );
+}
+
+function TaskProgressNote({ task }: { task: TaskDto }) {
+  const notes = (task.notes ?? "").trim();
+  if (!notes) return null;
+
+  return (
+    <p className="task-progress-note">
+      <strong>Notes</strong>
+      <span>
+        <LinkedText text={task.notes} />
+      </span>
     </p>
   );
 }
@@ -188,6 +204,7 @@ export function TasksPage({
     const body = {
       description: form.description,
       blockers: form.blockers,
+      notes: form.notes,
       blockersCleared: form.blockersCleared,
       assigneePublicId: form.assigneePublicId || null,
       status: form.status,
@@ -208,6 +225,7 @@ export function TasksPage({
     setTaskEditForm({
       description: task.description,
       blockers: task.blockers,
+      notes: task.notes ?? "",
       blockersCleared: task.blockersClearedAt !== null,
       assigneePublicId: task.assignee?.publicId ?? "",
       status: task.status,
@@ -233,6 +251,7 @@ export function TasksPage({
     await api.tasks.update(task.publicId, {
       description: taskEditForm.description,
       blockers: taskEditForm.blockers,
+      notes: taskEditForm.notes,
       blockersCleared: taskEditForm.blockersCleared,
       assigneePublicId: taskEditForm.assigneePublicId || null,
       status: taskEditForm.status,
@@ -289,6 +308,12 @@ export function TasksPage({
                 blockersCleared: event.target.value.trim() ? form.blockersCleared : false,
               })
             }
+          />
+        </FormField>
+        <FormField label="Task notes">
+          <textarea
+            value={form.notes}
+            onChange={(event) => setForm({ ...form, notes: event.target.value })}
           />
         </FormField>
         <FormField label="Task assignee">
@@ -443,6 +468,7 @@ export function TasksPage({
                       <p className="task-reminder-feedback">{reminderFeedback[task.publicId]}</p>
                     ) : null}
                     <BlockerNote task={task} />
+                    <TaskProgressNote task={task} />
                     {editingTaskPublicId === task.publicId ? (
                       <>
                         <form
@@ -472,6 +498,17 @@ export function TasksPage({
                                   blockersCleared: event.target.value.trim()
                                     ? taskEditForm.blockersCleared
                                     : false,
+                                })
+                              }
+                            />
+                          </FormField>
+                          <FormField label={`Task notes for ${task.publicId}`}>
+                            <textarea
+                              value={taskEditForm.notes}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  notes: event.target.value,
                                 })
                               }
                             />

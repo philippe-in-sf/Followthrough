@@ -75,7 +75,7 @@ const occurrenceSchema = z.object({
 });
 
 const taskSelectForMeeting = `
-  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.blockers_cleared_at,
+  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
          tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (

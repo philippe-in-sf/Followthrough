@@ -18,6 +18,7 @@ export const personMergeInputSchema = z.object({
 export const taskInputSchema = z.object({
   description: z.string().trim().min(1),
   blockers: z.string().trim().default(""),
+  notes: z.string().default(""),
   blockersCleared: z.boolean().default(false),
   assigneePublicId: publicIdSchema.optional().nullable(),
   status: taskStatusSchema.default("Open"),
@@ -30,6 +31,7 @@ export const taskInputSchema = z.object({
 
 export const taskUpdateInputSchema = taskInputSchema.extend({
   blockers: z.string().trim().optional(),
+  notes: z.string().optional(),
   blockersCleared: z.boolean().optional(),
 });
 

@@ -59,6 +59,7 @@ describe("tasks", () => {
     const created = await request(app).post("/api/tasks").set("Cookie", cookie).send({
       description: "Send notes",
       blockers: "Waiting on legal sign-off",
+      notes: "Drafted the first pass and sent it to legal.",
       assigneePublicId: personPublicId,
       status: "Open",
       dueDate: "2026-06-12",
@@ -67,6 +68,7 @@ describe("tasks", () => {
     expect(created.status).toBe(201);
     expect(created.body.task.publicId).toBe("T001");
     expect(created.body.task.blockers).toBe("Waiting on legal sign-off");
+    expect(created.body.task.notes).toBe("Drafted the first pass and sent it to legal.");
     expect(created.body.task.blockersClearedAt).toBeNull();
     expect(created.body.task.reminderMode).toBe("manual");
     expect(created.body.task.alert).toBe("dueSoon");
@@ -91,6 +93,7 @@ describe("tasks", () => {
 
     expect(edited.body.task.status).toBe("Done");
     expect(edited.body.task.blockers).toBe("Waiting on legal sign-off");
+    expect(edited.body.task.notes).toBe("Drafted the first pass and sent it to legal.");
     expect(edited.body.task.blockersClearedAt).toBeNull();
     expect(edited.body.task.alert).toBeNull();
 
@@ -99,6 +102,7 @@ describe("tasks", () => {
       .set("Cookie", cookie)
       .send({
         description: "Send final notes",
+        notes: "Legal approved the language.",
         blockersCleared: true,
         assigneePublicId: personPublicId,
         status: "Done",
@@ -106,6 +110,7 @@ describe("tasks", () => {
       });
 
     expect(cleared.body.task.blockers).toBe("Waiting on legal sign-off");
+    expect(cleared.body.task.notes).toBe("Legal approved the language.");
     expect(cleared.body.task.blockersClearedAt).toEqual(expect.any(String));
 
     const archived = await request(app).post("/api/tasks/T001/archive").set("Cookie", cookie);

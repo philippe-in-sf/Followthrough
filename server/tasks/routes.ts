@@ -16,6 +16,7 @@ export type TaskRow = {
   public_id: string;
   description: string;
   blockers: string;
+  notes: string;
   blockers_cleared_at: string | null;
   status: TaskStatus;
   due_date: string | null;
@@ -39,7 +40,7 @@ type ResolvedTaskRelations = {
 };
 
 const taskSelect = `
-  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.blockers_cleared_at,
+  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
          tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (
@@ -67,6 +68,7 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     publicId: row.public_id,
     description: row.description,
     blockers: row.blockers,
+    notes: row.notes,
     blockersClearedAt: row.blockers_cleared_at,
     assignee: row.assignee_public_id
       ? {
@@ -222,13 +224,14 @@ export function taskRoutes(
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, blockers, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
             input.description,
             input.blockers,
+            input.notes,
             blockersClearedAt,
             relations.assigneePersonId,
             input.status,
@@ -301,7 +304,7 @@ export function taskRoutes(
         const userId = req.user?.id ?? 0;
         const existing = db
           .prepare(
-            `SELECT id, blockers, blockers_cleared_at, created_by_user_id, private
+            `SELECT id, blockers, notes, blockers_cleared_at, created_by_user_id, private
              FROM tasks
              WHERE public_id = ?
              AND ${visibleTaskCondition()}
@@ -311,6 +314,7 @@ export function taskRoutes(
           | {
               id: number;
               blockers: string;
+              notes: string;
               blockers_cleared_at: string | null;
               created_by_user_id: number | null;
               private: number;
@@ -328,6 +332,7 @@ export function taskRoutes(
             ? userId
             : existing.created_by_user_id;
         const blockers = input.blockers ?? existing.blockers;
+        const notes = input.notes ?? existing.notes;
         const blockersClearedAt = resolveBlockerClearedAt({
           blockers,
           requestedCleared: input.blockersCleared,
@@ -337,6 +342,7 @@ export function taskRoutes(
           `UPDATE tasks
            SET description = ?,
                blockers = ?,
+               notes = ?,
                blockers_cleared_at = ?,
                assignee_person_id = ?,
                status = ?,
@@ -351,6 +357,7 @@ export function taskRoutes(
         ).run(
           input.description,
           blockers,
+          notes,
           blockersClearedAt,
           relations.assigneePersonId,
           input.status,

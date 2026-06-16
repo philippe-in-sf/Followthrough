@@ -55,6 +55,7 @@ type OccurrenceFormState = {
 type MeetingTaskFormState = {
   description: string;
   blockers: string;
+  notes: string;
   blockersCleared: boolean;
   assigneePublicId: string;
   status: TaskDto["status"];
@@ -112,6 +113,7 @@ const emptyOccurrenceForm: OccurrenceFormState = {
 const emptyMeetingTaskForm: MeetingTaskFormState = {
   description: "",
   blockers: "",
+  notes: "",
   blockersCleared: false,
   assigneePublicId: "",
   status: "Open",
@@ -481,6 +483,7 @@ export function MeetingsPage({
     await api.tasks.create({
       description: form.description,
       blockers: form.blockers,
+      notes: form.notes,
       blockersCleared: form.blockersCleared,
       assigneePublicId: form.assigneePublicId || null,
       status: form.status,
@@ -776,6 +779,11 @@ export function MeetingsPage({
                       {hasBlockers(task) ? (
                         <small className="task-link-blocker">
                           <LinkedText text={task.blockers} />
+                        </small>
+                      ) : null}
+                      {(task.notes ?? "").trim() ? (
+                        <small className="task-link-notes">
+                          <LinkedText text={task.notes} />
                         </small>
                       ) : null}
                     </span>
@@ -1109,6 +1117,11 @@ export function MeetingsPage({
                             <LinkedText text={task.blockers} />
                           </small>
                         ) : null}
+                        {(task.notes ?? "").trim() ? (
+                          <small className="task-link-notes">
+                            <LinkedText text={task.notes} />
+                          </small>
+                        ) : null}
                       </span>
                     ))
                   )}
@@ -1314,6 +1327,16 @@ export function MeetingsPage({
                         blockersCleared: event.target.value.trim()
                           ? getMeetingTaskForm(meeting.publicId).blockersCleared
                           : false,
+                      })
+                    }
+                  />
+                </FormField>
+                <FormField label={`New task notes for ${meeting.publicId}`}>
+                  <textarea
+                    value={getMeetingTaskForm(meeting.publicId).notes}
+                    onChange={(event) =>
+                      updateMeetingTaskForm(meeting.publicId, {
+                        notes: event.target.value,
                       })
                     }
                   />

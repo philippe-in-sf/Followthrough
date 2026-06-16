@@ -29,6 +29,7 @@ type RelatedTaskRow = {
   public_id: string;
   description: string;
   blockers: string;
+  notes: string;
   blockers_cleared_at: string | null;
   status: TaskStatus;
   due_date: string | null;
@@ -75,6 +76,7 @@ function toRelatedTask(row: RelatedTaskRow): PersonRelatedTaskDto {
     publicId: row.public_id,
     description: row.description,
     blockers: row.blockers,
+    notes: row.notes,
     blockersClearedAt: row.blockers_cleared_at,
     status: row.status,
     dueDate: row.due_date,
@@ -175,7 +177,7 @@ export function peopleRoutes(db: AppDatabase) {
 
       const tasks = db
         .prepare(
-          `SELECT tasks.public_id, tasks.description, tasks.blockers,
+          `SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes,
                   tasks.blockers_cleared_at, tasks.status, tasks.due_date, tasks.private
            FROM tasks
            JOIN people ON people.id = tasks.assignee_person_id

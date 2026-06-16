@@ -82,6 +82,7 @@ export type SearchResult = {
 type TaskInput = {
   description: string;
   blockers?: string;
+  notes?: string;
   blockersCleared?: boolean;
   assigneePublicId?: string | null;
   status: TaskStatus;

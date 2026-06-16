@@ -26,6 +26,7 @@ async function setup() {
   await request(app).post("/api/tasks").set("Cookie", cookie).send({
     description: "Prepare board packet",
     blockers: "Waiting on finance figures",
+    notes: "Vendor packet revision is underway.",
     assigneePublicId: person.body.person.publicId,
     status: "Open",
     dueDate: "2026-06-10",
@@ -112,6 +113,16 @@ describe("search and dashboard", () => {
     ]);
     expect(meetingResponse.body.results).toEqual([
       expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
+  });
+
+  it("searches task progress notes", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app).get("/api/search?q=vendor packet").set("Cookie", cookie);
+
+    expect(response.body.results).toEqual([
+      expect.objectContaining({ type: "task", publicId: "T001" }),
     ]);
   });
 

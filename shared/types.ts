@@ -16,6 +16,7 @@ export type TaskDto = {
   publicId: string;
   description: string;
   blockers: string;
+  notes: string;
   blockersClearedAt: string | null;
   assignee: PersonDto | null;
   status: TaskStatus;
@@ -33,6 +34,7 @@ export type PersonRelatedTaskDto = {
   publicId: string;
   description: string;
   blockers: string;
+  notes: string;
   blockersClearedAt: string | null;
   status: TaskStatus;
   dueDate: string | null;

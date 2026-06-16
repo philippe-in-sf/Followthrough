@@ -898,6 +898,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.person-related-note {
+  color: #3b4354;
+  white-space: pre-wrap;
+}
+
 .lane-stack {
   display: grid;
   gap: 16px;
@@ -1088,6 +1093,26 @@ button:disabled {
   color: #166534;
 }
 
+.task-progress-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin: 0;
+  border-top: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #312e81;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  padding: 10px 14px;
+}
+
+.task-progress-note span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .task-links {
   display: grid;
   gap: 4px;
@@ -1106,6 +1131,14 @@ button:disabled {
   font-weight: 700;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.task-link-notes {
+  flex-basis: 100%;
+  color: #3b4354;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .series-list {

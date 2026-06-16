@@ -107,6 +107,7 @@ describe("people", () => {
     await request(app).post("/api/tasks").set("Cookie", cookie).send({
       description: "Send notes",
       blockers: "Need source deck",
+      notes: "Asked Morgan for the source deck.",
       assigneePublicId: person.body.person.publicId,
       status: "Open",
       dueDate: "2026-06-12",
@@ -163,6 +164,7 @@ describe("people", () => {
     expect(records.body.tasks[0]).toEqual(
       expect.objectContaining({
         blockers: "Need source deck",
+        notes: "Asked Morgan for the source deck.",
         blockersClearedAt: null,
       }),
     );

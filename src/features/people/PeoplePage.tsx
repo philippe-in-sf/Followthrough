@@ -364,6 +364,11 @@ export function PeoplePage() {
                                     <LinkedText text={task.blockers} />
                                   </span>
                                 ) : null}
+                                {(task.notes ?? "").trim() ? (
+                                  <span className="person-related-note">
+                                    <LinkedText text={task.notes} />
+                                  </span>
+                                ) : null}
                               </li>
                             ))}
                           </ul>
