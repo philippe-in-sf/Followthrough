@@ -1022,6 +1022,289 @@ button:disabled {
   border-radius: 0;
 }
 
+.meeting-summary-button {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1.45fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.meeting-summary-button:hover,
+.meeting-summary-button:focus-visible {
+  background: #f8fafc;
+}
+
+.meeting-summary-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: -3px;
+}
+
+.meeting-summary-title,
+.meeting-summary-meta {
+  min-width: 0;
+}
+
+.meeting-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meeting-summary-title strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-summary-title > span:last-child,
+.meeting-summary-date,
+.meeting-summary-counts {
+  color: #5b6475;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.meeting-expand-icon {
+  flex: 0 0 auto;
+  color: #64748b;
+  transition: transform 140ms ease;
+}
+
+.meeting-expand-icon-open {
+  transform: rotate(180deg);
+}
+
+.meeting-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.meeting-summary-meta .status-badge,
+.meeting-summary-date,
+.meeting-summary-counts {
+  flex: 0 0 auto;
+}
+
+.meeting-summary-text {
+  min-width: 80px;
+  overflow: hidden;
+  color: #3b4354;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-expanded-content {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #d9dee7;
+  background: #ffffff;
+}
+
+.meeting-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  padding: 12px 14px 0;
+}
+
+.meeting-detail-section {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.meeting-detail-section h4,
+.meeting-detail-section p,
+.meeting-empty-detail {
+  margin: 0;
+}
+
+.meeting-detail-section h4 {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.meeting-detail-section p {
+  color: #3b4354;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.meeting-detail-badges,
+.meeting-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.meeting-card-actions {
+  padding: 0 14px 12px;
+}
+
+.meeting-link-list {
+  display: grid;
+  gap: 6px;
+}
+
+.meeting-link-list a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.meeting-link-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.meeting-link-list small {
+  flex: 0 0 auto;
+  color: #5b6475;
+}
+
+.task-summary-button {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.35fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.task-summary-button:hover,
+.task-summary-button:focus-visible {
+  background: #f8fafc;
+}
+
+.task-summary-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: -3px;
+}
+
+.task-summary-title,
+.task-summary-meta {
+  min-width: 0;
+}
+
+.task-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-summary-title strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-summary-title > span:last-child,
+.task-summary-meta > span:not(.status-badge) {
+  color: #5b6475;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.task-expand-icon {
+  flex: 0 0 auto;
+  color: #64748b;
+  transition: transform 140ms ease;
+}
+
+.task-expand-icon-open {
+  transform: rotate(180deg);
+}
+
+.task-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.task-summary-meta .status-badge,
+.task-summary-meta > span:not(.status-badge) {
+  flex: 0 0 auto;
+}
+
+.task-expanded-content {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #d9dee7;
+  background: #ffffff;
+}
+
+.task-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  padding: 12px 14px 0;
+}
+
+.task-detail-section {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-detail-section h4,
+.task-detail-section p {
+  margin: 0;
+}
+
+.task-detail-section h4 {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.task-detail-section p {
+  color: #3b4354;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.task-detail-section small {
+  color: #5b6475;
+}
+
+.task-detail-badges,
+.task-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-card-actions {
+  padding: 0 14px 12px;
+}
+
 .record-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
@@ -1040,14 +1323,6 @@ button:disabled {
 
 .record-row span {
   color: #5b6475;
-}
-
-.meeting-row {
-  grid-template-columns: minmax(180px, 1fr) auto auto minmax(140px, auto) minmax(160px, 1fr) minmax(120px, auto) minmax(180px, 1fr) auto auto;
-}
-
-.task-row {
-  grid-template-columns: minmax(180px, 1fr) repeat(8, auto);
 }
 
 .task-reminder-feedback {
@@ -1545,8 +1820,8 @@ button:disabled {
   }
 
   .record-row,
-  .meeting-row,
-  .task-row,
+  .meeting-summary-button,
+  .task-summary-button,
   .meeting-notes-layout,
   .series-row,
   .meeting-edit-form,
@@ -1554,6 +1829,45 @@ button:disabled {
   .task-edit-form,
   .meeting-task-form,
   .compact-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .meeting-summary-button {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .meeting-summary-meta {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .meeting-summary-text {
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .meeting-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-summary-button {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .task-summary-meta {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .task-summary-title strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .task-detail-grid {
     grid-template-columns: 1fr;
   }
 

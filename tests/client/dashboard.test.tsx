@@ -31,6 +31,22 @@ function json(data: unknown, status = 200) {
   } as Response);
 }
 
+async function expandMeetingCard(publicId: string) {
+  const meetingCard = await screen.findByLabelText(`Meeting ${publicId}`);
+  await userEvent.click(
+    within(meetingCard).getByRole("button", { name: new RegExp(`Expand meeting ${publicId}`) }),
+  );
+  return meetingCard;
+}
+
+async function expandTaskCard(publicId: string) {
+  const taskCard = await screen.findByLabelText(`Task ${publicId}`);
+  await userEvent.click(
+    within(taskCard).getByRole("button", { name: new RegExp(`Expand task ${publicId}`) }),
+  );
+  return taskCard;
+}
+
 function setupAppFetch() {
   const people: PersonDto[] = [avery];
   const tasks: TaskDto[] = [
@@ -558,11 +574,11 @@ describe("dashboard and workspace flows", () => {
       }),
     );
     expect(await screen.findByText("Draft rollout notes")).toBeInTheDocument();
-    expect(await screen.findByText("Initial rollout draft saved.")).toBeInTheDocument();
+    const newTaskCard = await expandTaskCard("T100");
+    expect(await within(newTaskCard).findByText("Initial rollout draft saved.")).toBeInTheDocument();
 
     const blockedTasks = await screen.findByRole("region", { name: "Tasks with blockers" });
     expect(within(blockedTasks).getByText("Prep launch plan")).toBeInTheDocument();
-    expect(within(blockedTasks).getByText("Waiting on finance numbers")).toBeInTheDocument();
     expect(within(blockedTasks).getByText("1 task")).toBeInTheDocument();
 
     const dueSoonTasks = screen.getByRole("region", { name: "Due soon tasks" });
@@ -574,6 +590,8 @@ describe("dashboard and workspace flows", () => {
     const taskCard = await screen.findByLabelText("Task T099");
     expect(within(taskCard).queryByText("Audit history")).not.toBeInTheDocument();
     expect(within(taskCard).queryByText("Created task")).not.toBeInTheDocument();
+    await userEvent.click(within(taskCard).getByRole("button", { name: /Expand task T099/i }));
+    expect(await within(taskCard).findByText("Waiting on finance numbers")).toBeInTheDocument();
 
     await userEvent.click(within(taskCard).getByRole("button", { name: "Edit details for T099" }));
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
@@ -632,8 +650,13 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     expect(await screen.findByText("Leadership sync")).toBeInTheDocument();
-    expect(screen.getByText("Need agenda owner")).toBeInTheDocument();
-    expect(screen.getByText("Carry roadmap")).toBeInTheDocument();
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).queryByText("Need agenda owner")).not.toBeInTheDocument();
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: /Expand meeting M010/i }),
+    );
+    expect(await within(meetingCard).findByText("Need agenda owner")).toBeInTheDocument();
+    expect(within(meetingCard).getByText("Carry roadmap")).toBeInTheDocument();
     expect(
       within(screen.getByRole("region", { name: "Meetings with blockers" })).getByText(
         "Leadership sync",
@@ -664,7 +687,8 @@ describe("dashboard and workspace flows", () => {
         "Project sync follow-up",
       ),
     ).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByText("Carry roadmap").length).toBeGreaterThan(1));
+    const nextOccurrenceCard = await expandMeetingCard("M011");
+    expect(within(nextOccurrenceCard).getByText("Carry roadmap")).toBeInTheDocument();
   });
 
   it("edits meeting notes and structured links", async () => {
@@ -672,7 +696,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    const meetingCard = await screen.findByLabelText("Meeting M010");
+    const meetingCard = await expandMeetingCard("M010");
     await userEvent.click(
       within(meetingCard).getByRole("button", { name: "Open notes for M010" }),
     );
@@ -723,7 +747,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    const meetingCard = await screen.findByLabelText("Meeting M010");
+    const meetingCard = await expandMeetingCard("M010");
     expect(within(meetingCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(meetingCard).getByText("Created meeting")).toBeInTheDocument();
 
@@ -801,7 +825,7 @@ describe("dashboard and workspace flows", () => {
     );
 
     expect(await screen.findByText("Updated leadership sync")).toBeInTheDocument();
-    expect(screen.getByText("Updated summary")).toBeInTheDocument();
+    expect(screen.getAllByText("Updated summary").length).toBeGreaterThan(0);
     expect(screen.getByText("Avery, Morgan, Taylor")).toBeInTheDocument();
     expect(await screen.findByText("Updated meeting details")).toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
 import type {
   AuditLogDto,
   MeetingDto,
@@ -161,6 +161,17 @@ function countLabel(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function singleLineText(value: string, fallback: string) {
+  const compact = value.trim().replace(/\s+/g, " ");
+  return compact || fallback;
+}
+
+function attendeeSummary(meeting: MeetingDto) {
+  return meeting.attendees.length > 0
+    ? meeting.attendees.map((attendee) => attendee.name).join(", ")
+    : "No attendees";
+}
+
 function taskOptionLabel(task: TaskDto) {
   return (
     <>
@@ -194,6 +205,54 @@ function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
         <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
       ) : null}
     </p>
+  );
+}
+
+function MeetingTaskLinks({ meeting }: { meeting: MeetingDto }) {
+  if (meeting.tasks.length === 0) {
+    return <p className="muted meeting-empty-detail">No tasks</p>;
+  }
+
+  return (
+    <div className="task-links">
+      {meeting.tasks.map((task) => (
+        <span key={task.publicId}>
+          <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+          {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+          {hasClearedBlockers(task) ? (
+            <StatusBadge label="Blocker cleared" tone="good" />
+          ) : null}
+          {hasBlockers(task) ? (
+            <small className="task-link-blocker">
+              <LinkedText text={task.blockers} />
+            </small>
+          ) : null}
+          {(task.notes ?? "").trim() ? (
+            <small className="task-link-notes">
+              <LinkedText text={task.notes} />
+            </small>
+          ) : null}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MeetingStructuredLinks({ meeting }: { meeting: MeetingDto }) {
+  if (meeting.links.length === 0) {
+    return <p className="muted meeting-empty-detail">No links</p>;
+  }
+
+  return (
+    <div className="meeting-link-list">
+      {meeting.links.map((link) => (
+        <a href={link.url} key={`${link.linkType}-${link.url}`} rel="noreferrer" target="_blank">
+          <LinkIcon aria-hidden="true" size={15} />
+          <span>{link.label}</span>
+          <small>{linkTypeLabel(link.linkType)}</small>
+        </a>
+      ))}
+    </div>
   );
 }
 
@@ -249,6 +308,9 @@ export function MeetingsPage({
   const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [expandedMeetingPublicIds, setExpandedMeetingPublicIds] = useState<Record<string, boolean>>(
+    {},
+  );
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [activeNotesMeetingPublicId, setActiveNotesMeetingPublicId] = useState<string | null>(null);
   const [blockersDraft, setBlockersDraft] = useState("");
@@ -405,6 +467,7 @@ export function MeetingsPage({
   }
 
   function editMeeting(meeting: MeetingDto) {
+    expandMeeting(meeting.publicId);
     setEditingMeetingPublicId(meeting.publicId);
     setMeetingEditForm({
       publicId: meeting.publicId,
@@ -420,6 +483,19 @@ export function MeetingsPage({
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
       private: meeting.private,
     });
+  }
+
+  function expandMeeting(meetingPublicId: string) {
+    setExpandedMeetingPublicIds((current) =>
+      current[meetingPublicId] ? current : { ...current, [meetingPublicId]: true },
+    );
+  }
+
+  function toggleMeeting(meetingPublicId: string) {
+    setExpandedMeetingPublicIds((current) => ({
+      ...current,
+      [meetingPublicId]: !current[meetingPublicId],
+    }));
   }
 
   useEffect(() => {
@@ -1074,7 +1150,11 @@ export function MeetingsPage({
                 <span className="lane-count">{countLabel(lane.meetings.length, "meeting")}</span>
               </header>
               <div className="record-list">
-                {lane.meetings.map((meeting) => (
+                {lane.meetings.map((meeting) => {
+                  const isExpanded = Boolean(expandedMeetingPublicIds[meeting.publicId]);
+                  const detailsId = `meeting-details-${meeting.publicId}`;
+
+                  return (
               <article
                 aria-label={`Meeting ${meeting.publicId}`}
                 className={`meeting-card ${
@@ -1083,67 +1163,94 @@ export function MeetingsPage({
                 id={`meeting-${meeting.publicId}`}
                 key={meeting.publicId}
               >
-              <div className="record-row meeting-row">
-                <div>
+              <button
+                aria-controls={detailsId}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${meeting.publicId} ${meeting.title}`}
+                className="meeting-summary-button"
+                type="button"
+                onClick={() => toggleMeeting(meeting.publicId)}
+              >
+                <span className="meeting-summary-title">
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`meeting-expand-icon ${isExpanded ? "meeting-expand-icon-open" : ""}`}
+                    size={17}
+                  />
                   <strong>{meeting.title}</strong>
                   <span>{meeting.publicId}</span>
-                </div>
-                <StatusBadge label={meeting.meetingType} />
-                {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                {hasClearedBlockers(meeting) ? (
-                  <StatusBadge label="Blocker cleared" tone="good" />
-                ) : null}
-                <span>{new Date(meeting.startsAt).toLocaleString()}</span>
-                <span>{meeting.summary || "No summary"}</span>
-                <span>
-                  {meeting.attendees.length > 0
-                    ? meeting.attendees.map((attendee) => attendee.name).join(", ")
-                    : "No attendees"}
                 </span>
-                <div className="task-links">
-                  {meeting.tasks.length === 0 ? (
-                    <span>No tasks</span>
-                  ) : (
-                    meeting.tasks.map((task) => (
-                      <span key={task.publicId}>
-                        <strong>{task.publicId}</strong> <LinkedText text={task.description} />
-                        {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                        {hasClearedBlockers(task) ? (
-                          <StatusBadge label="Blocker cleared" tone="good" />
+                <span className="meeting-summary-meta">
+                  <StatusBadge label={meeting.meetingType} />
+                  {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                  {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                  {hasClearedBlockers(meeting) ? (
+                    <StatusBadge label="Blocker cleared" tone="good" />
+                  ) : null}
+                  <span className="meeting-summary-date">
+                    {new Date(meeting.startsAt).toLocaleString()}
+                  </span>
+                  <span className="meeting-summary-text">
+                    {singleLineText(meeting.summary, "No summary")}
+                  </span>
+                  <span className="meeting-summary-counts">
+                    {countLabel(meeting.attendees.length, "attendee")} ·{" "}
+                    {countLabel(meeting.tasks.length, "task")}
+                  </span>
+                </span>
+              </button>
+              {isExpanded ? (
+                <div className="meeting-expanded-content" id={detailsId}>
+                  <div className="meeting-detail-grid">
+                    <section className="meeting-detail-section">
+                      <h4>Details</h4>
+                      <p>{new Date(meeting.startsAt).toLocaleString()}</p>
+                      <div className="meeting-detail-badges">
+                        <StatusBadge label={meeting.meetingType} />
+                        {meeting.seriesPublicId ? (
+                          <span className="hint-chip">Series {meeting.seriesPublicId}</span>
                         ) : null}
-                        {hasBlockers(task) ? (
-                          <small className="task-link-blocker">
-                            <LinkedText text={task.blockers} />
-                          </small>
-                        ) : null}
-                        {(task.notes ?? "").trim() ? (
-                          <small className="task-link-notes">
-                            <LinkedText text={task.notes} />
-                          </small>
-                        ) : null}
-                      </span>
-                    ))
-                  )}
-                </div>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => openMeetingNotes(meeting)}
-                  aria-label={`Open notes for ${meeting.publicId}`}
-                >
-                  Notes
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => editMeeting(meeting)}
-                  aria-label={`Edit details for ${meeting.publicId}`}
-                >
-                  Edit details
-                </button>
-              </div>
-              <MeetingBlockerNote meeting={meeting} />
+                        {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                      </div>
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Summary</h4>
+                      <p>
+                        <LinkedText text={meeting.summary || "No summary"} />
+                      </p>
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Attendees</h4>
+                      <p>{attendeeSummary(meeting)}</p>
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Tasks</h4>
+                      <MeetingTaskLinks meeting={meeting} />
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Links</h4>
+                      <MeetingStructuredLinks meeting={meeting} />
+                    </section>
+                  </div>
+                  <div className="meeting-card-actions">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => openMeetingNotes(meeting)}
+                      aria-label={`Open notes for ${meeting.publicId}`}
+                    >
+                      Notes
+                    </button>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => editMeeting(meeting)}
+                      aria-label={`Edit details for ${meeting.publicId}`}
+                    >
+                      Edit details
+                    </button>
+                  </div>
+                  <MeetingBlockerNote meeting={meeting} />
               {editingMeetingPublicId === meeting.publicId ? (
                 <form
                   className="meeting-edit-form"
@@ -1401,8 +1508,11 @@ export function MeetingsPage({
                 </button>
               </form>
               <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
+                </div>
+              ) : null}
             </article>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))}
