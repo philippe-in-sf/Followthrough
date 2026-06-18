@@ -726,6 +726,97 @@ button:disabled {
   padding: 9px 10px;
 }
 
+.task-filter-panel {
+  display: grid;
+  gap: 0;
+  margin-bottom: 18px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.task-filter-summary-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.task-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: #eef2f7;
+  color: #1d2433;
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.task-filter-toggle:hover,
+.task-filter-toggle:focus-visible {
+  background: #e2e8f0;
+}
+
+.task-filter-count {
+  color: #5b6475;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.task-filter-chevron {
+  transition: transform 140ms ease;
+}
+
+.task-filter-toggle[aria-expanded="true"] .task-filter-chevron {
+  transform: rotate(180deg);
+}
+
+.task-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-filter-chip,
+.task-filter-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  padding: 4px 9px;
+}
+
+.task-filter-chip {
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.task-filter-empty {
+  color: #5b6475;
+}
+
+.task-filter-clear {
+  min-height: 36px;
+}
+
+.task-filter-fields {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2007,6 +2098,31 @@ button:disabled {
 
   .record-view-toggle {
     width: fit-content;
+  }
+
+  .task-filter-summary-row {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .task-filter-toggle {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    min-width: min(220px, 100%);
+  }
+
+  .task-filter-chips {
+    order: 3;
+    flex: 1 0 100%;
+  }
+
+  .task-filter-clear {
+    flex: 0 0 auto;
+  }
+
+  .task-filter-fields select {
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
   .record-row,

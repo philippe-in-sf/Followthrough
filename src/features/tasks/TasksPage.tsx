@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Mail, RotateCcw } from "lucide-react";
+import { Archive, ChevronDown, Mail, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type {
   AuditLogDto,
   PersonDto,
@@ -83,6 +83,7 @@ export function TasksPage({
   const [assigneePublicId, setAssigneePublicId] = useState("");
   const [status, setStatus] = useState("");
   const [alert, setAlert] = useState("");
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [taskArchiveView, setTaskArchiveView] = useState<TaskArchiveView>("active");
   const [form, setForm] = useState<TaskFormState>(emptyTaskForm);
   const [editingTaskPublicId, setEditingTaskPublicId] = useState<string | null>(null);
@@ -168,6 +169,25 @@ export function TasksPage({
 
     return lanes.filter((lane) => lane.tasks.length > 0);
   }, [taskArchiveView, tasks]);
+
+  const activeTaskFilterLabels = useMemo(() => {
+    const assigneeName =
+      people.find((person) => person.publicId === assigneePublicId)?.name ?? "Selected assignee";
+    const alertLabel =
+      alert === "dueSoon" ? "Due soon" : alert === "overdue" ? "Overdue" : "";
+
+    return [
+      assigneePublicId ? `Assignee: ${assigneeName}` : null,
+      status ? `Status: ${status}` : null,
+      alertLabel ? `Due date: ${alertLabel}` : null,
+    ].filter((label): label is string => Boolean(label));
+  }, [alert, assigneePublicId, people, status]);
+
+  function clearTaskFilters() {
+    setAssigneePublicId("");
+    setStatus("");
+    setAlert("");
+  }
 
   async function loadTasks() {
     const requestId = taskLoadRequestId.current + 1;
@@ -416,39 +436,84 @@ export function TasksPage({
         </div>
       </form>
       ) : null}
-      <div className="filter-bar">
-        <select
-          aria-label="Filter assignee"
-          value={assigneePublicId}
-          onChange={(event) => setAssigneePublicId(event.target.value)}
-        >
-          <option value="">All assignees</option>
-          {people.map((person) => (
-            <option key={person.publicId} value={person.publicId}>
-              {person.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter status"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="">All statuses</option>
-          {statuses.map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter alert"
-          value={alert}
-          onChange={(event) => setAlert(event.target.value)}
-        >
-          <option value="">All due dates</option>
-          <option value="dueSoon">Due soon</option>
-          <option value="overdue">Overdue</option>
-        </select>
-      </div>
+      <section className="task-filter-panel" aria-label="Task filters">
+        <div className="task-filter-summary-row">
+          <button
+            aria-controls="task-filter-fields"
+            aria-expanded={filtersExpanded}
+            aria-label={filtersExpanded ? "Hide task filters" : "Show task filters"}
+            className="task-filter-toggle"
+            type="button"
+            onClick={() => setFiltersExpanded((current) => !current)}
+          >
+            <SlidersHorizontal aria-hidden="true" size={16} />
+            <span>Filters</span>
+            <span className="task-filter-count">
+              {activeTaskFilterLabels.length
+                ? countLabel(activeTaskFilterLabels.length, "active filter")
+                : "All tasks"}
+            </span>
+            <ChevronDown aria-hidden="true" className="task-filter-chevron" size={16} />
+          </button>
+          <div className="task-filter-chips" aria-live="polite">
+            {activeTaskFilterLabels.length ? (
+              activeTaskFilterLabels.map((label) => (
+                <span className="task-filter-chip" key={label}>
+                  {label}
+                </span>
+              ))
+            ) : (
+              <span className="task-filter-empty">All assignees, statuses, and due dates</span>
+            )}
+          </div>
+          {activeTaskFilterLabels.length ? (
+            <button
+              aria-label="Clear task filters"
+              className="secondary-button icon-text-button task-filter-clear"
+              type="button"
+              onClick={clearTaskFilters}
+            >
+              <X aria-hidden="true" size={16} />
+              Clear
+            </button>
+          ) : null}
+        </div>
+        {filtersExpanded ? (
+          <div className="filter-bar task-filter-fields" id="task-filter-fields">
+            <select
+              aria-label="Filter assignee"
+              value={assigneePublicId}
+              onChange={(event) => setAssigneePublicId(event.target.value)}
+            >
+              <option value="">All assignees</option>
+              {people.map((person) => (
+                <option key={person.publicId} value={person.publicId}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="">All statuses</option>
+              {statuses.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter alert"
+              value={alert}
+              onChange={(event) => setAlert(event.target.value)}
+            >
+              <option value="">All due dates</option>
+              <option value="dueSoon">Due soon</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+        ) : null}
+      </section>
       {tasks.length === 0 ? (
         <EmptyState
           title={taskArchiveView === "archived" ? "No archived tasks" : "No tasks"}
