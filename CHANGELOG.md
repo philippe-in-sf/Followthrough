@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.0.31 - 2026-06-21
+
+### Added
+
+- Added Google Calendar meeting import from the Meetings add form.
+- Added server-side Google Calendar event search using `GOOGLE_CALENDAR_ID` and `GOOGLE_CALENDAR_API_KEY`.
+
 ## 1.0.30 - 2026-06-21
 
 ### Fixed
