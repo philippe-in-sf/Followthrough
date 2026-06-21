@@ -36,6 +36,35 @@ function splitUrl(rawUrl: string) {
   return { url, trailing };
 }
 
+export function collapseLinks(text: string) {
+  const parts: string[] = [];
+  let cursor = 0;
+
+  for (const match of text.matchAll(urlPattern)) {
+    const rawUrl = match[0];
+    const index = match.index ?? 0;
+    const { trailing } = splitUrl(rawUrl);
+
+    if (index > cursor) {
+      parts.push(text.slice(cursor, index));
+    }
+
+    parts.push("Link");
+
+    if (trailing) {
+      parts.push(trailing);
+    }
+
+    cursor = index + rawUrl.length;
+  }
+
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+
+  return parts.length > 0 ? parts.join("") : text;
+}
+
 export function LinkedText({ text }: { text: string }) {
   const parts = [];
   let cursor = 0;

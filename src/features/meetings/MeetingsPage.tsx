@@ -15,7 +15,7 @@ import { api } from "../../api/client";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
@@ -811,7 +811,7 @@ export function MeetingsPage({
               <option value="">Choose series</option>
               {series.map((item) => (
                 <option key={item.publicId} value={item.publicId}>
-                  {item.title}
+                  {collapseLinks(item.title)}
                 </option>
               ))}
             </select>
@@ -976,7 +976,7 @@ export function MeetingsPage({
             <option value="">No series</option>
             {series.map((item) => (
               <option key={item.publicId} value={item.publicId}>
-                {item.title}
+                {collapseLinks(item.title)}
               </option>
             ))}
           </select>
@@ -1044,7 +1044,9 @@ export function MeetingsPage({
                 {series.map((item) => (
                   <div className="series-row" key={item.publicId}>
                     <div>
-                      <strong>{item.title}</strong>
+                      <strong>
+                        <LinkedText text={item.title} />
+                      </strong>
                       <span>{item.publicId}</span>
                     </div>
                     <span className="hint-chip hint-chip-teal">
@@ -1078,13 +1080,15 @@ export function MeetingsPage({
             >
               <div className="record-row meeting-row">
                 <div>
-                  <strong>{meeting.title}</strong>
+                  <strong>
+                    <LinkedText text={meeting.title} />
+                  </strong>
                   <span>{meeting.publicId}</span>
                 </div>
                 <StatusBadge label={meeting.meetingType} />
                 {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
                 <span>{new Date(meeting.startsAt).toLocaleString()}</span>
-                <span>{meeting.summary || "No summary"}</span>
+                <span>{meeting.summary ? <LinkedText text={meeting.summary} /> : "No summary"}</span>
                 <span>
                   {meeting.attendees.length > 0
                     ? meeting.attendees.map((attendee) => attendee.name).join(", ")
@@ -1174,7 +1178,7 @@ export function MeetingsPage({
                       <option value="">No series</option>
                       {series.map((item) => (
                         <option key={item.publicId} value={item.publicId}>
-                          {item.title}
+                          {collapseLinks(item.title)}
                         </option>
                       ))}
                     </select>

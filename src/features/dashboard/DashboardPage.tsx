@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type DashboardTask } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
@@ -131,10 +131,10 @@ export function DashboardPage({
                       onClick={() =>
                         onOpenRecord({ type: "meeting", publicId: meeting.publicId })
                       }
-                      aria-label={`Open meeting ${meeting.publicId} ${meeting.title}`}
+                      aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
                     >
                       <strong>{meeting.publicId}</strong>
-                      <span>{meeting.title}</span>
+                      <span>{collapseLinks(meeting.title)}</span>
                       <small>{new Date(meeting.startsAt).toLocaleString()}</small>
                     </button>
                   </li>
@@ -156,10 +156,10 @@ export function DashboardPage({
                       onClick={() =>
                         onOpenRecord({ type: "decision", publicId: decision.publicId })
                       }
-                      aria-label={`Open decision ${decision.publicId} ${decision.decisionText}`}
+                      aria-label={`Open decision ${decision.publicId} ${collapseLinks(decision.decisionText)}`}
                     >
                       <strong>{decision.publicId}</strong>
-                      <span>{decision.decisionText}</span>
+                      <span>{collapseLinks(decision.decisionText)}</span>
                       <small>{decision.decisionDate}</small>
                     </button>
                   </li>
@@ -176,7 +176,9 @@ export function DashboardPage({
                 {summary.activeSeries.map((series) => (
                   <li key={series.publicId}>
                     <strong>{series.publicId}</strong>
-                    <span>{series.title}</span>
+                    <span>
+                      <LinkedText text={series.title} />
+                    </span>
                     {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
                   </li>
                 ))}
