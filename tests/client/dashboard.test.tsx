@@ -243,8 +243,8 @@ function setupAppFetch() {
         results: [
           {
             type: "task",
-            publicId: "T099",
-            title: "Prep launch plan",
+            publicId: "T009",
+            title: `Prep launch plan (${deckUrl})`,
             subtitle: "Exact ID match",
           },
         ],
@@ -554,8 +554,11 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByText("Project sync")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Search"), "T099");
+    const searchResults = await screen.findByRole("listbox", { name: "Search results" });
+    expect(searchResults).toHaveTextContent("Prep launch plan (Link)");
+    expect(searchResults).not.toHaveTextContent("https://docs.google.com");
     expect(await screen.findByText("Exact ID match")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /T099 Prep launch plan/i }));
+    await userEvent.click(screen.getByRole("button", { name: /T009 Prep launch plan \(Link\)/i }));
 
     await waitFor(() => {
       expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();

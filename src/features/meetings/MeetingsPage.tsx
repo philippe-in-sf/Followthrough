@@ -24,7 +24,7 @@ import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blocke
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
@@ -1016,7 +1016,7 @@ export function MeetingsPage({
               <option value="">Choose series</option>
               {series.map((item) => (
                 <option key={item.publicId} value={item.publicId}>
-                  {item.title}
+                  {collapseLinks(item.title)}
                 </option>
               ))}
             </select>
@@ -1137,7 +1137,7 @@ export function MeetingsPage({
             <option value="">No series</option>
             {series.map((item) => (
               <option key={item.publicId} value={item.publicId}>
-                {item.title}
+                {collapseLinks(item.title)}
               </option>
             ))}
           </select>
@@ -1226,7 +1226,9 @@ export function MeetingsPage({
                 {series.map((item) => (
                   <div className="series-row" key={item.publicId}>
                     <div>
-                      <strong>{item.title}</strong>
+                      <strong>
+                        <LinkedText text={item.title} />
+                      </strong>
                       <span>{item.publicId}</span>
                     </div>
                     <span className="hint-chip hint-chip-teal">
@@ -1256,57 +1258,63 @@ export function MeetingsPage({
                   const detailsId = `meeting-details-${meeting.publicId}`;
 
                   return (
-              <article
-                aria-label={`Meeting ${meeting.publicId}`}
-                className={`meeting-card ${
-                  meeting.archived
-                    ? "record-card-neutral"
-                    : hasActiveBlockers(meeting)
-                      ? "record-card-bad"
-                      : "record-card-meeting"
-                }`}
-                id={`meeting-${meeting.publicId}`}
-                key={meeting.publicId}
-              >
-              <button
-                aria-controls={detailsId}
-                aria-expanded={isExpanded}
-                aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${meeting.publicId} ${meeting.title}`}
-                className="meeting-summary-button"
-                type="button"
-                onClick={() => toggleMeeting(meeting.publicId)}
-              >
-                <span className="meeting-summary-title">
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`meeting-expand-icon ${isExpanded ? "meeting-expand-icon-open" : ""}`}
-                    size={17}
-                  />
-                  <strong>{meeting.title}</strong>
-                  <span>{meeting.publicId}</span>
-                </span>
-                <span className="meeting-summary-meta">
-                  <StatusBadge label={meeting.meetingType} />
-                  {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                  {meeting.archived ? <StatusBadge label="Archived" /> : null}
-                  {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                  {hasClearedBlockers(meeting) ? (
-                    <StatusBadge label="Blocker cleared" tone="good" />
-                  ) : null}
-                  <span className="meeting-summary-date">
-                    {new Date(meeting.startsAt).toLocaleString()}
-                  </span>
-                  <span className="meeting-summary-text">
-                    {singleLineText(meeting.summary, "No summary")}
-                  </span>
-                  <span className="meeting-summary-counts">
-                    {countLabel(meeting.attendees.length, "attendee")} ·{" "}
-                    {countLabel(meeting.tasks.length, "task")}
-                  </span>
-                </span>
-              </button>
-              {isExpanded ? (
-                <div className="meeting-expanded-content" id={detailsId}>
+                    <article
+                      aria-label={`Meeting ${meeting.publicId}`}
+                      className={`meeting-card ${
+                        meeting.archived
+                          ? "record-card-neutral"
+                          : hasActiveBlockers(meeting)
+                            ? "record-card-bad"
+                            : "record-card-meeting"
+                      }`}
+                      id={`meeting-${meeting.publicId}`}
+                      key={meeting.publicId}
+                    >
+                      <button
+                        aria-controls={detailsId}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${
+                          meeting.publicId
+                        } ${collapseLinks(meeting.title)}`}
+                        className="meeting-summary-button"
+                        type="button"
+                        onClick={() => toggleMeeting(meeting.publicId)}
+                      >
+                        <span className="meeting-summary-title">
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`meeting-expand-icon ${
+                              isExpanded ? "meeting-expand-icon-open" : ""
+                            }`}
+                            size={17}
+                          />
+                          <strong>{collapseLinks(meeting.title)}</strong>
+                          <span>{meeting.publicId}</span>
+                        </span>
+                        <span className="meeting-summary-meta">
+                          <StatusBadge label={meeting.meetingType} />
+                          {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                          {meeting.archived ? <StatusBadge label="Archived" /> : null}
+                          {hasActiveBlockers(meeting) ? (
+                            <StatusBadge label="Blocker" tone="bad" />
+                          ) : null}
+                          {hasClearedBlockers(meeting) ? (
+                            <StatusBadge label="Blocker cleared" tone="good" />
+                          ) : null}
+                          <span className="meeting-summary-date">
+                            {new Date(meeting.startsAt).toLocaleString()}
+                          </span>
+                          <span className="meeting-summary-text">
+                            {collapseLinks(singleLineText(meeting.summary, "No summary"))}
+                          </span>
+                          <span className="meeting-summary-counts">
+                            {countLabel(meeting.attendees.length, "attendee")} ·{" "}
+                            {countLabel(meeting.tasks.length, "task")}
+                          </span>
+                        </span>
+                      </button>
+                      {isExpanded ? (
+                        <div className="meeting-expanded-content" id={detailsId}>
                   <div className="meeting-detail-grid">
                     <section className="meeting-detail-section">
                       <h4>Details</h4>
@@ -1428,7 +1436,7 @@ export function MeetingsPage({
                       <option value="">No series</option>
                       {series.map((item) => (
                         <option key={item.publicId} value={item.publicId}>
-                          {item.title}
+                          {collapseLinks(item.title)}
                         </option>
                       ))}
                     </select>

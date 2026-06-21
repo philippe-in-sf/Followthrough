@@ -2035,3 +2035,435 @@ button:disabled {
       "search search search";
   }
 }
+
+.app-shell[data-skin] {
+  --skin-bg: #0b1017;
+  --skin-surface: #111827;
+  --skin-surface-alt: #182230;
+  --skin-surface-raised: #1f2937;
+  --skin-border: #334155;
+  --skin-field-border: #475569;
+  --skin-text: #e5edf6;
+  --skin-muted: #a7b4c6;
+  --skin-rail-bg: #05080d;
+  --skin-rail-text: #f8fafc;
+  --skin-rail-muted: #8fa1b7;
+  --skin-rail-icon: #b7c4d6;
+  --skin-rail-active-bg: #1f2937;
+  --skin-rail-active-text: #f8fafc;
+  --skin-accent: #38bdf8;
+  --skin-accent-soft: #0c4a6e;
+  --skin-action: #60a5fa;
+  --skin-action-text: #ffffff;
+  --skin-secondary-bg: #243244;
+  --skin-focus: #38bdf8;
+  --skin-shadow: rgba(0, 0, 0, 0.36);
+  color: var(--skin-text);
+  background: var(--skin-bg);
+}
+
+.app-shell[data-skin="harbor"] {
+  --skin-bg: #061a20;
+  --skin-surface: #0d2730;
+  --skin-surface-alt: #12333d;
+  --skin-surface-raised: #16424f;
+  --skin-border: #225565;
+  --skin-field-border: #2a697c;
+  --skin-text: #e2f7fb;
+  --skin-muted: #a3c6cf;
+  --skin-rail-bg: #031015;
+  --skin-rail-text: #f0fcff;
+  --skin-rail-muted: #80aeb8;
+  --skin-rail-icon: #b5d7de;
+  --skin-rail-active-bg: #164e63;
+  --skin-rail-active-text: #f0fcff;
+  --skin-accent: #2dd4bf;
+  --skin-accent-soft: #134e4a;
+  --skin-action: #67e8f9;
+  --skin-secondary-bg: #173f4b;
+  --skin-focus: #22d3ee;
+  --skin-shadow: rgba(0, 0, 0, 0.34);
+}
+
+.app-shell[data-skin="cedar"] {
+  --skin-bg: #0f1a12;
+  --skin-surface: #172318;
+  --skin-surface-alt: #1f2f20;
+  --skin-surface-raised: #293b27;
+  --skin-border: #3f5538;
+  --skin-field-border: #526b48;
+  --skin-text: #eef8e7;
+  --skin-muted: #b7c8ae;
+  --skin-rail-bg: #081009;
+  --skin-rail-text: #f5fbef;
+  --skin-rail-muted: #94ab87;
+  --skin-rail-icon: #c3d7b8;
+  --skin-rail-active-bg: #365314;
+  --skin-rail-active-text: #f7fee7;
+  --skin-accent: #a3e635;
+  --skin-accent-soft: #365314;
+  --skin-action: #5eead4;
+  --skin-secondary-bg: #263820;
+  --skin-focus: #bef264;
+  --skin-shadow: rgba(0, 0, 0, 0.34);
+}
+
+.app-shell[data-skin="cinder"] {
+  --skin-bg: #1c1412;
+  --skin-surface: #271b18;
+  --skin-surface-alt: #35231e;
+  --skin-surface-raised: #452d25;
+  --skin-border: #654137;
+  --skin-field-border: #7c5144;
+  --skin-text: #fff1ea;
+  --skin-muted: #d1b5aa;
+  --skin-rail-bg: #100a09;
+  --skin-rail-text: #fff7ed;
+  --skin-rail-muted: #bda498;
+  --skin-rail-icon: #e0c7bc;
+  --skin-rail-active-bg: #7c2d12;
+  --skin-rail-active-text: #fff7ed;
+  --skin-accent: #fb7185;
+  --skin-accent-soft: #7f1d1d;
+  --skin-action: #f97316;
+  --skin-secondary-bg: #3b2822;
+  --skin-focus: #fb7185;
+  --skin-shadow: rgba(0, 0, 0, 0.36);
+}
+
+.app-shell[data-skin] .icon-rail {
+  background: var(--skin-rail-bg);
+  color: var(--skin-rail-text);
+}
+
+.app-shell[data-skin] .app-mark,
+.app-shell[data-skin] .mobile-topbar-mark {
+  background: var(--skin-accent);
+  color: var(--skin-action-text);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 10px 22px var(--skin-shadow);
+}
+
+.app-shell[data-skin] .mark-forward {
+  stroke: var(--skin-focus);
+}
+
+.app-shell[data-skin] .icon-rail-button {
+  color: var(--skin-rail-icon);
+}
+
+.app-shell[data-skin] .icon-rail-button.active,
+.app-shell[data-skin] .icon-rail-button:hover {
+  background: var(--skin-rail-active-bg);
+  color: var(--skin-rail-active-text);
+}
+
+.app-shell[data-skin] .icon-rail-button.active {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--skin-accent) 30%, transparent),
+    0 8px 18px var(--skin-shadow);
+}
+
+.app-shell[data-skin] .icon-rail-button:focus-visible,
+.app-shell[data-skin] .compact-id-button:focus-visible,
+.app-shell[data-skin] .compact-record-button:focus-visible {
+  outline-color: var(--skin-focus);
+}
+
+.app-shell[data-skin] .rail-version {
+  color: var(--skin-rail-muted);
+}
+
+.app-shell[data-skin] .workspace {
+  background: var(--skin-bg);
+}
+
+.app-shell[data-skin] .context-rail,
+.app-shell[data-skin] .topbar,
+.app-shell[data-skin] .mobile-section-summary {
+  background: var(--skin-surface);
+  border-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .context-eyebrow,
+.app-shell[data-skin] .compact-list small,
+.app-shell[data-skin] .muted,
+.app-shell[data-skin] .record-row span,
+.app-shell[data-skin] .series-row div span,
+.app-shell[data-skin] .audit-list span,
+.app-shell[data-skin] .lane-header p,
+.app-shell[data-skin] .person-related-header span,
+.app-shell[data-skin] .person-related-list span {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .context-rail h2,
+.app-shell[data-skin] .mobile-section-summary h2,
+.app-shell[data-skin] .form-field,
+.app-shell[data-skin] .checkbox-group legend {
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .context-description {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .context-row,
+.app-shell[data-skin] .mobile-context-row,
+.app-shell[data-skin] .secondary-button,
+.app-shell[data-skin] .icon-button,
+.app-shell[data-skin] .lane-count,
+.app-shell[data-skin] .hint-chip {
+  background: var(--skin-secondary-bg);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .context-row > span:first-child::before,
+.app-shell[data-skin] .mobile-context-row::before {
+  background: var(--skin-accent);
+  box-shadow: 0 0 0 3px var(--skin-accent-soft);
+}
+
+.app-shell[data-skin] .context-row-value {
+  background: var(--skin-surface-raised);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .primary-button {
+  background: var(--skin-action);
+  color: var(--skin-action-text);
+}
+
+.app-shell[data-skin] .link-button,
+.app-shell[data-skin] .inline-text-link,
+.app-shell[data-skin] .compact-id-button:hover,
+.app-shell[data-skin] .compact-record-button:hover strong {
+  color: var(--skin-action);
+}
+
+.app-shell[data-skin] .form-field input,
+.app-shell[data-skin] .form-field select,
+.app-shell[data-skin] .form-field textarea,
+.app-shell[data-skin] .filter-bar select,
+.app-shell[data-skin] .global-search input {
+  border-color: var(--skin-field-border);
+  background: var(--skin-surface);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .search-results,
+.app-shell[data-skin] .summary-panel,
+.app-shell[data-skin] .empty-state,
+.app-shell[data-skin] .compact-list li,
+.app-shell[data-skin] .compact-record-button,
+.app-shell[data-skin] .editor-form,
+.app-shell[data-skin] .record-lane,
+.app-shell[data-skin] .meeting-card,
+.app-shell[data-skin] .task-card,
+.app-shell[data-skin] .record-row,
+.app-shell[data-skin] .series-row,
+.app-shell[data-skin] .checkbox-group,
+.app-shell[data-skin] .person-related-list li {
+  border-color: var(--skin-border);
+  background: var(--skin-surface);
+}
+
+.app-shell[data-skin] .search-results button {
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .search-results button:hover,
+.app-shell[data-skin] .person-record-trigger:hover,
+.app-shell[data-skin] .person-record-trigger:focus-visible,
+.app-shell[data-skin] .meeting-edit-form,
+.app-shell[data-skin] .person-edit-form,
+.app-shell[data-skin] .task-edit-form,
+.app-shell[data-skin] .meeting-task-form,
+.app-shell[data-skin] .person-related-records,
+.app-shell[data-skin] .task-reminder-feedback,
+.app-shell[data-skin] .lane-header {
+  background: var(--skin-surface-alt);
+}
+
+.app-shell[data-skin] .meeting-edit-form,
+.app-shell[data-skin] .person-edit-form,
+.app-shell[data-skin] .task-edit-form,
+.app-shell[data-skin] .meeting-task-form,
+.app-shell[data-skin] .person-related-records,
+.app-shell[data-skin] .task-reminder-feedback,
+.app-shell[data-skin] .audit-log {
+  border-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .series-row,
+.app-shell[data-skin] .record-lane-meeting .lane-header,
+.app-shell[data-skin] .record-card-meeting {
+  border-left-color: var(--skin-accent);
+}
+
+.app-shell[data-skin] .hint-chip-teal {
+  background: var(--skin-accent-soft);
+  color: var(--skin-accent);
+}
+
+.app-shell[data-skin] .person-row-selected {
+  border-color: var(--skin-action);
+}
+
+.app-shell[data-skin] .danger-button {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.app-shell[data-skin] .form-error {
+  color: #fecaca;
+}
+
+.app-shell[data-skin] .status-badge {
+  background: var(--skin-secondary-bg);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .status-good {
+  background: #14532d;
+  color: #bbf7d0;
+}
+
+.app-shell[data-skin] .status-warn {
+  background: #713f12;
+  color: #fde68a;
+}
+
+.app-shell[data-skin] .status-bad {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
+.skin-selector {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.skin-selector legend {
+  float: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  color: var(--skin-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.skin-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.skin-option {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  border: 1px solid var(--skin-border);
+  border-radius: 999px;
+  background: var(--skin-surface);
+  color: var(--skin-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 4px 8px 4px 5px;
+  white-space: nowrap;
+}
+
+.skin-option.selected {
+  border-color: var(--skin-action);
+  color: var(--skin-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--skin-action) 20%, transparent);
+}
+
+.skin-option:focus-within {
+  outline: 3px solid var(--skin-focus);
+  outline-offset: 2px;
+}
+
+.skin-swatch-row {
+  display: inline-flex;
+  align-items: center;
+}
+
+.skin-swatch {
+  display: inline-block;
+  width: 13px;
+  height: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.skin-swatch:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.skin-swatch:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+.skin-option-label {
+  display: inline-block;
+}
+
+@media (max-width: 1100px) {
+  .skin-selector legend span,
+  .skin-option-label {
+    display: none;
+  }
+
+  .skin-option {
+    grid-template-columns: auto;
+    width: 34px;
+    height: 30px;
+    justify-content: center;
+    padding: 4px;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    grid-template-areas:
+      "mark user logout"
+      "search search search"
+      "skin skin skin";
+  }
+
+  .skin-selector {
+    grid-area: skin;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .skin-options {
+    flex: 1;
+    justify-content: end;
+  }
+
+  .skin-option {
+    grid-template-columns: auto;
+    width: 34px;
+    height: 30px;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .skin-option-label {
+    display: none;
+  }
+}

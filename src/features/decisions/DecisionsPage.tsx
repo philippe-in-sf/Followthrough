@@ -3,6 +3,7 @@ import type { DecisionDto } from "../../../shared/types";
 import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
@@ -136,8 +137,12 @@ export function DecisionsPage({
               key={decision.publicId}
             >
               <div>
-                <strong>{decision.decisionText}</strong>
-                <span>{decision.context}</span>
+                <strong>
+                  <LinkedText text={decision.decisionText} />
+                </strong>
+                <span>
+                  <LinkedText text={decision.context} />
+                </span>
               </div>
               <span>{decision.publicId}</span>
               <span>{decision.decisionDate}</span>
