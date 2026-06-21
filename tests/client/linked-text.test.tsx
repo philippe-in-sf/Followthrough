@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it } from "vitest";
-import { LinkedText } from "../../src/components/LinkedText";
+import { collapseLinks, LinkedText } from "../../src/components/LinkedText";
 
 describe("LinkedText", () => {
   it("collapses bare urls to compact links", () => {
@@ -28,5 +28,13 @@ describe("LinkedText", () => {
 
     expect(screen.getByText("Send the notes")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("collapses urls to text for non-linkable controls", () => {
+    expect(
+      collapseLinks(
+        "Read the deck (https://docs.google.com/presentation/d/example/edit#slide=id.g1).",
+      ),
+    ).toBe("Read the deck (Link).");
   });
 });
