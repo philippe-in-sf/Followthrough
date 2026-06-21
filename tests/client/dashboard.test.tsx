@@ -600,6 +600,21 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
   });
 
+  it("collapses task description urls in collapsed task cards", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+
+    const taskCard = await screen.findByLabelText("Task T004");
+    const summaryButton = within(taskCard).getByRole("button", {
+      name: /Expand task T004 Do the All Hands deck \(Link\)/i,
+    });
+
+    expect(summaryButton).toHaveTextContent("Do the All Hands deck (Link)");
+    expect(summaryButton).not.toHaveTextContent("https://docs.google.com");
+  });
+
   it("creates and edits standalone tasks and records decisions", async () => {
     setupAppFetch();
     render(<App />);

@@ -11,7 +11,7 @@ import { hasActiveBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
@@ -59,7 +59,7 @@ function countLabel(count: number, singular: string) {
 
 function singleLineText(value: string, fallback: string) {
   const compact = value.trim().replace(/\s+/g, " ");
-  return compact || fallback;
+  return compact ? collapseLinks(compact) : fallback;
 }
 
 function taskCardTone(task: TaskDto) {
@@ -477,6 +477,7 @@ export function TasksPage({
                 {lane.tasks.map((task) => {
                   const isExpanded = Boolean(expandedTaskPublicIds[task.publicId]);
                   const detailsId = `task-details-${task.publicId}`;
+                  const taskSummaryText = singleLineText(task.description, "Untitled task");
 
                   return (
                   <article
@@ -488,7 +489,7 @@ export function TasksPage({
                     <button
                       aria-controls={detailsId}
                       aria-expanded={isExpanded}
-                      aria-label={`${isExpanded ? "Collapse" : "Expand"} task ${task.publicId} ${task.description}`}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} task ${task.publicId} ${taskSummaryText}`}
                       className="task-summary-button"
                       type="button"
                       onClick={() => toggleTask(task.publicId)}
@@ -499,7 +500,7 @@ export function TasksPage({
                           className={`task-expand-icon ${isExpanded ? "task-expand-icon-open" : ""}`}
                           size={17}
                         />
-                        <strong>{singleLineText(task.description, "Untitled task")}</strong>
+                        <strong>{taskSummaryText}</strong>
                         <span>{task.publicId}</span>
                       </span>
                       <span className="task-summary-meta">

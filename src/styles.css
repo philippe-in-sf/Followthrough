@@ -2273,6 +2273,55 @@ button:disabled {
   color: var(--skin-text);
 }
 
+.app-shell[data-skin] .meeting-summary-button,
+.app-shell[data-skin] .task-summary-button,
+.app-shell[data-skin] .meeting-expanded-content,
+.app-shell[data-skin] .task-expanded-content {
+  background: var(--skin-surface);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .meeting-summary-button:hover,
+.app-shell[data-skin] .meeting-summary-button:focus-visible,
+.app-shell[data-skin] .task-summary-button:hover,
+.app-shell[data-skin] .task-summary-button:focus-visible {
+  background: var(--skin-surface-alt);
+}
+
+.app-shell[data-skin] .meeting-summary-title strong,
+.app-shell[data-skin] .meeting-summary-text,
+.app-shell[data-skin] .task-summary-title strong,
+.app-shell[data-skin] .meeting-detail-section p,
+.app-shell[data-skin] .task-detail-section p {
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .meeting-summary-title > span:last-child,
+.app-shell[data-skin] .meeting-summary-date,
+.app-shell[data-skin] .meeting-summary-counts,
+.app-shell[data-skin] .task-summary-title > span:last-child,
+.app-shell[data-skin] .task-summary-meta > span:not(.status-badge) {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .meeting-expand-icon,
+.app-shell[data-skin] .task-expand-icon,
+.app-shell[data-skin] .meeting-detail-section h4,
+.app-shell[data-skin] .meeting-link-list small,
+.app-shell[data-skin] .task-detail-section h4,
+.app-shell[data-skin] .task-detail-section small {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .meeting-expanded-content,
+.app-shell[data-skin] .task-expanded-content {
+  border-top-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .meeting-link-list a {
+  color: var(--skin-action);
+}
+
 .app-shell[data-skin] .search-results button:hover,
 .app-shell[data-skin] .person-record-trigger:hover,
 .app-shell[data-skin] .person-record-trigger:focus-visible,

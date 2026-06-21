@@ -10,6 +10,19 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.0.30 - 2026-06-21
+
+### Fixed
+
+- Fixed dark-skin task and meeting card contrast so collapsed and expanded cards remain dark and readable.
+
+## 1.0.29 - 2026-06-21
+
+### Fixed
+
+- Collapsed raw URLs in collapsed task card summaries to `Link`.
+- Reused the collapsed task summary text for task summary button accessibility labels.
+
 ## 1.0.27 - 2026-06-16
 
 ### Added
