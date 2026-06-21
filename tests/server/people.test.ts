@@ -106,6 +106,8 @@ describe("people", () => {
 
     await request(app).post("/api/tasks").set("Cookie", cookie).send({
       description: "Send notes",
+      blockers: "Need source deck",
+      notes: "Asked Morgan for the source deck.",
       assigneePublicId: person.body.person.publicId,
       status: "Open",
       dueDate: "2026-06-12",
@@ -122,6 +124,7 @@ describe("people", () => {
       meetingType: "single",
       seriesPublicId: null,
       summary: "Discuss launch",
+      blockers: "Waiting on agenda",
       attendeePublicIds: [person.body.person.publicId],
       taskPublicIds: [],
     });
@@ -158,8 +161,21 @@ describe("people", () => {
     expect(records.body.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
       "T001",
     ]);
+    expect(records.body.tasks[0]).toEqual(
+      expect.objectContaining({
+        blockers: "Need source deck",
+        notes: "Asked Morgan for the source deck.",
+        blockersClearedAt: null,
+      }),
+    );
     expect(records.body.meetings.map((meeting: { publicId: string }) => meeting.publicId)).toEqual(
       ["M001"],
+    );
+    expect(records.body.meetings[0]).toEqual(
+      expect.objectContaining({
+        blockers: "Waiting on agenda",
+        blockersClearedAt: null,
+      }),
     );
     expect(
       records.body.decisions.map((decision: { publicId: string }) => decision.publicId),

@@ -28,6 +28,7 @@ function mockLoggedInFetch() {
         json: async () => ({
           alerts: { overdue: [], dueSoon: [] },
           openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
@@ -50,6 +51,8 @@ function mockLoggedInFetch() {
             {
               publicId: "T001",
               description: "Send notes",
+              blockers: "",
+              blockersClearedAt: null,
               assignee: { publicId: "P001", name: "Avery", email: null, archived: false },
               status: "Open",
               dueDate: "2026-06-12",
@@ -120,9 +123,10 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            alerts: { overdue: [], dueSoon: [] },
-            openTasksByAssignee: [],
-            recentMeetings: [],
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
             recentDecisions: [],
             activeSeries: [],
           }),
@@ -178,9 +182,10 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            alerts: { overdue: [], dueSoon: [] },
-            openTasksByAssignee: [],
-            recentMeetings: [],
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
             recentDecisions: [],
             activeSeries: [],
           }),
@@ -263,9 +268,10 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            alerts: { overdue: [], dueSoon: [] },
-            openTasksByAssignee: [],
-            recentMeetings: [],
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
             recentDecisions: [],
             activeSeries: [],
           }),
@@ -322,9 +328,10 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            alerts: { overdue: [], dueSoon: [] },
-            openTasksByAssignee: [],
-            recentMeetings: [],
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
             recentDecisions: [],
             activeSeries: [],
           }),
@@ -389,9 +396,10 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            alerts: { overdue: [], dueSoon: [] },
-            openTasksByAssignee: [],
-            recentMeetings: [],
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
             recentDecisions: [],
             activeSeries: [],
           }),
@@ -412,6 +420,8 @@ describe("record pages", () => {
               {
                 publicId: "M001",
                 title: "Planning sync",
+                blockers: "Waiting on launch deck",
+                blockersClearedAt: null,
                 startsAt: "2026-06-10T15:00:00.000Z",
                 meetingType: "single",
                 private: false,
@@ -422,6 +432,8 @@ describe("record pages", () => {
                 publicId: "T001",
                 description:
                   "Send notes (https://docs.google.com/presentation/d/example/edit#slide=id.g1)",
+                blockers: "Need source notes",
+                blockersClearedAt: null,
                 status: "Open",
                 dueDate: "2026-06-12",
                 private: false,

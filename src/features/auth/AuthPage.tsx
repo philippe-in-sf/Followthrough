@@ -69,6 +69,9 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
         >
           {mode === "login" ? "Use an invite code" : "Back to sign in"}
         </button>
+        <a className="auth-changelog-link" href="/changelog">
+          View changelog
+        </a>
       </section>
     </main>
   );

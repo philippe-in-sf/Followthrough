@@ -84,9 +84,9 @@ export function searchRoutes(db: AppDatabase) {
              FROM tasks
              WHERE archived_at IS NULL
              AND (private = 0 OR created_by_user_id = ?)
-             AND description LIKE ?`,
+             AND (description LIKE ? OR blockers LIKE ? OR notes LIKE ?)`,
           )
-          .all(userId, like) as Array<{ public_id: string; title: string }>
+          .all(userId, like, like, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "task" as const,
         publicId: row.public_id,
@@ -103,6 +103,7 @@ export function searchRoutes(db: AppDatabase) {
              AND (
                title LIKE ?
                OR summary LIKE ?
+               OR blockers LIKE ?
                OR notes LIKE ?
                OR EXISTS (
                  SELECT 1
@@ -112,7 +113,7 @@ export function searchRoutes(db: AppDatabase) {
                )
              )`,
           )
-          .all(userId, like, like, like, like, like) as Array<{
+          .all(userId, like, like, like, like, like, like) as Array<{
           public_id: string;
           title: string;
         }>

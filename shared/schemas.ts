@@ -17,6 +17,9 @@ export const personMergeInputSchema = z.object({
 
 export const taskInputSchema = z.object({
   description: z.string().trim().min(1),
+  blockers: z.string().trim().default(""),
+  notes: z.string().default(""),
+  blockersCleared: z.boolean().default(false),
   assigneePublicId: publicIdSchema.optional().nullable(),
   status: taskStatusSchema.default("Open"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
@@ -24,6 +27,12 @@ export const taskInputSchema = z.object({
   seriesPublicId: publicIdSchema.optional().nullable(),
   reminderMode: taskReminderModeSchema.default("manual"),
   private: z.boolean().default(false),
+});
+
+export const taskUpdateInputSchema = taskInputSchema.extend({
+  blockers: z.string().trim().optional(),
+  notes: z.string().optional(),
+  blockersCleared: z.boolean().optional(),
 });
 
 export const meetingLinkInputSchema = z.object({
@@ -38,6 +47,8 @@ export const meetingInputSchema = z.object({
   meetingType: z.enum(["single", "recurring"]),
   seriesPublicId: publicIdSchema.optional().nullable(),
   summary: z.string().trim().default(""),
+  blockers: z.string().trim().default(""),
+  blockersCleared: z.boolean().default(false),
   notes: z.string().default(""),
   links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
@@ -46,6 +57,8 @@ export const meetingInputSchema = z.object({
 });
 
 export const meetingUpdateInputSchema = meetingInputSchema.extend({
+  blockers: z.string().trim().optional(),
+  blockersCleared: z.boolean().optional(),
   notes: z.string().optional(),
   links: z.array(meetingLinkInputSchema).optional(),
 });

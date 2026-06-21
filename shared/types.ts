@@ -15,6 +15,9 @@ export type PersonDto = {
 export type TaskDto = {
   publicId: string;
   description: string;
+  blockers: string;
+  notes: string;
+  blockersClearedAt: string | null;
   assignee: PersonDto | null;
   status: TaskStatus;
   dueDate: string | null;
@@ -30,6 +33,9 @@ export type TaskDto = {
 export type PersonRelatedTaskDto = {
   publicId: string;
   description: string;
+  blockers: string;
+  notes: string;
+  blockersClearedAt: string | null;
   status: TaskStatus;
   dueDate: string | null;
   private: boolean;
@@ -38,6 +44,8 @@ export type PersonRelatedTaskDto = {
 export type PersonRelatedMeetingDto = {
   publicId: string;
   title: string;
+  blockers: string;
+  blockersClearedAt: string | null;
   startsAt: string;
   meetingType: MeetingType;
   private: boolean;
@@ -72,6 +80,8 @@ export type MeetingDto = {
   meetingType: MeetingType;
   seriesPublicId: string | null;
   summary: string;
+  blockers: string;
+  blockersClearedAt: string | null;
   notes: string;
   links: MeetingLinkDto[];
   attendees: PersonDto[];

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Mail } from "lucide-react";
+import { Archive, ChevronDown, Mail, RotateCcw } from "lucide-react";
 import type {
   AuditLogDto,
   PersonDto,
@@ -7,10 +7,11 @@ import type {
   TaskStatus,
 } from "../../../shared/types";
 import { ApiError, api } from "../../api/client";
+import { hasActiveBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
@@ -20,12 +21,17 @@ type TaskLane = {
   key: string;
   title: string;
   ariaLabel: string;
-  tone: "bad" | "warn" | "info" | "good";
+  tone: "bad" | "warn" | "info" | "good" | "neutral";
   tasks: TaskDto[];
 };
 
+type TaskArchiveView = "active" | "archived";
+
 type TaskFormState = {
   description: string;
+  blockers: string;
+  notes: string;
+  blockersCleared: boolean;
   assigneePublicId: string;
   status: TaskStatus;
   dueDate: string;
@@ -36,6 +42,9 @@ type TaskFormState = {
 
 const emptyTaskForm: TaskFormState = {
   description: "",
+  blockers: "",
+  notes: "",
+  blockersCleared: false,
   assigneePublicId: "",
   status: "Open",
   dueDate: "",
@@ -48,7 +57,14 @@ function countLabel(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function singleLineText(value: string, fallback: string) {
+  const compact = value.trim().replace(/\s+/g, " ");
+  return compact ? collapseLinks(compact) : fallback;
+}
+
 function taskCardTone(task: TaskDto) {
+  if (task.archived) return "record-card-neutral";
+  if (hasActiveBlockers(task)) return "record-card-bad";
   if (task.alert === "overdue") return "record-card-bad";
   if (task.alert === "dueSoon") return "record-card-warn";
   if (task.status === "Done") return "record-card-good";
@@ -67,9 +83,11 @@ export function TasksPage({
   const [assigneePublicId, setAssigneePublicId] = useState("");
   const [status, setStatus] = useState("");
   const [alert, setAlert] = useState("");
+  const [taskArchiveView, setTaskArchiveView] = useState<TaskArchiveView>("active");
   const [form, setForm] = useState<TaskFormState>(emptyTaskForm);
   const [editingTaskPublicId, setEditingTaskPublicId] = useState<string | null>(null);
   const [taskEditForm, setTaskEditForm] = useState<TaskFormState>(emptyTaskForm);
+  const [expandedTaskPublicIds, setExpandedTaskPublicIds] = useState<Record<string, boolean>>({});
   const [taskAudits, setTaskAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [pendingReminderPublicId, setPendingReminderPublicId] = useState<string | null>(null);
   const [reminderFeedback, setReminderFeedback] = useState<Record<string, string>>({});
@@ -77,20 +95,47 @@ export function TasksPage({
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
+    if (taskArchiveView === "archived") params.set("archived", "true");
     if (assigneePublicId) params.set("assigneePublicId", assigneePublicId);
     if (status) params.set("status", status);
     if (alert) params.set("alert", alert);
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [assigneePublicId, status, alert]);
+  }, [assigneePublicId, status, alert, taskArchiveView]);
 
   const taskLanes = useMemo<TaskLane[]>(() => {
-    const overdue = tasks.filter((task) => task.alert === "overdue");
-    const dueSoon = tasks.filter((task) => task.alert === "dueSoon");
-    const active = tasks.filter((task) => !task.alert && task.status !== "Done");
-    const done = tasks.filter((task) => !task.alert && task.status === "Done");
+    if (taskArchiveView === "archived") {
+      return tasks.length > 0
+        ? [
+            {
+              key: "archived",
+              title: "Archived",
+              ariaLabel: "Archived tasks",
+              tone: "neutral",
+              tasks,
+            },
+          ]
+        : [];
+    }
+
+    const blocked = tasks.filter((task) => hasActiveBlockers(task));
+    const overdue = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "overdue");
+    const dueSoon = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "dueSoon");
+    const active = tasks.filter(
+      (task) => !hasActiveBlockers(task) && !task.alert && task.status !== "Done",
+    );
+    const done = tasks.filter(
+      (task) => !hasActiveBlockers(task) && !task.alert && task.status === "Done",
+    );
 
     const lanes: TaskLane[] = [
+      {
+        key: "blockers",
+        title: "Blockers",
+        ariaLabel: "Tasks with blockers",
+        tone: "bad",
+        tasks: blocked,
+      },
       {
         key: "overdue",
         title: "Overdue",
@@ -122,7 +167,7 @@ export function TasksPage({
     ];
 
     return lanes.filter((lane) => lane.tasks.length > 0);
-  }, [tasks]);
+  }, [taskArchiveView, tasks]);
 
   async function loadTasks() {
     const requestId = taskLoadRequestId.current + 1;
@@ -153,6 +198,9 @@ export function TasksPage({
     event.preventDefault();
     const body = {
       description: form.description,
+      blockers: form.blockers,
+      notes: form.notes,
+      blockersCleared: form.blockersCleared,
       assigneePublicId: form.assigneePublicId || null,
       status: form.status,
       dueDate: form.dueDate || null,
@@ -168,9 +216,13 @@ export function TasksPage({
   }
 
   function editTask(task: TaskDto) {
+    expandTask(task.publicId);
     setEditingTaskPublicId(task.publicId);
     setTaskEditForm({
       description: task.description,
+      blockers: task.blockers,
+      notes: task.notes ?? "",
+      blockersCleared: task.blockersClearedAt !== null,
       assigneePublicId: task.assignee?.publicId ?? "",
       status: task.status,
       dueDate: task.dueDate ?? "",
@@ -178,6 +230,19 @@ export function TasksPage({
       seriesPublicId: task.seriesPublicId,
       private: task.private,
     });
+  }
+
+  function expandTask(taskPublicId: string) {
+    setExpandedTaskPublicIds((current) =>
+      current[taskPublicId] ? current : { ...current, [taskPublicId]: true },
+    );
+  }
+
+  function toggleTask(taskPublicId: string) {
+    setExpandedTaskPublicIds((current) => ({
+      ...current,
+      [taskPublicId]: !current[taskPublicId],
+    }));
   }
 
   useEffect(() => {
@@ -194,6 +259,9 @@ export function TasksPage({
     event.preventDefault();
     await api.tasks.update(task.publicId, {
       description: taskEditForm.description,
+      blockers: taskEditForm.blockers,
+      notes: taskEditForm.notes,
+      blockersCleared: taskEditForm.blockersCleared,
       assigneePublicId: taskEditForm.assigneePublicId || null,
       status: taskEditForm.status,
       dueDate: taskEditForm.dueDate || null,
@@ -226,17 +294,79 @@ export function TasksPage({
     }
   }
 
+  async function archiveTask(task: TaskDto) {
+    const confirmed = window.confirm(`Archive task ${task.publicId}? You can restore it later.`);
+    if (!confirmed) return;
+
+    await api.tasks.archive(task.publicId);
+    setEditingTaskPublicId(null);
+    setTaskEditForm(emptyTaskForm);
+    setExpandedTaskPublicIds((current) => {
+      const next = { ...current };
+      delete next[task.publicId];
+      return next;
+    });
+    await loadTasks();
+  }
+
+  async function restoreTask(task: TaskDto) {
+    await api.tasks.restore(task.publicId);
+    setExpandedTaskPublicIds((current) => {
+      const next = { ...current };
+      delete next[task.publicId];
+      return next;
+    });
+    await loadTasks();
+  }
+
   return (
     <main className="page">
       <header className="page-header">
         <h2>Tasks</h2>
+        <div className="record-view-toggle" role="group" aria-label="Task archive view">
+          <button
+            aria-pressed={taskArchiveView === "active"}
+            className={taskArchiveView === "active" ? "active" : ""}
+            type="button"
+            onClick={() => setTaskArchiveView("active")}
+          >
+            Active
+          </button>
+          <button
+            aria-pressed={taskArchiveView === "archived"}
+            className={taskArchiveView === "archived" ? "active" : ""}
+            type="button"
+            onClick={() => setTaskArchiveView("archived")}
+          >
+            Archived
+          </button>
+        </div>
       </header>
+      {taskArchiveView === "active" ? (
       <form className="editor-form" onSubmit={submitTask}>
         <FormField label="Task description">
           <input
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
             required
+          />
+        </FormField>
+        <FormField label="Task blockers">
+          <textarea
+            value={form.blockers}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                blockers: event.target.value,
+                blockersCleared: event.target.value.trim() ? form.blockersCleared : false,
+              })
+            }
+          />
+        </FormField>
+        <FormField label="Task notes">
+          <textarea
+            value={form.notes}
+            onChange={(event) => setForm({ ...form, notes: event.target.value })}
           />
         </FormField>
         <FormField label="Task assignee">
@@ -285,6 +415,7 @@ export function TasksPage({
           </button>
         </div>
       </form>
+      ) : null}
       <div className="filter-bar">
         <select
           aria-label="Filter assignee"
@@ -319,7 +450,14 @@ export function TasksPage({
         </select>
       </div>
       {tasks.length === 0 ? (
-        <EmptyState title="No tasks" detail="Create tasks from meetings or as standalone work." />
+        <EmptyState
+          title={taskArchiveView === "archived" ? "No archived tasks" : "No tasks"}
+          detail={
+            taskArchiveView === "archived"
+              ? "Archived tasks will appear here when you need to retrieve old work."
+              : "Create tasks from meetings or as standalone work."
+          }
+        />
       ) : (
         <div className="lane-stack">
           {taskLanes.map((lane) => (
@@ -336,56 +474,133 @@ export function TasksPage({
                 <span className="lane-count">{countLabel(lane.tasks.length, "task")}</span>
               </header>
               <div className="record-list">
-                {lane.tasks.map((task) => (
+                {lane.tasks.map((task) => {
+                  const isExpanded = Boolean(expandedTaskPublicIds[task.publicId]);
+                  const detailsId = `task-details-${task.publicId}`;
+                  const taskSummaryText = singleLineText(task.description, "Untitled task");
+
+                  return (
                   <article
                     aria-label={`Task ${task.publicId}`}
                     className={`task-card ${taskCardTone(task)}`}
                     id={`task-${task.publicId}`}
                     key={task.publicId}
                   >
-                    <div className="record-row task-row">
-                      <div>
-                        <strong>
-                          <LinkedText text={task.description} />
-                        </strong>
+                    <button
+                      aria-controls={detailsId}
+                      aria-expanded={isExpanded}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} task ${task.publicId} ${taskSummaryText}`}
+                      className="task-summary-button"
+                      type="button"
+                      onClick={() => toggleTask(task.publicId)}
+                    >
+                      <span className="task-summary-title">
+                        <ChevronDown
+                          aria-hidden="true"
+                          className={`task-expand-icon ${isExpanded ? "task-expand-icon-open" : ""}`}
+                          size={17}
+                        />
+                        <strong>{taskSummaryText}</strong>
                         <span>{task.publicId}</span>
-                      </div>
-                      <StatusBadge label={task.status} />
-                      {task.alert === "dueSoon" ? (
-                        <StatusBadge label="Due soon" tone="warn" />
-                      ) : null}
-                      {task.alert === "overdue" ? (
-                        <StatusBadge label="Overdue" tone="bad" />
-                      ) : null}
-                      {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                      <span>{task.assignee?.name ?? "Unassigned"}</span>
-                      <span>{task.dueDate ?? "No due date"}</span>
-                      <button
-                        className="secondary-button icon-text-button"
-                        type="button"
-                        onClick={() => sendReminder(task)}
-                        aria-label={`Send reminder for ${task.publicId}`}
-                        disabled={
-                          task.status === "Done" ||
-                          !task.assignee?.email ||
-                          pendingReminderPublicId === task.publicId
-                        }
-                      >
-                        <Mail aria-hidden="true" size={16} />
-                        {pendingReminderPublicId === task.publicId ? "Sending" : "Send reminder"}
-                      </button>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={() => editTask(task)}
-                        aria-label={`Edit details for ${task.publicId}`}
-                      >
-                        Edit details
-                      </button>
-                    </div>
-                    {reminderFeedback[task.publicId] ? (
-                      <p className="task-reminder-feedback">{reminderFeedback[task.publicId]}</p>
-                    ) : null}
+                      </span>
+                      <span className="task-summary-meta">
+                        <StatusBadge label={task.status} />
+                        {task.alert === "dueSoon" ? (
+                          <StatusBadge label="Due soon" tone="warn" />
+                        ) : null}
+                        {task.alert === "overdue" ? (
+                          <StatusBadge label="Overdue" tone="bad" />
+                        ) : null}
+                        {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                        {task.archived ? <StatusBadge label="Archived" /> : null}
+                        {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                        {hasClearedBlockers(task) ? (
+                          <StatusBadge label="Blocker cleared" tone="good" />
+                        ) : null}
+                        <span>{task.assignee?.name ?? "Unassigned"}</span>
+                        <span>{task.dueDate ?? "No due date"}</span>
+                      </span>
+                    </button>
+                    {isExpanded ? (
+                      <div className="task-expanded-content" id={detailsId}>
+                        <div className="task-detail-grid">
+                          <section className="task-detail-section">
+                            <h4>Details</h4>
+                            <p>{task.assignee?.name ?? "Unassigned"}</p>
+                            <p>{task.dueDate ?? "No due date"}</p>
+                            <div className="task-detail-badges">
+                              <StatusBadge label={task.status} />
+                              {task.originMeetingPublicId ? (
+                                <span className="hint-chip">
+                                  Meeting {task.originMeetingPublicId}
+                                </span>
+                              ) : null}
+                              {task.seriesPublicId ? (
+                                <span className="hint-chip">Series {task.seriesPublicId}</span>
+                              ) : null}
+                              {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                              {task.archived ? <StatusBadge label="Archived" /> : null}
+                            </div>
+                          </section>
+                          <section className="task-detail-section">
+                            <h4>Blockers</h4>
+                            <p>
+                              <LinkedText text={task.blockers || "No blockers"} />
+                            </p>
+                            {task.blockersClearedAt ? (
+                              <small>Cleared {new Date(task.blockersClearedAt).toLocaleString()}</small>
+                            ) : null}
+                          </section>
+                          <section className="task-detail-section">
+                            <h4>Notes</h4>
+                            <p>
+                              <LinkedText text={(task.notes ?? "").trim() ? task.notes ?? "" : "No notes"} />
+                            </p>
+                          </section>
+                        </div>
+                        <div className="task-card-actions">
+                          {task.archived ? (
+                          <button
+                            className="secondary-button icon-text-button"
+                            type="button"
+                            onClick={() => restoreTask(task)}
+                            aria-label={`Restore task ${task.publicId}`}
+                          >
+                            <RotateCcw aria-hidden="true" size={16} />
+                            Restore task
+                          </button>
+                          ) : (
+                          <>
+                          <button
+                            className="secondary-button icon-text-button"
+                            type="button"
+                            onClick={() => sendReminder(task)}
+                            aria-label={`Send reminder for ${task.publicId}`}
+                            disabled={
+                              task.status === "Done" ||
+                              !task.assignee?.email ||
+                              pendingReminderPublicId === task.publicId
+                            }
+                          >
+                            <Mail aria-hidden="true" size={16} />
+                            {pendingReminderPublicId === task.publicId ? "Sending" : "Send reminder"}
+                          </button>
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={() => editTask(task)}
+                            aria-label={`Edit details for ${task.publicId}`}
+                          >
+                            Edit details
+                          </button>
+                          </>
+                          )}
+                        </div>
+                        {reminderFeedback[task.publicId] ? (
+                          <p className="task-reminder-feedback">
+                            {reminderFeedback[task.publicId]}
+                          </p>
+                        ) : null}
                     {editingTaskPublicId === task.publicId ? (
                       <>
                         <form
@@ -403,6 +618,31 @@ export function TasksPage({
                                 })
                               }
                               required
+                            />
+                          </FormField>
+                          <FormField label={`Task blockers for ${task.publicId}`}>
+                            <textarea
+                              value={taskEditForm.blockers}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockers: event.target.value,
+                                  blockersCleared: event.target.value.trim()
+                                    ? taskEditForm.blockersCleared
+                                    : false,
+                                })
+                              }
+                            />
+                          </FormField>
+                          <FormField label={`Task notes for ${task.publicId}`}>
+                            <textarea
+                              value={taskEditForm.notes}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  notes: event.target.value,
+                                })
+                              }
                             />
                           </FormField>
                           <FormField label={`Task assignee for ${task.publicId}`}>
@@ -462,6 +702,20 @@ export function TasksPage({
                             />
                             <span>Private</span>
                           </label>
+                          <label className="checkbox-line">
+                            <input
+                              type="checkbox"
+                              checked={taskEditForm.blockersCleared}
+                              disabled={!taskEditForm.blockers.trim()}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockersCleared: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>Blocker cleared</span>
+                          </label>
                           <div className="form-actions">
                             <button className="primary-button" type="submit">
                               Save task {task.publicId}
@@ -476,13 +730,24 @@ export function TasksPage({
                             >
                               Cancel edit {task.publicId}
                             </button>
+                            <button
+                              className="danger-button icon-text-button"
+                              type="button"
+                              onClick={() => archiveTask(task)}
+                            >
+                              <Archive aria-hidden="true" size={16} />
+                              Archive task {task.publicId}
+                            </button>
                           </div>
                         </form>
                         <AuditLog events={taskAudits[task.publicId] ?? []} />
                       </>
                     ) : null}
+                      </div>
+                    ) : null}
                   </article>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))}

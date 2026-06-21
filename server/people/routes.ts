@@ -28,6 +28,9 @@ type PersonWithIdRow = PersonRow & {
 type RelatedTaskRow = {
   public_id: string;
   description: string;
+  blockers: string;
+  notes: string;
+  blockers_cleared_at: string | null;
   status: TaskStatus;
   due_date: string | null;
   private: number;
@@ -36,6 +39,8 @@ type RelatedTaskRow = {
 type RelatedMeetingRow = {
   public_id: string;
   title: string;
+  blockers: string;
+  blockers_cleared_at: string | null;
   starts_at: string;
   meeting_type: MeetingType;
   private: number;
@@ -70,6 +75,9 @@ function toRelatedTask(row: RelatedTaskRow): PersonRelatedTaskDto {
   return {
     publicId: row.public_id,
     description: row.description,
+    blockers: row.blockers,
+    notes: row.notes,
+    blockersClearedAt: row.blockers_cleared_at,
     status: row.status,
     dueDate: row.due_date,
     private: row.private === 1,
@@ -80,6 +88,8 @@ function toRelatedMeeting(row: RelatedMeetingRow): PersonRelatedMeetingDto {
   return {
     publicId: row.public_id,
     title: row.title,
+    blockers: row.blockers,
+    blockersClearedAt: row.blockers_cleared_at,
     startsAt: row.starts_at,
     meetingType: row.meeting_type,
     private: row.private === 1,
@@ -167,7 +177,8 @@ export function peopleRoutes(db: AppDatabase) {
 
       const tasks = db
         .prepare(
-          `SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date, tasks.private
+          `SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes,
+                  tasks.blockers_cleared_at, tasks.status, tasks.due_date, tasks.private
            FROM tasks
            JOIN people ON people.id = tasks.assignee_person_id
            WHERE people.public_id = ?
@@ -182,7 +193,8 @@ export function peopleRoutes(db: AppDatabase) {
 
       const meetings = db
         .prepare(
-          `SELECT meetings.public_id, meetings.title, meetings.starts_at,
+          `SELECT meetings.public_id, meetings.title, meetings.blockers,
+                  meetings.blockers_cleared_at, meetings.starts_at,
                   meetings.meeting_type, meetings.private
            FROM meeting_attendees
            JOIN people ON people.id = meeting_attendees.person_id

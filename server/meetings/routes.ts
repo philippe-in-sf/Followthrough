@@ -9,6 +9,7 @@ import {
 } from "../../shared/schemas.js";
 import type { MeetingDto, MeetingLinkDto, MeetingSeriesDto, PersonDto } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
+import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
@@ -39,6 +40,8 @@ type MeetingRow = {
   meeting_type: "single" | "recurring";
   series_public_id: string | null;
   summary: string;
+  blockers: string;
+  blockers_cleared_at: string | null;
   notes: string;
   private: number;
   created_by_user_id: number | null;
@@ -63,6 +66,8 @@ const occurrenceSchema = z.object({
   title: z.string().trim().optional().or(z.literal("")),
   startsAt: z.string().datetime(),
   summary: z.string().trim().default(""),
+  blockers: z.string().trim().default(""),
+  blockersCleared: z.boolean().default(false),
   notes: z.string().default(""),
   links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
@@ -70,7 +75,8 @@ const occurrenceSchema = z.object({
 });
 
 const taskSelectForMeeting = `
-  SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
+         tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (
            SELECT MAX(sent_at)
@@ -147,7 +153,8 @@ function getMeetingRow(
     .prepare(
       `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
               meetings.meeting_type, meeting_series.public_id AS series_public_id,
-              meetings.summary, meetings.notes, meetings.private,
+              meetings.summary, meetings.blockers, meetings.blockers_cleared_at,
+              meetings.notes, meetings.private,
               meetings.created_by_user_id, meetings.archived_at
        FROM meetings
        LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
@@ -216,6 +223,8 @@ function toMeeting(
     meetingType: row.meeting_type,
     seriesPublicId: row.series_public_id,
     summary: row.summary,
+    blockers: row.blockers,
+    blockersClearedAt: row.blockers_cleared_at,
     notes: row.notes,
     links: getMeetingLinks(db, row.id),
     attendees: getAttendees(db, row.id),
@@ -327,10 +336,14 @@ function createMeeting(
       : input.links;
 
     const publicId = nextPublicId(db, "M");
+    const blockersClearedAt = resolveBlockerClearedAt({
+      blockers: input.blockers,
+      requestedCleared: input.blockersCleared,
+    });
     db.prepare(
       `INSERT INTO meetings
-       (public_id, title, starts_at, meeting_type, series_id, summary, notes, private, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       publicId,
       input.title,
@@ -338,6 +351,8 @@ function createMeeting(
       input.meetingType,
       series?.id ?? null,
       input.summary,
+      input.blockers,
+      blockersClearedAt,
       notes,
       input.private ? 1 : 0,
       userId,
@@ -464,16 +479,22 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         const links = mergeCarriedLinks(carriedContext.links, input.links);
 
         const publicId = nextPublicId(db, "M");
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers: input.blockers,
+          requestedCleared: input.blockersCleared,
+        });
         db.prepare(
           `INSERT INTO meetings
-           (public_id, title, starts_at, meeting_type, series_id, summary, notes, private, created_by_user_id)
-           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, ?)`,
+           (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id)
+           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           publicId,
           input.title || series.title,
           input.startsAt,
           series.id,
           input.summary,
+          input.blockers,
+          blockersClearedAt,
           notes,
           input.private ? 1 : 0,
           userId,
@@ -503,15 +524,20 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.get("/", (req, res) => {
     const userId = req.user?.id ?? 0;
+    const archiveCondition =
+      req.query.archived === "true"
+        ? "meetings.archived_at IS NOT NULL"
+        : "meetings.archived_at IS NULL";
     const rows = db
       .prepare(
         `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
                 meetings.meeting_type, meeting_series.public_id AS series_public_id,
-                meetings.summary, meetings.notes, meetings.private,
+                meetings.summary, meetings.blockers, meetings.blockers_cleared_at,
+                meetings.notes, meetings.private,
                 meetings.created_by_user_id, meetings.archived_at
          FROM meetings
          LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
-         WHERE meetings.archived_at IS NULL
+         WHERE ${archiveCondition}
          AND ${visibleMeetingCondition()}
          ORDER BY meetings.starts_at DESC`,
       )
@@ -531,7 +557,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.get("/:publicId/audit", (req, res, next) => {
     try {
-      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0);
+      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0, true);
       res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
     } catch (error) {
       next(error);
@@ -577,12 +603,19 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.private && existing.created_by_user_id === null
             ? userId
             : existing.created_by_user_id;
+        const blockers = input.blockers ?? existing.blockers;
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers,
+          requestedCleared: input.blockersCleared,
+          existingClearedAt: existing.blockers_cleared_at,
+        });
         const notes = input.notes ?? existing.notes;
         const links = input.links ?? getMeetingLinks(db, existing.id);
         db.prepare(
           `UPDATE meetings
            SET title = ?, starts_at = ?, meeting_type = ?, series_id = ?,
-               summary = ?, notes = ?, private = ?, created_by_user_id = ?,
+               summary = ?, blockers = ?, blockers_cleared_at = ?,
+               notes = ?, private = ?, created_by_user_id = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
         ).run(
@@ -591,6 +624,8 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.meetingType,
           series?.id ?? null,
           input.summary,
+          blockers,
+          blockersClearedAt,
           notes,
           input.private ? 1 : 0,
           createdByUserId,
@@ -653,6 +688,49 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         });
       });
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  meetingsRouter.post("/:publicId/restore", (req, res, next) => {
+    try {
+      const meeting = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
+        const existing = getMeetingRow(db, req.params.publicId, userId, true);
+        const before = toMeeting(db, config, existing, userId);
+        if (!before.archived) throw badRequest("Meeting is not archived");
+
+        const result = db
+          .prepare(
+            `UPDATE meetings
+             SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NOT NULL`,
+          )
+          .run(req.params.publicId, userId);
+
+        if (result.changes === 0) throw notFound("Meeting not found");
+        const after = toMeeting(
+          db,
+          config,
+          getMeetingRow(db, req.params.publicId, userId),
+          userId,
+        );
+        recordAuditEvent(db, {
+          entityType: "meeting",
+          entityPublicId: after.publicId,
+          action: "restored",
+          userId: req.user?.id ?? null,
+          summary: "Restored meeting",
+          changes: { before, after },
+        });
+
+        return after;
+      });
+
+      res.json({ meeting });
     } catch (error) {
       next(error);
     }

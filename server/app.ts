@@ -40,6 +40,14 @@ export function createApp(deps: AppDependencies = {}) {
     res.json({ version: appVersion });
   });
 
+  app.get("/api/changelog", (_req, res) => {
+    res.type("text/markdown").send(readChangelog());
+  });
+
+  app.get("/changelog", (_req, res) => {
+    res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
+  });
+
   app.use("/api/auth", authRoutes(db, config));
 
   const protectedApi = express.Router();

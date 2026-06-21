@@ -21,6 +21,10 @@ describe("auth shell", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View changelog" })).toHaveAttribute(
+      "href",
+      "/changelog",
+    );
   });
 
   it("logs in and shows the dashboard shell", async () => {
@@ -38,6 +42,7 @@ describe("auth shell", () => {
         json: async () => ({
           alerts: { overdue: [], dueSoon: [] },
           openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
@@ -56,5 +61,9 @@ describe("auth shell", () => {
     expect(screen.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Workspace" })).toBeInTheDocument();
     expect(screen.getByLabelText(`Version ${appVersion}`)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open changelog" })).toHaveAttribute(
+      "href",
+      "/changelog",
+    );
   });
 });

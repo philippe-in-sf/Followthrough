@@ -41,6 +41,7 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        blockers: "Waiting on launch owner",
         notes: "Keep these notes.",
         links: [
           {
@@ -55,7 +56,62 @@ describe("meetings", () => {
 
     expect(meeting.status).toBe(201);
     expect(meeting.body.meeting.publicId).toBe("M001");
+    expect(meeting.body.meeting.blockers).toBe("Waiting on launch owner");
+    expect(meeting.body.meeting.blockersClearedAt).toBeNull();
     expect(meeting.body.meeting.attendees[0].publicId).toBe(personPublicId);
+
+    const cleared = await request(app)
+      .patch("/api/meetings/M001")
+      .set("Cookie", cookie)
+      .send({
+        title: "Planning",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Discussed launch work.",
+        blockersCleared: true,
+        notes: "Keep these notes.",
+        links: [
+          {
+            label: "Planning agenda",
+            url: "https://example.com/planning-agenda",
+            linkType: "agenda",
+          },
+        ],
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+      });
+
+    expect(cleared.body.meeting.blockers).toBe("Waiting on launch owner");
+    expect(cleared.body.meeting.blockersClearedAt).toEqual(expect.any(String));
+
+    const archived = await request(app).post("/api/meetings/M001/archive").set("Cookie", cookie);
+    expect(archived.status).toBe(204);
+
+    const activeAfterArchive = await request(app).get("/api/meetings").set("Cookie", cookie);
+    expect(
+      activeAfterArchive.body.meetings.map((item: { publicId: string }) => item.publicId),
+    ).not.toContain("M001");
+
+    const archivedList = await request(app)
+      .get("/api/meetings?archived=true")
+      .set("Cookie", cookie);
+    expect(archivedList.body.meetings).toEqual([
+      expect.objectContaining({ publicId: "M001", archived: true }),
+    ]);
+
+    const archivedAudit = await request(app).get("/api/meetings/M001/audit").set("Cookie", cookie);
+    expect(archivedAudit.status).toBe(200);
+
+    const restored = await request(app).post("/api/meetings/M001/restore").set("Cookie", cookie);
+    expect(restored.status).toBe(200);
+    expect(restored.body.meeting).toEqual(
+      expect.objectContaining({ publicId: "M001", archived: false }),
+    );
+
+    const activeAfterRestore = await request(app).get("/api/meetings").set("Cookie", cookie);
+    expect(
+      activeAfterRestore.body.meetings.map((item: { publicId: string }) => item.publicId),
+    ).toContain("M001");
   });
 
   it("records meeting audit history", async () => {
@@ -69,6 +125,7 @@ describe("meetings", () => {
         startsAt: "2026-06-09T15:00:00.000Z",
         meetingType: "single",
         summary: "Discussed launch work.",
+        blockers: "Need product sign-off",
         notes: "Keep these notes.",
         links: [
           {
@@ -113,6 +170,8 @@ describe("meetings", () => {
     expect(audit.body.auditEvents[0].changes.after.title).toBe("Updated planning");
 
     const updatedMeeting = await request(app).get("/api/meetings/M001").set("Cookie", cookie);
+    expect(updatedMeeting.body.meeting.blockers).toBe("Need product sign-off");
+    expect(updatedMeeting.body.meeting.blockersClearedAt).toBeNull();
     expect(updatedMeeting.body.meeting.notes).toBe("Keep these notes.");
     expect(updatedMeeting.body.meeting.links).toEqual([
       expect.objectContaining({
