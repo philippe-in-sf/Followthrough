@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } 
 import {
   Archive,
   ArrowLeft,
+  CalendarPlus,
   ChevronDown,
   LinkIcon,
   Plus,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import type {
   AuditLogDto,
+  GoogleCalendarImportEventDto,
   MeetingDto,
   MeetingLinkDto,
   MeetingLinkType,
@@ -76,6 +78,12 @@ type MeetingLinkFormState = {
   label: string;
   url: string;
   linkType: MeetingLinkType;
+};
+
+type CalendarImportDetails = {
+  sourceTitle: string;
+  notes: string;
+  links: MeetingLinkFormState[];
 };
 
 type MeetingLane = {
@@ -328,6 +336,15 @@ export function MeetingsPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [calendarImportOpen, setCalendarImportOpen] = useState(false);
+  const [calendarImportQuery, setCalendarImportQuery] = useState("");
+  const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
+    [],
+  );
+  const [calendarImportError, setCalendarImportError] = useState("");
+  const [calendarImportLoading, setCalendarImportLoading] = useState(false);
+  const [calendarImportDetails, setCalendarImportDetails] =
+    useState<CalendarImportDetails | null>(null);
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
@@ -482,6 +499,8 @@ export function MeetingsPage({
       summary: meetingForm.summary,
       blockers: meetingForm.blockers,
       blockersCleared: meetingForm.blockersCleared,
+      notes: calendarImportDetails?.notes ?? "",
+      links: calendarImportDetails?.links ?? [],
       attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
       private: meetingForm.private,
@@ -489,7 +508,51 @@ export function MeetingsPage({
 
     await api.meetings.create(body);
     setMeetingForm(emptyMeetingForm);
+    setCalendarImportDetails(null);
     await load();
+  }
+
+  async function searchGoogleCalendarEvents() {
+    setCalendarImportLoading(true);
+    setCalendarImportError("");
+    try {
+      const result = await api.googleCalendar.searchEvents(calendarImportQuery);
+      setCalendarImportEvents(result.events);
+      if (result.events.length === 0) {
+        setCalendarImportError("No matching Google Calendar events.");
+      }
+    } catch (error) {
+      setCalendarImportEvents([]);
+      setCalendarImportError(
+        error instanceof Error ? error.message : "Google Calendar could not be searched.",
+      );
+    } finally {
+      setCalendarImportLoading(false);
+    }
+  }
+
+  function applyGoogleCalendarEvent(event: GoogleCalendarImportEventDto) {
+    const attendeeNames = [meetingForm.attendeeNames, event.attendeeNames]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    setMeetingForm({
+      ...meetingForm,
+      title: event.title,
+      startsAt: toDateTimeInputValue(event.startsAt),
+      meetingType: "single",
+      seriesPublicId: "",
+      summary: event.summary,
+      attendeeNames,
+    });
+    setCalendarImportDetails({
+      sourceTitle: event.title,
+      notes: event.notes,
+      links: event.links,
+    });
+    setCalendarImportOpen(false);
+    setCalendarImportError("");
   }
 
   async function submitOccurrence(event: FormEvent<HTMLFormElement>) {
@@ -1094,7 +1157,65 @@ export function MeetingsPage({
         </form>
       </div>
       <form className="editor-form meeting-editor-form" id="meeting-editor" onSubmit={submitMeeting}>
-        <h3>Add meeting</h3>
+        <div className="editor-form-title-row">
+          <h3>Add meeting</h3>
+          <button
+            className="secondary-button icon-text-button"
+            type="button"
+            onClick={() => setCalendarImportOpen((open) => !open)}
+          >
+            <CalendarPlus aria-hidden="true" size={17} />
+            Import from Google Calendar
+          </button>
+        </div>
+        {calendarImportOpen ? (
+          <section className="calendar-import-panel" aria-label="Import from Google Calendar">
+            <FormField label="Which Google Calendar meeting?">
+              <input
+                value={calendarImportQuery}
+                onChange={(event) => setCalendarImportQuery(event.target.value)}
+                placeholder="Search by title, attendee, or detail"
+              />
+            </FormField>
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={searchGoogleCalendarEvents}
+              disabled={calendarImportLoading}
+            >
+              <CalendarPlus aria-hidden="true" size={17} />
+              {calendarImportLoading ? "Searching" : "Find meetings"}
+            </button>
+            {calendarImportError ? (
+              <p className="form-error" role="status">
+                {calendarImportError}
+              </p>
+            ) : null}
+            {calendarImportEvents.length > 0 ? (
+              <div className="calendar-import-results">
+                {calendarImportEvents.map((event) => (
+                  <button
+                    className="calendar-import-result"
+                    key={event.id}
+                    type="button"
+                    onClick={() => applyGoogleCalendarEvent(event)}
+                  >
+                    <strong>{event.title}</strong>
+                    <span>{new Date(event.startsAt).toLocaleString()}</span>
+                    <span>{event.attendeeNames || event.summary || "No extra details"}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {calendarImportDetails ? (
+          <section className="calendar-import-preview" aria-label="Imported Google Calendar details">
+            <strong>Imported from Google Calendar</strong>
+            <span>{calendarImportDetails.sourceTitle}</span>
+            <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
+          </section>
+        ) : null}
         <FormField label="Meeting title">
           <input
             value={meetingForm.title}

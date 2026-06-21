@@ -14,6 +14,8 @@ export type AppConfig = {
   smtpUser: string;
   smtpPass: string;
   nodeEnv: string;
+  googleCalendarId: string;
+  googleCalendarApiKey: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -33,5 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     smtpUser: env.SMTP_USER ?? "",
     smtpPass: env.SMTP_PASS ?? "",
     nodeEnv: env.NODE_ENV ?? "development",
+    googleCalendarId: env.GOOGLE_CALENDAR_ID ?? "",
+    googleCalendarApiKey: env.GOOGLE_CALENDAR_API_KEY ?? "",
   };
 }

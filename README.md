@@ -63,6 +63,8 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
+GOOGLE_CALENDAR_ID=
+GOOGLE_CALENDAR_API_KEY=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
@@ -70,6 +72,8 @@ SMTP_PASS=
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
 Set `VITE_WORK_CALENDAR_URL` to a full `http` or `https` URL to show a work-calendar shortcut in the app rail. Leave it blank to hide the shortcut.
+
+Google Calendar import uses the server-side Google Calendar API. Set `GOOGLE_CALENDAR_ID` to the calendar to search and `GOOGLE_CALENDAR_API_KEY` to an API key allowed to read that calendar. The new meeting screen can then search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
 
 ## Production Run
 

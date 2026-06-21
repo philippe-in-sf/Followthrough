@@ -97,6 +97,20 @@ export type MeetingLinkDto = {
   linkType: MeetingLinkType;
 };
 
+export type GoogleCalendarImportEventDto = {
+  id: string;
+  title: string;
+  startsAt: string;
+  summary: string;
+  notes: string;
+  attendeeNames: string;
+  links: Array<{
+    label: string;
+    url: string;
+    linkType: MeetingLinkType;
+  }>;
+};
+
 export type MeetingSeriesDto = {
   publicId: string;
   title: string;
