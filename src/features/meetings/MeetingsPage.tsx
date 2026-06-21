@@ -1,16 +1,8 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Archive,
-  ArrowLeft,
-  ChevronDown,
-  LinkIcon,
-  Plus,
-  RotateCcw,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, CalendarPlus, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
 import type {
   AuditLogDto,
+  GoogleCalendarImportEventDto,
   MeetingDto,
   MeetingLinkDto,
   MeetingLinkType,
@@ -76,6 +68,12 @@ type MeetingLinkFormState = {
   label: string;
   url: string;
   linkType: MeetingLinkType;
+};
+
+type CalendarImportDetails = {
+  sourceTitle: string;
+  notes: string;
+  links: MeetingLinkFormState[];
 };
 
 type MeetingLane = {
@@ -328,6 +326,15 @@ export function MeetingsPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [calendarImportOpen, setCalendarImportOpen] = useState(false);
+  const [calendarImportQuery, setCalendarImportQuery] = useState("");
+  const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
+    [],
+  );
+  const [calendarImportError, setCalendarImportError] = useState("");
+  const [calendarImportLoading, setCalendarImportLoading] = useState(false);
+  const [calendarImportDetails, setCalendarImportDetails] =
+    useState<CalendarImportDetails | null>(null);
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
@@ -480,8 +487,8 @@ export function MeetingsPage({
       seriesPublicId:
         meetingForm.meetingType === "recurring" ? meetingForm.seriesPublicId || null : null,
       summary: meetingForm.summary,
-      blockers: meetingForm.blockers,
-      blockersCleared: meetingForm.blockersCleared,
+      notes: calendarImportDetails?.notes ?? "",
+      links: calendarImportDetails?.links ?? [],
       attendeePublicIds,
       taskPublicIds: meetingForm.taskPublicIds,
       private: meetingForm.private,
@@ -489,7 +496,51 @@ export function MeetingsPage({
 
     await api.meetings.create(body);
     setMeetingForm(emptyMeetingForm);
+    setCalendarImportDetails(null);
     await load();
+  }
+
+  async function searchGoogleCalendarEvents() {
+    setCalendarImportLoading(true);
+    setCalendarImportError("");
+    try {
+      const result = await api.googleCalendar.searchEvents(calendarImportQuery);
+      setCalendarImportEvents(result.events);
+      if (result.events.length === 0) {
+        setCalendarImportError("No matching Google Calendar events.");
+      }
+    } catch (error) {
+      setCalendarImportEvents([]);
+      setCalendarImportError(
+        error instanceof Error ? error.message : "Google Calendar could not be searched.",
+      );
+    } finally {
+      setCalendarImportLoading(false);
+    }
+  }
+
+  function applyGoogleCalendarEvent(event: GoogleCalendarImportEventDto) {
+    const attendeeNames = [meetingForm.attendeeNames, event.attendeeNames]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    setMeetingForm({
+      ...meetingForm,
+      title: event.title,
+      startsAt: toDateTimeInputValue(event.startsAt),
+      meetingType: "single",
+      seriesPublicId: "",
+      summary: event.summary,
+      attendeeNames,
+    });
+    setCalendarImportDetails({
+      sourceTitle: event.title,
+      notes: event.notes,
+      links: event.links,
+    });
+    setCalendarImportOpen(false);
+    setCalendarImportError("");
   }
 
   async function submitOccurrence(event: FormEvent<HTMLFormElement>) {
@@ -1093,8 +1144,66 @@ export function MeetingsPage({
           </button>
         </form>
       </div>
-      <form className="editor-form meeting-editor-form" id="meeting-editor" onSubmit={submitMeeting}>
-        <h3>Add meeting</h3>
+      <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
+        <div className="editor-form-title-row">
+          <h3>Add meeting</h3>
+          <button
+            className="secondary-button icon-text-button"
+            type="button"
+            onClick={() => setCalendarImportOpen((open) => !open)}
+          >
+            <CalendarPlus aria-hidden="true" size={17} />
+            Import from Google Calendar
+          </button>
+        </div>
+        {calendarImportOpen ? (
+          <section className="calendar-import-panel" aria-label="Import from Google Calendar">
+            <FormField label="Which Google Calendar meeting?">
+              <input
+                value={calendarImportQuery}
+                onChange={(event) => setCalendarImportQuery(event.target.value)}
+                placeholder="Search by title, attendee, or detail"
+              />
+            </FormField>
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={searchGoogleCalendarEvents}
+              disabled={calendarImportLoading}
+            >
+              <CalendarPlus aria-hidden="true" size={17} />
+              {calendarImportLoading ? "Searching" : "Find meetings"}
+            </button>
+            {calendarImportError ? (
+              <p className="form-error" role="status">
+                {calendarImportError}
+              </p>
+            ) : null}
+            {calendarImportEvents.length > 0 ? (
+              <div className="calendar-import-results">
+                {calendarImportEvents.map((event) => (
+                  <button
+                    className="calendar-import-result"
+                    key={event.id}
+                    type="button"
+                    onClick={() => applyGoogleCalendarEvent(event)}
+                  >
+                    <strong>{event.title}</strong>
+                    <span>{new Date(event.startsAt).toLocaleString()}</span>
+                    <span>{event.attendeeNames || event.summary || "No extra details"}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {calendarImportDetails ? (
+          <section className="calendar-import-preview" aria-label="Imported Google Calendar details">
+            <strong>Imported from Google Calendar</strong>
+            <span>{calendarImportDetails.sourceTitle}</span>
+            <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
+          </section>
+        ) : null}
         <FormField label="Meeting title">
           <input
             value={meetingForm.title}
@@ -1253,133 +1362,57 @@ export function MeetingsPage({
                 <span className="lane-count">{countLabel(lane.meetings.length, "meeting")}</span>
               </header>
               <div className="record-list">
-                {lane.meetings.map((meeting) => {
-                  const isExpanded = Boolean(expandedMeetingPublicIds[meeting.publicId]);
-                  const detailsId = `meeting-details-${meeting.publicId}`;
-
-                  return (
-                    <article
-                      aria-label={`Meeting ${meeting.publicId}`}
-                      className={`meeting-card ${
-                        meeting.archived
-                          ? "record-card-neutral"
-                          : hasActiveBlockers(meeting)
-                            ? "record-card-bad"
-                            : "record-card-meeting"
-                      }`}
-                      id={`meeting-${meeting.publicId}`}
-                      key={meeting.publicId}
-                    >
-                      <button
-                        aria-controls={detailsId}
-                        aria-expanded={isExpanded}
-                        aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${
-                          meeting.publicId
-                        } ${collapseLinks(meeting.title)}`}
-                        className="meeting-summary-button"
-                        type="button"
-                        onClick={() => toggleMeeting(meeting.publicId)}
-                      >
-                        <span className="meeting-summary-title">
-                          <ChevronDown
-                            aria-hidden="true"
-                            className={`meeting-expand-icon ${
-                              isExpanded ? "meeting-expand-icon-open" : ""
-                            }`}
-                            size={17}
-                          />
-                          <strong>{collapseLinks(meeting.title)}</strong>
-                          <span>{meeting.publicId}</span>
-                        </span>
-                        <span className="meeting-summary-meta">
-                          <StatusBadge label={meeting.meetingType} />
-                          {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                          {meeting.archived ? <StatusBadge label="Archived" /> : null}
-                          {hasActiveBlockers(meeting) ? (
-                            <StatusBadge label="Blocker" tone="bad" />
-                          ) : null}
-                          {hasClearedBlockers(meeting) ? (
-                            <StatusBadge label="Blocker cleared" tone="good" />
-                          ) : null}
-                          <span className="meeting-summary-date">
-                            {new Date(meeting.startsAt).toLocaleString()}
-                          </span>
-                          <span className="meeting-summary-text">
-                            {collapseLinks(singleLineText(meeting.summary, "No summary"))}
-                          </span>
-                          <span className="meeting-summary-counts">
-                            {countLabel(meeting.attendees.length, "attendee")} ·{" "}
-                            {countLabel(meeting.tasks.length, "task")}
-                          </span>
-                        </span>
-                      </button>
-                      {isExpanded ? (
-                        <div className="meeting-expanded-content" id={detailsId}>
-                  <div className="meeting-detail-grid">
-                    <section className="meeting-detail-section">
-                      <h4>Details</h4>
-                      <p>{new Date(meeting.startsAt).toLocaleString()}</p>
-                      <div className="meeting-detail-badges">
-                        <StatusBadge label={meeting.meetingType} />
-                        {meeting.seriesPublicId ? (
-                          <span className="hint-chip">Series {meeting.seriesPublicId}</span>
-                        ) : null}
-                        {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                        {meeting.archived ? <StatusBadge label="Archived" /> : null}
-                      </div>
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Summary</h4>
-                      <p>
-                        <LinkedText text={meeting.summary || "No summary"} />
-                      </p>
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Attendees</h4>
-                      <p>{attendeeSummary(meeting)}</p>
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Tasks</h4>
-                      <MeetingTaskLinks meeting={meeting} />
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Links</h4>
-                      <MeetingStructuredLinks meeting={meeting} />
-                    </section>
-                  </div>
-                  <div className="meeting-card-actions">
-                    {meeting.archived ? (
-                    <button
-                      className="secondary-button icon-text-button"
-                      type="button"
-                      onClick={() => restoreMeeting(meeting)}
-                      aria-label={`Restore meeting ${meeting.publicId}`}
-                    >
-                      <RotateCcw aria-hidden="true" size={16} />
-                      Restore meeting
-                    </button>
-                    ) : (
-                    <>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => openMeetingNotes(meeting)}
-                      aria-label={`Open notes for ${meeting.publicId}`}
-                    >
-                      Notes
-                    </button>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => editMeeting(meeting)}
-                      aria-label={`Edit details for ${meeting.publicId}`}
-                    >
-                      Edit details
-                    </button>
-                    </>
-                    )}
-                  </div>
-                  <MeetingBlockerNote meeting={meeting} />
+                {lane.meetings.map((meeting) => (
+            <article
+              aria-label={`Meeting ${meeting.publicId}`}
+              className="meeting-card record-card-meeting"
+              id={`meeting-${meeting.publicId}`}
+              key={meeting.publicId}
+            >
+              <div className="record-row meeting-row">
+                <div>
+                  <strong>
+                    <LinkedText text={meeting.title} />
+                  </strong>
+                  <span>{meeting.publicId}</span>
+                </div>
+                <StatusBadge label={meeting.meetingType} />
+                {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                <span>{new Date(meeting.startsAt).toLocaleString()}</span>
+                <span>{meeting.summary ? <LinkedText text={meeting.summary} /> : "No summary"}</span>
+                <span>
+                  {meeting.attendees.length > 0
+                    ? meeting.attendees.map((attendee) => attendee.name).join(", ")
+                    : "No attendees"}
+                </span>
+                <div className="task-links">
+                  {meeting.tasks.length === 0 ? (
+                    <span>No tasks</span>
+                  ) : (
+                    meeting.tasks.map((task) => (
+                      <span key={task.publicId}>
+                        <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                      </span>
+                    ))
+                  )}
+                </div>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => openMeetingNotes(meeting)}
+                  aria-label={`Open notes for ${meeting.publicId}`}
+                >
+                  Notes
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => editMeeting(meeting)}
+                  aria-label={`Edit details for ${meeting.publicId}`}
+                >
+                  Edit details
+                </button>
+              </div>
               {editingMeetingPublicId === meeting.publicId ? (
                 <form
                   className="meeting-edit-form"

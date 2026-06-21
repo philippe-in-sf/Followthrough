@@ -1,7 +1,7 @@
 import express from "express";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
-import { readChangelog, renderChangelogHtml } from "./changelog.js";
+import { googleCalendarRoutes } from "./calendar/routes.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import { dashboardRoutes } from "./dashboard/routes.js";
 import { decisionRoutes } from "./decisions/routes.js";
@@ -55,6 +55,7 @@ export function createApp(deps: AppDependencies = {}) {
   const meetings = meetingRoutes(db, config);
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db));
+  protectedApi.use("/google-calendar", googleCalendarRoutes(config));
   protectedApi.use("/meetings", meetings.meetingsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/people", peopleRoutes(db));

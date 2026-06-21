@@ -2,6 +2,7 @@ import type {
   AlertState,
   AuditLogDto,
   DecisionDto,
+  GoogleCalendarImportEventDto,
   MeetingDto,
   MeetingLinkType,
   MeetingSeriesDto,
@@ -233,6 +234,12 @@ export const api = {
       request<{ meeting: MeetingDto }>(`/api/meetings/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/meetings/${publicId}/audit`),
+  },
+  googleCalendar: {
+    searchEvents: (query: string) =>
+      request<{ events: GoogleCalendarImportEventDto[] }>(
+        `/api/google-calendar/events?${new URLSearchParams({ query })}`,
+      ),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),

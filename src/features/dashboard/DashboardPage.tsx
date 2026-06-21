@@ -222,11 +222,20 @@ export function DashboardPage({
             ) : (
               <ul className="compact-list">
                 {summary.recentMeetings.map((meeting) => (
-                  <MeetingLine
-                    key={meeting.publicId}
-                    meeting={meeting}
-                    onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
-                  />
+                  <li className="compact-clickable-item" key={meeting.publicId}>
+                    <button
+                      className="compact-record-button"
+                      type="button"
+                      onClick={() =>
+                        onOpenRecord({ type: "meeting", publicId: meeting.publicId })
+                      }
+                      aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
+                    >
+                      <strong>{meeting.publicId}</strong>
+                      <span>{collapseLinks(meeting.title)}</span>
+                      <small>{new Date(meeting.startsAt).toLocaleString()}</small>
+                    </button>
+                  </li>
                 ))}
               </ul>
             )}

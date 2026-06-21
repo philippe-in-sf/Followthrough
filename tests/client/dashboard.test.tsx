@@ -842,7 +842,7 @@ describe("dashboard and workspace flows", () => {
       .toISOString()
       .slice(0, 10);
     await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
-    await userEvent.type(screen.getByLabelText("Occurrence start"), `${futureOccurrenceDate}T09:00`);
+    await userEvent.type(screen.getByLabelText("Occurrence start"), "2099-06-16T09:00");
     await userEvent.type(screen.getByLabelText("Occurrence title"), "Project sync follow-up");
     await userEvent.click(screen.getByRole("button", { name: "Create occurrence" }));
 
