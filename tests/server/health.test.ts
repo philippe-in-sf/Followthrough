@@ -27,4 +27,17 @@ describe("public status endpoints", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ version: packageVersion() });
   });
+
+  it("serves the changelog publicly", async () => {
+    const app = createApp();
+    const markdown = await request(app).get("/api/changelog");
+    const page = await request(app).get("/changelog");
+
+    expect(markdown.status).toBe(200);
+    expect(markdown.text).toContain("# Changelog");
+    expect(markdown.text).toContain(`## ${packageVersion()}`);
+    expect(page.status).toBe(200);
+    expect(page.text).toContain("Followthrough changelog");
+    expect(page.text).toContain(`Current deployed package version: ${packageVersion()}`);
+  });
 });

@@ -3,6 +3,8 @@ import type { DecisionDto } from "../../../shared/types";
 import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { LinkedText } from "../../components/LinkedText";
+import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
   publicId: string;
@@ -20,7 +22,13 @@ const emptyDecisionForm: DecisionFormState = {
   meetingPublicId: "",
 };
 
-export function DecisionsPage() {
+export function DecisionsPage({
+  focusDecisionPublicId,
+  onDecisionFocusHandled,
+}: {
+  focusDecisionPublicId?: string | null;
+  onDecisionFocusHandled?: () => void;
+}) {
   const [decisions, setDecisions] = useState<DecisionDto[]>([]);
   const [form, setForm] = useState<DecisionFormState>(emptyDecisionForm);
 
@@ -57,6 +65,16 @@ export function DecisionsPage() {
       meetingPublicId: decision.meetingPublicId ?? "",
     });
   }
+
+  useEffect(() => {
+    if (!focusDecisionPublicId) return;
+    const decision = decisions.find((item) => item.publicId === focusDecisionPublicId);
+    if (!decision) return;
+
+    editDecision(decision);
+    scrollRecordIntoView(`decision-${decision.publicId}`);
+    onDecisionFocusHandled?.();
+  }, [decisions, focusDecisionPublicId, onDecisionFocusHandled]);
 
   return (
     <main className="page">
@@ -112,10 +130,19 @@ export function DecisionsPage() {
       ) : (
         <div className="record-list">
           {decisions.map((decision) => (
-            <article className="record-row" key={decision.publicId}>
+            <article
+              aria-label={`Decision ${decision.publicId}`}
+              className="record-row"
+              id={`decision-${decision.publicId}`}
+              key={decision.publicId}
+            >
               <div>
-                <strong>{decision.decisionText}</strong>
-                <span>{decision.context}</span>
+                <strong>
+                  <LinkedText text={decision.decisionText} />
+                </strong>
+                <span>
+                  <LinkedText text={decision.context} />
+                </span>
               </div>
               <span>{decision.publicId}</span>
               <span>{decision.decisionDate}</span>

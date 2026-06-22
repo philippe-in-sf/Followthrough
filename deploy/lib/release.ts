@@ -1,4 +1,10 @@
-export const runtimePaths = ["dist", "package.json", "package-lock.json"] as const;
+export const runtimePaths = [
+  "dist",
+  "package.json",
+  "package-lock.json",
+  "scripts",
+  "CHANGELOG.md",
+] as const;
 
 function timestampPart(date: Date) {
   return date

@@ -1,4 +1,5 @@
 import type { AuditLogDto } from "../../shared/types";
+import { LinkedText } from "./LinkedText";
 
 function formatAuditTime(value: string) {
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -17,7 +18,9 @@ export function AuditLog({ events }: { events: AuditLogDto[] }) {
         <ol className="audit-list">
           {events.map((event) => (
             <li key={event.id}>
-              <strong>{event.summary}</strong>
+              <strong>
+                <LinkedText text={event.summary} />
+              </strong>
               <span>
                 {event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
               </span>

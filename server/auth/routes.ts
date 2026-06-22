@@ -12,6 +12,7 @@ import {
   destroySession,
   getSessionUser,
 } from "./sessions.js";
+import { insertUserWithPasswordHash } from "./userManagement.js";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1),
@@ -37,13 +38,6 @@ function userDto(row: { id: number; name: string; email: string }) {
   return { id: row.id, name: row.name, email: row.email };
 }
 
-function isUniqueConstraintError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.toLowerCase().includes("unique constraint failed")
-  );
-}
-
 export function authRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
 
@@ -67,29 +61,22 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
           throw badRequest("Invite code is invalid");
         }
 
-        const result = db
-          .prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)")
-          .run(input.name, input.email, passwordHash);
+        const createdUser = insertUserWithPasswordHash(db, {
+          name: input.name,
+          email: input.email,
+          passwordHash,
+        });
 
         db.prepare("UPDATE invite_codes SET usage_count = usage_count + 1 WHERE id = ?").run(
           invite.id,
         );
 
-        const createdUser = {
-          id: Number(result.lastInsertRowid),
-          name: input.name,
-          email: input.email,
-        };
-        createSession(db, res, createdUser.id, config);
         return createdUser;
       });
 
+      createSession(db, res, user.id, config);
       res.status(201).json({ user: userDto(user) });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        next(badRequest("A user with that email already exists"));
-        return;
-      }
       next(error);
     }
   });

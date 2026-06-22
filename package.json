@@ -1,6 +1,6 @@
 {
-  "name": "web-ui-task-manager",
-  "version": "1.0.3",
+  "name": "followthrough",
+  "version": "1.1.0",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json",
-    "invite:create": "tsx server/auth/createInviteCode.ts",
+    "changelog:check": "tsx deploy/scripts/check-changelog.ts",
+    "invite:create": "node scripts/run-server-script.mjs server/auth/createInviteCode.ts dist/server/auth/createInviteCode.js",
+    "user:create": "node scripts/run-server-script.mjs server/auth/createUser.ts dist/server/auth/createUser.js",
     "version:patch": "npm version patch --no-git-tag-version",
     "deploy": "bash deploy/deploy.sh",
     "deploy:install-systemd": "bash deploy/install-systemd.sh"
@@ -28,6 +30,7 @@
   "dependencies": {
     "express": "^5.2.1",
     "lucide-react": "^1.17.0",
+    "nodemailer": "^8.0.11",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.17.0",
@@ -39,6 +42,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/express": "^5.0.6",
     "@types/node": "^24.13.1",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/supertest": "^7.2.0",

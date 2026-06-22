@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SearchResult } from "../api/client";
+import { collapseLinks } from "./LinkedText";
 import type { AppSection } from "./AppShell";
 
 const sectionByType: Record<SearchResult["type"], AppSection> = {
@@ -59,12 +60,12 @@ export function GlobalSearch({ onOpenSection }: { onOpenSection: (section: AppSe
             <button
               key={`${result.type}-${result.publicId}`}
               type="button"
-              aria-label={`${result.publicId} ${result.title} ${result.subtitle}`}
+              aria-label={`${result.publicId} ${collapseLinks(result.title)} ${collapseLinks(result.subtitle)}`}
               onClick={() => openResult(result)}
             >
               <strong>{result.publicId}</strong>
-              <span>{result.title}</span>
-              <small>{result.subtitle}</small>
+              <span>{collapseLinks(result.title)}</span>
+              <small>{collapseLinks(result.subtitle)}</small>
             </button>
           ))}
         </div>

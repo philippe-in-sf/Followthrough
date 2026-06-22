@@ -4,7 +4,18 @@ export type AppConfig = {
   sessionCookieName: string;
   sessionTtlDays: number;
   dueSoonDays: number;
+  appBaseUrl: string;
+  taskReminderEmailFrom: string;
+  taskReminderAutoEnabled: boolean;
+  taskReminderAutoIntervalMs: number;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
   nodeEnv: string;
+  googleCalendarId: string;
+  googleCalendarApiKey: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -14,6 +25,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionCookieName: env.SESSION_COOKIE_NAME ?? "tm_session",
     sessionTtlDays: Number(env.SESSION_TTL_DAYS ?? 14),
     dueSoonDays: Number(env.DUE_SOON_DAYS ?? 7),
+    appBaseUrl: env.APP_BASE_URL ?? "",
+    taskReminderEmailFrom: env.TASK_REMINDER_EMAIL_FROM ?? "",
+    taskReminderAutoEnabled: env.TASK_REMINDER_AUTO_ENABLED === "true",
+    taskReminderAutoIntervalMs: Number(env.TASK_REMINDER_AUTO_INTERVAL_MS ?? 86_400_000),
+    smtpHost: env.SMTP_HOST ?? "",
+    smtpPort: Number(env.SMTP_PORT ?? 587),
+    smtpSecure: env.SMTP_SECURE === "true",
+    smtpUser: env.SMTP_USER ?? "",
+    smtpPass: env.SMTP_PASS ?? "",
     nodeEnv: env.NODE_ENV ?? "development",
+    googleCalendarId: env.GOOGLE_CALENDAR_ID ?? "",
+    googleCalendarApiKey: env.GOOGLE_CALENDAR_API_KEY ?? "",
   };
 }

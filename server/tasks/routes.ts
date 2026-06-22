@@ -1,19 +1,29 @@
 import { Router } from "express";
-import { taskInputSchema } from "../../shared/schemas.js";
-import type { TaskDto, TaskStatus } from "../../shared/types.js";
+import { taskInputSchema, taskUpdateInputSchema } from "../../shared/schemas.js";
+import type { TaskDto, TaskReminderMode, TaskStatus } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
+import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
+import type { EmailSender } from "../email/mailer.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { getTaskAlert } from "./alerts.js";
+import { sendManualTaskReminder } from "./reminders.js";
 
 export type TaskRow = {
   public_id: string;
   description: string;
+  blockers: string;
+  notes: string;
+  blockers_cleared_at: string | null;
   status: TaskStatus;
   due_date: string | null;
+  reminder_mode: TaskReminderMode;
+  last_reminder_sent_at: string | null;
+  private: number;
+  created_by_user_id: number | null;
   archived_at: string | null;
   assignee_public_id: string | null;
   assignee_name: string | null;
@@ -30,7 +40,16 @@ type ResolvedTaskRelations = {
 };
 
 const taskSelect = `
-  SELECT tasks.public_id, tasks.description, tasks.status, tasks.due_date,
+  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
+         tasks.status, tasks.due_date,
+         tasks.reminder_mode,
+         (
+           SELECT MAX(sent_at)
+           FROM task_reminder_events
+           WHERE task_reminder_events.task_id = tasks.id
+         ) AS last_reminder_sent_at,
+         tasks.private,
+         tasks.created_by_user_id,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
          people.name AS assignee_name,
@@ -48,6 +67,9 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
   return {
     publicId: row.public_id,
     description: row.description,
+    blockers: row.blockers,
+    notes: row.notes,
+    blockersClearedAt: row.blockers_cleared_at,
     assignee: row.assignee_public_id
       ? {
           publicId: row.assignee_public_id,
@@ -60,23 +82,37 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     dueDate: row.due_date,
     originMeetingPublicId: row.origin_meeting_public_id,
     seriesPublicId: row.series_public_id,
+    reminderMode: row.reminder_mode,
+    lastReminderSentAt: row.last_reminder_sent_at,
     alert: getTaskAlert(row.due_date, row.status, config.dueSoonDays),
+    private: row.private === 1,
     archived: row.archived_at !== null,
   };
+}
+
+function visibleTaskCondition() {
+  return "(tasks.private = 0 OR tasks.created_by_user_id = ?)";
+}
+
+function canMakePrivate(createdByUserId: number | null, userId: number) {
+  return createdByUserId === null || createdByUserId === userId;
 }
 
 function getTaskByPublicId(
   db: AppDatabase,
   config: AppConfig,
   publicId: string,
+  userId: number,
   includeArchived = false,
 ) {
   const row = db
     .prepare(
       `${taskSelect}
-       WHERE tasks.public_id = ? ${includeArchived ? "" : "AND tasks.archived_at IS NULL"}`,
+       WHERE tasks.public_id = ?
+       AND ${visibleTaskCondition()}
+       ${includeArchived ? "" : "AND tasks.archived_at IS NULL"}`,
     )
-    .get(publicId) as TaskRow | undefined;
+    .get(publicId, userId) as TaskRow | undefined;
 
   if (!row) throw notFound("Task not found");
   return mapTaskRow(row, config);
@@ -89,6 +125,7 @@ function resolveRelations(
     originMeetingPublicId?: string | null;
     seriesPublicId?: string | null;
   },
+  userId: number,
 ): ResolvedTaskRelations {
   const assignee = input.assigneePublicId
     ? (db
@@ -102,8 +139,16 @@ function resolveRelations(
 
   const meeting = input.originMeetingPublicId
     ? (db
-        .prepare("SELECT id, series_id FROM meetings WHERE public_id = ? AND archived_at IS NULL")
-        .get(input.originMeetingPublicId) as { id: number; series_id: number | null } | undefined)
+        .prepare(
+          `SELECT id, series_id
+           FROM meetings
+           WHERE public_id = ?
+           AND (private = 0 OR created_by_user_id = ?)
+           AND archived_at IS NULL`,
+        )
+        .get(input.originMeetingPublicId, userId) as
+        | { id: number; series_id: number | null }
+        | undefined)
     : null;
 
   if (input.originMeetingPublicId && !meeting) {
@@ -127,12 +172,22 @@ function resolveRelations(
   };
 }
 
-export function taskRoutes(db: AppDatabase, config: AppConfig) {
+export function taskRoutes(
+  db: AppDatabase,
+  config: AppConfig,
+  emailSender: EmailSender | null = null,
+) {
   const router = Router();
 
   router.get("/", (req, res) => {
-    const conditions = ["tasks.archived_at IS NULL"];
-    const params: string[] = [];
+    const userId = req.user?.id ?? 0;
+    const conditions = [
+      req.query.archived === "true"
+        ? "tasks.archived_at IS NOT NULL"
+        : "tasks.archived_at IS NULL",
+      visibleTaskCondition(),
+    ];
+    const params: Array<string | number> = [userId];
 
     if (typeof req.query.assigneePublicId === "string" && req.query.assigneePublicId) {
       conditions.push("people.public_id = ?");
@@ -164,22 +219,33 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const input = parseBody(req, taskInputSchema);
       const task = withTransaction(db, () => {
-        const relations = resolveRelations(db, input);
+        const userId = req.user?.id ?? 0;
+        const relations = resolveRelations(db, input, userId);
         const publicId = nextPublicId(db, "T");
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers: input.blockers,
+          requestedCleared: input.blockersCleared,
+        });
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, assignee_person_id, status, due_date, origin_meeting_id, series_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
             input.description,
+            input.blockers,
+            input.notes,
+            blockersClearedAt,
             relations.assigneePersonId,
             input.status,
             input.dueDate ?? null,
             relations.originMeetingId,
             relations.seriesId,
+            input.reminderMode,
+            input.private ? 1 : 0,
+            userId,
           );
 
         if (relations.originMeetingId) {
@@ -189,7 +255,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           );
         }
 
-        const created = getTaskByPublicId(db, config, publicId);
+        const created = getTaskByPublicId(db, config, publicId, userId);
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: created.publicId,
@@ -219,13 +285,18 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
     }
   });
 
-  router.get("/:publicId/audit", (req, res) => {
-    res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
+  router.get("/:publicId/audit", (req, res, next) => {
+    try {
+      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0, true);
+      res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ task: getTaskByPublicId(db, config, req.params.publicId) });
+      res.json({ task: getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0) });
     } catch (error) {
       next(error);
     }
@@ -233,32 +304,74 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
 
   router.patch("/:publicId", (req, res, next) => {
     try {
-      const input = parseBody(req, taskInputSchema);
+      const input = parseBody(req, taskUpdateInputSchema);
       const task = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
         const existing = db
-          .prepare("SELECT id FROM tasks WHERE public_id = ? AND archived_at IS NULL")
-          .get(req.params.publicId) as { id: number } | undefined;
+          .prepare(
+            `SELECT id, blockers, notes, blockers_cleared_at, created_by_user_id, private
+             FROM tasks
+             WHERE public_id = ?
+             AND ${visibleTaskCondition()}
+             AND archived_at IS NULL`,
+          )
+          .get(req.params.publicId, userId) as
+          | {
+              id: number;
+              blockers: string;
+              notes: string;
+              blockers_cleared_at: string | null;
+              created_by_user_id: number | null;
+              private: number;
+            }
+          | undefined;
         if (!existing) throw notFound("Task not found");
-        const before = getTaskByPublicId(db, config, req.params.publicId);
+        if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
+          throw badRequest("Only the creator can make this task private");
+        }
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
 
-        const relations = resolveRelations(db, input);
+        const relations = resolveRelations(db, input, userId);
+        const createdByUserId =
+          input.private && existing.created_by_user_id === null
+            ? userId
+            : existing.created_by_user_id;
+        const blockers = input.blockers ?? existing.blockers;
+        const notes = input.notes ?? existing.notes;
+        const blockersClearedAt = resolveBlockerClearedAt({
+          blockers,
+          requestedCleared: input.blockersCleared,
+          existingClearedAt: existing.blockers_cleared_at,
+        });
         db.prepare(
           `UPDATE tasks
            SET description = ?,
+               blockers = ?,
+               notes = ?,
+               blockers_cleared_at = ?,
                assignee_person_id = ?,
                status = ?,
                due_date = ?,
                origin_meeting_id = ?,
                series_id = ?,
+               reminder_mode = ?,
+               private = ?,
+               created_by_user_id = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
         ).run(
           input.description,
+          blockers,
+          notes,
+          blockersClearedAt,
           relations.assigneePersonId,
           input.status,
           input.dueDate ?? null,
           relations.originMeetingId,
           relations.seriesId,
+          input.reminderMode,
+          input.private ? 1 : 0,
+          createdByUserId,
           existing.id,
         );
 
@@ -270,7 +383,7 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
           );
         }
 
-        const updated = getTaskByPublicId(db, config, req.params.publicId);
+        const updated = getTaskByPublicId(db, config, req.params.publicId, userId);
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: updated.publicId,
@@ -289,17 +402,36 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
     }
   });
 
+  router.post("/:publicId/reminders", async (req, res, next) => {
+    try {
+      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0);
+      const reminder = await sendManualTaskReminder(
+        db,
+        config,
+        emailSender,
+        req.params.publicId,
+        req.user?.id ?? null,
+      );
+      res.status(201).json({ reminder });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/:publicId/archive", (req, res, next) => {
     try {
       withTransaction(db, () => {
-        const before = getTaskByPublicId(db, config, req.params.publicId);
+        const userId = req.user?.id ?? 0;
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
         const result = db
           .prepare(
             `UPDATE tasks
              SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NULL`,
           )
-          .run(req.params.publicId);
+          .run(req.params.publicId, userId);
 
         if (result.changes === 0) throw notFound("Task not found");
         recordAuditEvent(db, {
@@ -312,6 +444,42 @@ export function taskRoutes(db: AppDatabase, config: AppConfig) {
         });
       });
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:publicId/restore", (req, res, next) => {
+    try {
+      const task = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
+        const before = getTaskByPublicId(db, config, req.params.publicId, userId, true);
+        if (!before.archived) throw badRequest("Task is not archived");
+
+        const result = db
+          .prepare(
+            `UPDATE tasks
+             SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ?
+             AND (private = 0 OR created_by_user_id = ?)
+             AND archived_at IS NOT NULL`,
+          )
+          .run(req.params.publicId, userId);
+
+        if (result.changes === 0) throw notFound("Task not found");
+        const after = getTaskByPublicId(db, config, req.params.publicId, userId);
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: after.publicId,
+          action: "restored",
+          userId: req.user?.id ?? null,
+          summary: "Restored task",
+          changes: { before, after },
+        });
+        return after;
+      });
+
+      res.json({ task });
     } catch (error) {
       next(error);
     }

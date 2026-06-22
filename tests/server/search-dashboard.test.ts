@@ -25,6 +25,8 @@ async function setup() {
     .send({ name: "Taylor", email: "" });
   await request(app).post("/api/tasks").set("Cookie", cookie).send({
     description: "Prepare board packet",
+    blockers: "Waiting on finance figures",
+    notes: "Vendor packet revision is underway.",
     assigneePublicId: person.body.person.publicId,
     status: "Open",
     dueDate: "2026-06-10",
@@ -37,6 +39,15 @@ async function setup() {
       startsAt: "2026-06-09T15:00:00.000Z",
       meetingType: "single",
       summary: "Packet timing.",
+      blockers: "Need chair approval",
+      notes: "Roadmap agenda notes.",
+      links: [
+        {
+          label: "Board agenda",
+          url: "https://example.com/board-agenda",
+          linkType: "agenda",
+        },
+      ],
       attendeePublicIds: [person.body.person.publicId],
       taskPublicIds: ["T001"],
     });
@@ -46,7 +57,7 @@ async function setup() {
     context: "Enough review time.",
     meetingPublicId: "M001",
   });
-  return { app, cookie };
+  return { app, cookie, personPublicId: person.body.person.publicId };
 }
 
 afterEach(() => {
@@ -77,6 +88,44 @@ describe("search and dashboard", () => {
     );
   });
 
+  it("searches meeting notes and structured links", async () => {
+    const { app, cookie } = await setup();
+
+    const notesResponse = await request(app).get("/api/search?q=Roadmap").set("Cookie", cookie);
+    const linkResponse = await request(app).get("/api/search?q=board-agenda").set("Cookie", cookie);
+
+    expect(notesResponse.body.results).toEqual([
+      expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
+    expect(linkResponse.body.results).toEqual([
+      expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
+  });
+
+  it("searches task and meeting blockers", async () => {
+    const { app, cookie } = await setup();
+
+    const taskResponse = await request(app).get("/api/search?q=finance figures").set("Cookie", cookie);
+    const meetingResponse = await request(app).get("/api/search?q=chair approval").set("Cookie", cookie);
+
+    expect(taskResponse.body.results).toEqual([
+      expect.objectContaining({ type: "task", publicId: "T001" }),
+    ]);
+    expect(meetingResponse.body.results).toEqual([
+      expect.objectContaining({ type: "meeting", publicId: "M001" }),
+    ]);
+  });
+
+  it("searches task progress notes", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app).get("/api/search?q=vendor packet").set("Cookie", cookie);
+
+    expect(response.body.results).toEqual([
+      expect.objectContaining({ type: "task", publicId: "T001" }),
+    ]);
+  });
+
   it("returns dashboard summaries and alerts", async () => {
     const { app, cookie } = await setup();
 
@@ -84,7 +133,72 @@ describe("search and dashboard", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.alerts.dueSoon).toHaveLength(1);
+    expect(response.body.activeBlockers.tasks[0]).toEqual(
+      expect.objectContaining({
+        publicId: "T001",
+        blockers: "Waiting on finance figures",
+        blockersClearedAt: null,
+      }),
+    );
+    expect(response.body.activeBlockers.meetings[0]).toEqual(
+      expect.objectContaining({
+        publicId: "M001",
+        blockers: "Need chair approval",
+        blockersClearedAt: null,
+      }),
+    );
     expect(response.body.openTasksByAssignee[0].assignee.name).toBe("Taylor");
     expect(response.body.recentDecisions[0].publicId).toBe("D001");
+  });
+
+  it("excludes another user's private tasks and meetings from search and dashboard", async () => {
+    const { app, cookie, personPublicId } = await setup();
+    const viewerSignup = await request(app).post("/api/auth/signup").send({
+      name: "Viewer",
+      email: "viewer@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const viewerCookie = viewerSignup.headers["set-cookie"];
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private packet",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-10",
+      private: true,
+    });
+    await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Private packet review",
+        startsAt: "2026-06-10T15:00:00.000Z",
+        meetingType: "single",
+        summary: "Private packet timing.",
+        attendeePublicIds: [personPublicId],
+        taskPublicIds: [],
+        private: true,
+      });
+
+    const ownerSearch = await request(app).get("/api/search?q=Private").set("Cookie", cookie);
+    expect(ownerSearch.body.results.map((result: { publicId: string }) => result.publicId)).toEqual(
+      expect.arrayContaining(["T002", "M002"]),
+    );
+
+    const viewerSearch = await request(app).get("/api/search?q=Private").set("Cookie", viewerCookie);
+    expect(viewerSearch.body.results).toEqual([]);
+
+    const ownerDashboard = await request(app).get("/api/dashboard").set("Cookie", cookie);
+    expect(ownerDashboard.body.alerts.dueSoon).toHaveLength(2);
+    expect(
+      ownerDashboard.body.recentMeetings.map((meeting: { publicId: string }) => meeting.publicId),
+    ).toContain("M002");
+
+    const viewerDashboard = await request(app).get("/api/dashboard").set("Cookie", viewerCookie);
+    expect(viewerDashboard.body.alerts.dueSoon).toHaveLength(1);
+    expect(
+      viewerDashboard.body.recentMeetings.map((meeting: { publicId: string }) => meeting.publicId),
+    ).not.toContain("M002");
   });
 });

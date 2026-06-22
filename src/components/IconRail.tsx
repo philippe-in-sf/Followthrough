@@ -1,19 +1,22 @@
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, ScrollText } from "lucide-react";
+import { BrandMark } from "./BrandMark";
 import { sectionOrder, type AppSection } from "./shellNavigation";
 
 export function IconRail({
   section,
   onSectionChange,
   version,
+  workCalendarUrl,
 }: {
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
   version: string;
+  workCalendarUrl?: string | null;
 }) {
   return (
-    <aside className="icon-rail" aria-label="Task Manager">
+    <aside className="icon-rail" aria-label="Followthrough">
       <div className="app-mark" aria-hidden="true">
-        TM
+        <BrandMark />
       </div>
       <nav className="icon-rail-nav" aria-label="Primary sections">
         {sectionOrder.map(({ section: item, icon: Icon }) => (
@@ -31,15 +34,25 @@ export function IconRail({
         ))}
       </nav>
       <div className="rail-footer">
+        {workCalendarUrl ? (
+          <a
+            aria-label="Open work calendar"
+            className="icon-rail-button rail-calendar-link"
+            href={workCalendarUrl}
+            rel="noreferrer"
+            target="_blank"
+            title="Work calendar"
+          >
+            <CalendarCheck aria-hidden="true" size={20} strokeWidth={2.1} />
+          </a>
+        ) : null}
         <a
-          aria-label="Open work calendar"
+          aria-label="Open changelog"
           className="icon-rail-button rail-calendar-link"
-          href="https://calendar.google.com"
-          rel="noreferrer"
-          target="_blank"
-          title="Work calendar"
+          href="/changelog"
+          title="Changelog"
         >
-          <CalendarCheck aria-hidden="true" size={20} strokeWidth={2.1} />
+          <ScrollText aria-hidden="true" size={20} strokeWidth={2.1} />
         </a>
         <p className="rail-version" aria-label={`Version ${version}`}>
           <span className="rail-version-label">Version </span>

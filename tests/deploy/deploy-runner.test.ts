@@ -19,9 +19,12 @@ function writeExecutable(filePath: string, content: string) {
 
 function createRuntimePaths(workDir: string) {
   fs.mkdirSync(path.join(workDir, "dist"));
+  fs.mkdirSync(path.join(workDir, "scripts"));
   fs.writeFileSync(path.join(workDir, "dist/server.js"), "console.log('built');\n");
+  fs.writeFileSync(path.join(workDir, "scripts/run-server-script.mjs"), "console.log('run');\n");
   fs.writeFileSync(path.join(workDir, "package.json"), '{"version":"1.0.1"}\n');
   fs.writeFileSync(path.join(workDir, "package-lock.json"), "{}\n");
+  fs.writeFileSync(path.join(workDir, "CHANGELOG.md"), "# Changelog\n\n## 1.0.1\n\n- Test release.\n");
 }
 
 function createDeployFixture() {
@@ -121,6 +124,7 @@ describe("deploy runner", () => {
       expect(result.status, output).toBe(0);
 
       const lines = readCommandLog(fixture.commandLog);
+      expect(lines.filter((line) => line === "npm run changelog:check")).toHaveLength(1);
       expect(lines.filter((line) => line === "npm run check")).toHaveLength(1);
       expect(lines.filter((line) => line === "npm run test")).toHaveLength(1);
       expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);

@@ -2,11 +2,16 @@ import type {
   AlertState,
   AuditLogDto,
   DecisionDto,
+  GoogleCalendarImportEventDto,
   MeetingDto,
+  MeetingLinkType,
   MeetingSeriesDto,
   MeetingType,
   PersonDto,
+  PersonMergeResultDto,
+  PersonRelatedRecordsDto,
   TaskDto,
+  TaskReminderMode,
   TaskStatus,
 } from "../../shared/types";
 import type { User } from "./types";
@@ -42,16 +47,28 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export type DashboardTask = {
   publicId: string;
   description: string;
+  blockers: string;
+  blockersClearedAt: string | null;
   assignee: PersonDto | null;
   status: TaskStatus;
   dueDate: string | null;
   alert: AlertState | null;
+  private: boolean;
+};
+
+export type DashboardMeeting = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  blockers: string;
+  blockersClearedAt: string | null;
 };
 
 export type DashboardResponse = {
   alerts: { overdue: DashboardTask[]; dueSoon: DashboardTask[] };
   openTasksByAssignee: Array<{ assignee: PersonDto | null; tasks: DashboardTask[] }>;
-  recentMeetings: Array<{ publicId: string; title: string; startsAt: string }>;
+  activeBlockers: { tasks: DashboardTask[]; meetings: DashboardMeeting[] };
+  recentMeetings: DashboardMeeting[];
   recentDecisions: Array<{ publicId: string; decisionText: string; decisionDate: string }>;
   activeSeries: Array<{ publicId: string; title: string; cadenceLabel: string | null }>;
 };
@@ -65,11 +82,26 @@ export type SearchResult = {
 
 type TaskInput = {
   description: string;
+  blockers?: string;
+  notes?: string;
+  blockersCleared?: boolean;
   assigneePublicId?: string | null;
   status: TaskStatus;
   dueDate?: string | null;
   originMeetingPublicId?: string | null;
   seriesPublicId?: string | null;
+  reminderMode?: TaskReminderMode;
+  private?: boolean;
+};
+
+export type TaskReminderResponse = {
+  reminder: {
+    taskPublicId: string;
+    recipientEmail: string;
+    mode: TaskReminderMode;
+    subject: string;
+    sentAt: string;
+  };
 };
 
 type MeetingInput = {
@@ -78,8 +110,19 @@ type MeetingInput = {
   meetingType: MeetingType;
   seriesPublicId?: string | null;
   summary: string;
+  blockers?: string;
+  blockersCleared?: boolean;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   taskPublicIds: string[];
+  private?: boolean;
+};
+
+type MeetingLinkInput = {
+  label: string;
+  url: string;
+  linkType: MeetingLinkType;
 };
 
 type MeetingSeriesInput = {
@@ -92,7 +135,12 @@ type OccurrenceInput = {
   title?: string;
   startsAt: string;
   summary: string;
+  blockers?: string;
+  blockersCleared?: boolean;
+  notes?: string;
+  links?: MeetingLinkInput[];
   attendeePublicIds: string[];
+  private?: boolean;
 };
 
 type DecisionInput = {
@@ -135,8 +183,17 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/people/${publicId}/archive`, { method: "POST" }),
+    merge: (sourcePublicId: string, body: { targetPublicId: string }) =>
+      request<PersonMergeResultDto>(`/api/people/${sourcePublicId}/merge`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/people/${publicId}/audit`),
+    records: (publicId: string) =>
+      request<PersonRelatedRecordsDto>(`/api/people/${publicId}/records`),
   },
   tasks: {
     list: (query = "") => request<{ tasks: TaskDto[] }>(`/api/tasks${query}`),
@@ -150,11 +207,17 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/tasks/${publicId}/archive`, { method: "POST" }),
+    restore: (publicId: string) =>
+      request<{ task: TaskDto }>(`/api/tasks/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/tasks/${publicId}/audit`),
+    sendReminder: (publicId: string) =>
+      request<TaskReminderResponse>(`/api/tasks/${publicId}/reminders`, { method: "POST" }),
   },
   meetings: {
-    list: () => request<{ meetings: MeetingDto[] }>("/api/meetings"),
+    list: (query = "") => request<{ meetings: MeetingDto[] }>(`/api/meetings${query}`),
     create: (body: MeetingInput) =>
       request<{ meeting: MeetingDto }>("/api/meetings", {
         method: "POST",
@@ -165,8 +228,18 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    archive: (publicId: string) =>
+      request<void>(`/api/meetings/${publicId}/archive`, { method: "POST" }),
+    restore: (publicId: string) =>
+      request<{ meeting: MeetingDto }>(`/api/meetings/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/meetings/${publicId}/audit`),
+  },
+  googleCalendar: {
+    searchEvents: (query: string) =>
+      request<{ events: GoogleCalendarImportEventDto[] }>(
+        `/api/google-calendar/events?${new URLSearchParams({ query })}`,
+      ),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),
