@@ -1680,8 +1680,6 @@ export function MeetingsPage({
               </form>
               ) : null}
               <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
-                </div>
-              ) : null}
             </article>
                   );
                 })}
