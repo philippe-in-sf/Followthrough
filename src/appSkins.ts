@@ -21,6 +21,16 @@ export const appSkins = [
     name: "Cinder",
     swatches: ["#1c1412", "#7c2d12", "#fb7185"],
   },
+  {
+    id: "daylight",
+    name: "Daylight",
+    swatches: ["#f0f4f8", "#ffffff", "#2563eb"],
+  },
+  {
+    id: "parchment",
+    name: "Parchment",
+    swatches: ["#faf7f2", "#ffffff", "#d97706"],
+  },
 ] as const;
 
 export type AppSkinId = (typeof appSkins)[number]["id"];

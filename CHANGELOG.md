@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.0 - 2026-06-22
+
+### Added
+
+- Added two light skins — **Daylight** (cool blue-gray) and **Parchment** (warm amber) — so the skin selector now offers a mix of dark and light themes.
+
 ## 1.0.30 - 2026-06-21
 
 ### Fixed
