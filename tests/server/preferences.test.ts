@@ -54,11 +54,82 @@ describe("user preferences", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       workCalendarUrl: null,
-      googleOAuthRedirectUri: "http://localhost:3000/api/google-calendar/oauth/callback",
+      googleCalendarConfigured: false,
+      googleCalendarConnected: false,
+      googleCalendarEmail: null,
     });
   });
 
-  it("saves a valid work calendar URL", async () => {
+  it("returns connected Google Calendar status for the signed-in user", async () => {
+    const { app, cookie, db } = await setup({
+      googleOAuthClientId: "client-id.apps.googleusercontent.com",
+      googleOAuthClientSecret: "client-secret",
+    });
+    db.prepare(
+      `
+        INSERT INTO google_calendar_connections (
+          user_id,
+          google_email,
+          access_token,
+          refresh_token,
+          token_expires_at,
+          scope
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `,
+    ).run(
+      1,
+      "editor@gmail.com",
+      "access-token",
+      "refresh-token",
+      new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      "https://www.googleapis.com/auth/calendar.readonly",
+    );
+
+    const response = await request(app).get("/api/me/preferences").set("Cookie", cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      workCalendarUrl: null,
+      googleCalendarConfigured: true,
+      googleCalendarConnected: true,
+      googleCalendarEmail: "editor@gmail.com",
+    });
+  });
+
+  it("does not report stale Google Calendar connections when OAuth is unavailable", async () => {
+    const { app, cookie, db } = await setup();
+    db.prepare(
+      `
+        INSERT INTO google_calendar_connections (
+          user_id,
+          google_email,
+          access_token,
+          refresh_token,
+          token_expires_at,
+          scope
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `,
+    ).run(
+      1,
+      "editor@gmail.com",
+      "access-token",
+      "refresh-token",
+      new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      "https://www.googleapis.com/auth/calendar.readonly",
+    );
+
+    const response = await request(app).get("/api/me/preferences").set("Cookie", cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      workCalendarUrl: null,
+      googleCalendarConfigured: false,
+      googleCalendarConnected: false,
+      googleCalendarEmail: null,
+    });
+  });
+
+  it("saves a valid calendar shortcut URL", async () => {
     const { app, cookie } = await setup();
 
     const response = await request(app)
@@ -75,7 +146,7 @@ describe("user preferences", () => {
     expect(saved.body.workCalendarUrl).toBe("https://calendar.google.com/calendar/u/0/r/week");
   });
 
-  it("clears the work calendar URL", async () => {
+  it("clears the calendar shortcut URL", async () => {
     const { app, cookie } = await setup();
     await request(app)
       .put("/api/me/preferences")
@@ -91,7 +162,7 @@ describe("user preferences", () => {
     expect(response.body.workCalendarUrl).toBeNull();
   });
 
-  it("rejects malformed and non-web work calendar URLs without changing the saved value", async () => {
+  it("rejects malformed and non-web calendar shortcut URLs without changing the saved value", async () => {
     const { app, cookie } = await setup();
     await request(app)
       .put("/api/me/preferences")
@@ -110,7 +181,7 @@ describe("user preferences", () => {
     expect(saved.body.workCalendarUrl).toBe("https://calendar.example.com/team");
   });
 
-  it("keeps work calendar URLs isolated by signed-in user", async () => {
+  it("keeps calendar shortcut URLs isolated by signed-in user", async () => {
     const { app, cookie: editorCookie } = await setup();
     const viewerCookie = await signupUser(app, "viewer@example.com", "Viewer");
 

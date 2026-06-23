@@ -47,9 +47,19 @@ async function expandTaskCard(publicId: string) {
   return taskCard;
 }
 
-function setupAppFetch(options: { workCalendarUrl?: string | null } = {}) {
+function setupAppFetch(
+  options: {
+    workCalendarUrl?: string | null;
+    googleCalendarConfigured?: boolean;
+    googleCalendarConnected?: boolean;
+    googleCalendarEmail?: string | null;
+  } = {},
+) {
   const people: PersonDto[] = [avery];
   let workCalendarUrl = options.workCalendarUrl ?? null;
+  let googleCalendarConnected = options.googleCalendarConnected ?? false;
+  let googleCalendarEmail = options.googleCalendarEmail ?? null;
+  const googleCalendarConfigured = options.googleCalendarConfigured ?? true;
   const tasks: TaskDto[] = [
     {
       publicId: "T099",
@@ -205,7 +215,12 @@ function setupAppFetch(options: { workCalendarUrl?: string | null } = {}) {
     }
 
     if (url.pathname === "/api/me/preferences" && method === "GET") {
-      return json({ workCalendarUrl, googleOAuthRedirectUri: null });
+      return json({
+        workCalendarUrl,
+        googleCalendarConfigured,
+        googleCalendarConnected,
+        googleCalendarEmail,
+      });
     }
 
     if (url.pathname === "/api/me/preferences" && method === "PUT") {
@@ -221,7 +236,18 @@ function setupAppFetch(options: { workCalendarUrl?: string | null } = {}) {
         }
       }
       workCalendarUrl = nextUrl || null;
-      return json({ workCalendarUrl, googleOAuthRedirectUri: null });
+      return json({
+        workCalendarUrl,
+        googleCalendarConfigured,
+        googleCalendarConnected,
+        googleCalendarEmail,
+      });
+    }
+
+    if (url.pathname === "/api/google-calendar/connection" && method === "DELETE") {
+      googleCalendarConnected = false;
+      googleCalendarEmail = null;
+      return json(null, 204);
     }
 
     if (url.pathname === "/api/dashboard") {
@@ -562,64 +588,94 @@ afterEach(() => {
 });
 
 describe("dashboard and workspace flows", () => {
-  it("loads the saved work calendar shortcut", async () => {
+  it("loads the saved calendar shortcut", async () => {
     setupAppFetch({ workCalendarUrl: "https://calendar.example.com/team" });
     render(<App />);
 
-    expect(await screen.findByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Open calendar shortcut" })).toHaveAttribute(
       "href",
       "https://calendar.example.com/team",
     );
   });
 
-  it("saves and clears the work calendar from Meetings", async () => {
+  it("shows Google Calendar connect as the primary path with URL paste as a secondary option", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Google Calendar is not connected.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Connect Google Calendar" })).toHaveAttribute(
+      "href",
+      "/api/google-calendar/connect",
+    );
+    expect(screen.getByLabelText("Calendar shortcut URL")).toBeInTheDocument();
+  });
 
+  it("saves and clears the secondary calendar shortcut URL from Meetings", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(
-      await screen.findByLabelText("Work calendar URL"),
+      await screen.findByLabelText("Calendar shortcut URL"),
       "https://calendar.example.com/team",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Save calendar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
 
-    expect(await screen.findByText("Work calendar saved.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+    expect(await screen.findByText("Calendar shortcut saved.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open calendar shortcut" })).toHaveAttribute(
       "href",
       "https://calendar.example.com/team",
     );
 
-    const saveCall = vi
-      .mocked(globalThis.fetch)
-      .mock.calls.find(
-        ([input, init]) => String(input) === "/api/me/preferences" && init?.method === "PUT",
-      );
-    expect(JSON.parse(String(saveCall?.[1]?.body))).toEqual({
-      workCalendarUrl: "https://calendar.example.com/team",
-    });
+    await userEvent.click(screen.getByRole("button", { name: "Clear shortcut" }));
 
-    await userEvent.click(screen.getByRole("button", { name: "Clear calendar" }));
-
-    expect(await screen.findByText("Work calendar cleared.")).toBeInTheDocument();
+    expect(await screen.findByText("Calendar shortcut cleared.")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
     });
   });
 
-  it("shows a work calendar validation error without changing the rail", async () => {
+  it("shows a secondary shortcut validation error without changing the rail", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.type(await screen.findByLabelText("Work calendar URL"), "javascript:alert(1)");
-    await userEvent.click(screen.getByRole("button", { name: "Save calendar" }));
+    await userEvent.type(await screen.findByLabelText("Calendar shortcut URL"), "javascript:alert(1)");
+    await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
 
     expect(
       await screen.findByText("Enter a valid http or https calendar URL."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
+  });
+
+  it("disconnects a connected Google Calendar account from Meetings", async () => {
+    setupAppFetch({
+      googleCalendarConnected: true,
+      googleCalendarEmail: "editor@gmail.com",
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    expect(await screen.findByText("Connected as editor@gmail.com")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
+
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/google-calendar/connection" && init?.method === "DELETE",
+        ),
+    ).toBe(true);
+    expect(await screen.findByText("Google Calendar disconnected.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Connect Google Calendar" })).toHaveAttribute(
+      "href",
+      "/api/google-calendar/connect",
+    );
   });
 
   it("shows dashboard detail and opens global search results", async () => {

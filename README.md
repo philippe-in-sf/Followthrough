@@ -63,8 +63,8 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-GOOGLE_CALENDAR_ID=
-GOOGLE_CALENDAR_API_KEY=
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=
 ```
 
@@ -72,9 +72,9 @@ GOOGLE_OAUTH_REDIRECT_URI=
 
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
-The work calendar shortcut is configured in the Meetings screen for each signed-in user. `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
+The calendar shortcut URL is configured in the Meetings screen for each signed-in user. `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
 
-Google Calendar import uses the server-side Google Calendar API. Set `GOOGLE_CALENDAR_ID` to the calendar to search and `GOOGLE_CALENDAR_API_KEY` to an API key allowed to read that calendar. Set `GOOGLE_OAUTH_REDIRECT_URI` when the deployment needs to expose an OAuth callback URI to clients. The new meeting screen can then search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
+Google Calendar import uses OAuth. Configure the deployment once with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI`, then each signed-in user connects their own Google account from the Meetings screen. The pasted calendar shortcut remains available as a secondary option; it is not required for Google Calendar imports. Connected users can search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
 
 ## Production Run
 

@@ -57,7 +57,7 @@ export function createApp(deps: AppDependencies = {}) {
   const meetings = meetingRoutes(db, config);
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db));
-  protectedApi.use("/google-calendar", googleCalendarRoutes(config));
+  protectedApi.use("/google-calendar", googleCalendarRoutes(db, config));
   protectedApi.use("/me", preferenceRoutes(db, config));
   protectedApi.use("/meetings", meetings.meetingsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);

@@ -328,11 +328,19 @@ export function MeetingsPage({
   onMeetingFocusHandled,
   workCalendarUrl,
   onWorkCalendarUrlChange,
+  googleCalendarConfigured = false,
+  googleCalendarConnected = false,
+  googleCalendarEmail = null,
+  onGoogleCalendarConnectionChange,
 }: {
   focusMeetingPublicId?: string | null;
   onMeetingFocusHandled?: () => void;
   workCalendarUrl?: string | null;
   onWorkCalendarUrlChange?: (workCalendarUrl: string | null) => void;
+  googleCalendarConfigured?: boolean;
+  googleCalendarConnected?: boolean;
+  googleCalendarEmail?: string | null;
+  onGoogleCalendarConnectionChange?: (connected: boolean, email: string | null) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
@@ -353,6 +361,9 @@ export function MeetingsPage({
   const [workCalendarSaving, setWorkCalendarSaving] = useState(false);
   const [workCalendarError, setWorkCalendarError] = useState("");
   const [workCalendarStatus, setWorkCalendarStatus] = useState("");
+  const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
+  const [googleCalendarError, setGoogleCalendarError] = useState("");
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState("");
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
@@ -478,11 +489,13 @@ export function MeetingsPage({
       setWorkCalendarInput(preferences.workCalendarUrl ?? "");
       onWorkCalendarUrlChange?.(preferences.workCalendarUrl);
       setWorkCalendarStatus(
-        preferences.workCalendarUrl ? "Work calendar saved." : "Work calendar cleared.",
+        preferences.workCalendarUrl
+          ? "Calendar shortcut saved."
+          : "Calendar shortcut cleared.",
       );
     } catch (error) {
       setWorkCalendarError(
-        error instanceof Error ? error.message : "Work calendar could not be saved.",
+        error instanceof Error ? error.message : "Calendar shortcut could not be saved.",
       );
     } finally {
       setWorkCalendarSaving(false);
@@ -497,6 +510,23 @@ export function MeetingsPage({
   async function clearWorkCalendar() {
     setWorkCalendarInput("");
     await saveWorkCalendar(null);
+  }
+
+  async function disconnectGoogleCalendar() {
+    setGoogleCalendarDisconnecting(true);
+    setGoogleCalendarError("");
+    setGoogleCalendarStatus("");
+    try {
+      await api.googleCalendar.disconnect();
+      onGoogleCalendarConnectionChange?.(false, null);
+      setGoogleCalendarStatus("Google Calendar disconnected.");
+    } catch (error) {
+      setGoogleCalendarError(
+        error instanceof Error ? error.message : "Google Calendar could not be disconnected.",
+      );
+    } finally {
+      setGoogleCalendarDisconnecting(false);
+    }
   }
 
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
@@ -1204,7 +1234,45 @@ export function MeetingsPage({
         onSubmit={submitWorkCalendar}
       >
         <h3>Calendar settings</h3>
-        <FormField label="Work calendar URL">
+        <section className="google-calendar-connection" aria-label="Google Calendar connection">
+          <div>
+            <strong>Google Calendar</strong>
+            <span>
+              {googleCalendarConnected
+                ? `Connected as ${googleCalendarEmail ?? "Google Calendar"}`
+                : googleCalendarConfigured
+                  ? "Google Calendar is not connected."
+                  : "Google Calendar connection is not available."}
+            </span>
+          </div>
+          {googleCalendarConnected ? (
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={disconnectGoogleCalendar}
+              disabled={googleCalendarDisconnecting}
+            >
+              <Trash2 aria-hidden="true" size={17} />
+              {googleCalendarDisconnecting ? "Disconnecting" : "Disconnect Google Calendar"}
+            </button>
+          ) : googleCalendarConfigured ? (
+            <a className="primary-button icon-text-button" href="/api/google-calendar/connect">
+              <CalendarPlus aria-hidden="true" size={17} />
+              Connect Google Calendar
+            </a>
+          ) : null}
+        </section>
+        {googleCalendarError ? (
+          <p className="form-error" role="alert">
+            {googleCalendarError}
+          </p>
+        ) : null}
+        {googleCalendarStatus ? (
+          <p className="form-status" role="status">
+            {googleCalendarStatus}
+          </p>
+        ) : null}
+        <FormField label="Calendar shortcut URL">
           <input
             type="url"
             value={workCalendarInput}
@@ -1219,7 +1287,7 @@ export function MeetingsPage({
             disabled={workCalendarSaving}
           >
             <Save aria-hidden="true" size={17} />
-            {workCalendarSaving ? "Saving" : "Save calendar"}
+            {workCalendarSaving ? "Saving" : "Save shortcut"}
           </button>
           <button
             className="secondary-button icon-text-button"
@@ -1228,7 +1296,7 @@ export function MeetingsPage({
             disabled={workCalendarSaving || !workCalendarInput.trim()}
           >
             <Trash2 aria-hidden="true" size={17} />
-            Clear calendar
+            Clear shortcut
           </button>
         </div>
         {workCalendarError ? (

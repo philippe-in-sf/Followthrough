@@ -86,16 +86,16 @@ describe("AppShell split context rail", () => {
     expect(screen.getByRole("radio", { name: "Cedar" })).toBeChecked();
   });
 
-  it("omits the work calendar shortcut until it is configured", () => {
+  it("omits the calendar shortcut until it is configured", () => {
     renderShell("Dashboard", { workCalendarUrl: null });
 
-    expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
   });
 
-  it("renders the configured work calendar shortcut", () => {
+  it("renders the configured calendar shortcut", () => {
     renderShell("Dashboard", { workCalendarUrl: "https://calendar.example.com/team" });
 
-    expect(screen.getByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open calendar shortcut" })).toHaveAttribute(
       "href",
       "https://calendar.example.com/team",
     );

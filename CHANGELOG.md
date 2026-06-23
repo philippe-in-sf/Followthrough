@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.1 - 2026-06-22
+
+### Changed
+
+- Made Google Calendar import user-connectable through OAuth, with the pasted calendar URL kept as a secondary shortcut option.
+
 ## 1.1.0 - 2026-06-22
 
 ### Added

@@ -36,12 +36,12 @@ export function IconRail({
       <div className="rail-footer">
         {workCalendarUrl ? (
           <a
-            aria-label="Open work calendar"
+            aria-label="Open calendar shortcut"
             className="icon-rail-button rail-calendar-link"
             href={workCalendarUrl}
             rel="noreferrer"
             target="_blank"
-            title="Work calendar"
+            title="Calendar shortcut"
           >
             <CalendarCheck aria-hidden="true" size={20} strokeWidth={2.1} />
           </a>

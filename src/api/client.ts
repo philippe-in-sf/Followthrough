@@ -249,6 +249,8 @@ export const api = {
       request<{ events: GoogleCalendarImportEventDto[] }>(
         `/api/google-calendar/events?${new URLSearchParams({ query })}`,
       ),
+    disconnect: () =>
+      request<void>("/api/google-calendar/connection", { method: "DELETE" }),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),

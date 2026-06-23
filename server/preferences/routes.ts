@@ -4,6 +4,7 @@ import type { UserPreferencesDto } from "../../shared/types.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { badRequest } from "../errors.js";
+import { getGoogleCalendarConnectionStatus } from "../calendar/oauth.js";
 import { parseBody } from "../validation.js";
 import {
   InvalidWorkCalendarUrlError,
@@ -18,11 +19,13 @@ const preferencesSchema = z.object({
 
 function toUserPreferencesDto(
   preferences: UserPreferences,
+  db: AppDatabase,
   config: AppConfig,
 ): UserPreferencesDto {
+  const googleCalendar = getGoogleCalendarConnectionStatus(db, config, preferences.userId);
   return {
     workCalendarUrl: preferences.workCalendarUrl,
-    googleOAuthRedirectUri: config.googleOAuthRedirectUri.trim() || null,
+    ...googleCalendar,
   };
 }
 
@@ -32,7 +35,7 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
   router.get("/preferences", (req, res, next) => {
     try {
       const userId = req.user?.id ?? 0;
-      res.json(toUserPreferencesDto(getUserPreferences(db, userId), config));
+      res.json(toUserPreferencesDto(getUserPreferences(db, userId), db, config));
     } catch (error) {
       next(error);
     }
@@ -46,7 +49,7 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
         userId,
         workCalendarUrl: input.workCalendarUrl,
       });
-      res.json(toUserPreferencesDto(preferences, config));
+      res.json(toUserPreferencesDto(preferences, db, config));
     } catch (error) {
       if (error instanceof InvalidWorkCalendarUrlError) {
         next(badRequest(error.message));

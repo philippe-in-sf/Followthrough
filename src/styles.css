@@ -375,6 +375,7 @@ textarea {
   background: #2563eb;
   color: #ffffff;
   padding: 10px 14px;
+  text-decoration: none;
 }
 
 .secondary-button {
@@ -807,6 +808,7 @@ button:disabled {
 }
 
 .calendar-settings-panel h3,
+.google-calendar-connection,
 .calendar-settings-panel .form-error,
 .calendar-settings-panel .form-status {
   grid-column: 1 / -1;
@@ -814,6 +816,26 @@ button:disabled {
 
 .calendar-settings-panel h3 {
   margin: 0;
+}
+
+.google-calendar-connection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #d9dee7;
+  padding-bottom: 12px;
+}
+
+.google-calendar-connection > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.google-calendar-connection span {
+  color: #5b6475;
+  font-size: 0.88rem;
 }
 
 .calendar-settings-actions {

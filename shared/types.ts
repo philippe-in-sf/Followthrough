@@ -113,7 +113,9 @@ export type GoogleCalendarImportEventDto = {
 
 export type UserPreferencesDto = {
   workCalendarUrl: string | null;
-  googleOAuthRedirectUri: string | null;
+  googleCalendarConfigured: boolean;
+  googleCalendarConnected: boolean;
+  googleCalendarEmail: string | null;
 };
 
 export type MeetingSeriesDto = {

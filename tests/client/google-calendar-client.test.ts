@@ -21,13 +21,17 @@ describe("calendar client preferences", () => {
     globalThis.fetch = vi.fn(() =>
       json({
         workCalendarUrl: "https://calendar.example.com/team",
-        googleOAuthRedirectUri: null,
+        googleCalendarConfigured: true,
+        googleCalendarConnected: true,
+        googleCalendarEmail: "editor@gmail.com",
       }),
     ) as typeof fetch;
 
     await expect(api.preferences.get()).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
-      googleOAuthRedirectUri: null,
+      googleCalendarConfigured: true,
+      googleCalendarConnected: true,
+      googleCalendarEmail: "editor@gmail.com",
     });
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -36,11 +40,13 @@ describe("calendar client preferences", () => {
     );
   });
 
-  it("updates the work calendar URL", async () => {
+  it("updates the calendar shortcut URL", async () => {
     globalThis.fetch = vi.fn(() =>
       json({
         workCalendarUrl: "https://calendar.example.com/team",
-        googleOAuthRedirectUri: "http://localhost:3000/api/google-calendar/oauth/callback",
+        googleCalendarConfigured: true,
+        googleCalendarConnected: false,
+        googleCalendarEmail: null,
       }),
     ) as typeof fetch;
 
@@ -48,7 +54,9 @@ describe("calendar client preferences", () => {
       api.preferences.update({ workCalendarUrl: "https://calendar.example.com/team" }),
     ).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
-      googleOAuthRedirectUri: "http://localhost:3000/api/google-calendar/oauth/callback",
+      googleCalendarConfigured: true,
+      googleCalendarConnected: false,
+      googleCalendarEmail: null,
     });
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -57,6 +65,17 @@ describe("calendar client preferences", () => {
         method: "PUT",
         body: JSON.stringify({ workCalendarUrl: "https://calendar.example.com/team" }),
       }),
+    );
+  });
+
+  it("disconnects Google Calendar", async () => {
+    globalThis.fetch = vi.fn(() => json(undefined, 204)) as typeof fetch;
+
+    await expect(api.googleCalendar.disconnect()).resolves.toBeUndefined();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/google-calendar/connection",
+      expect.objectContaining({ method: "DELETE" }),
     );
   });
 });

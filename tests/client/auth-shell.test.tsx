@@ -41,7 +41,12 @@ describe("auth shell", () => {
       if (path === "/api/me/preferences") {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ workCalendarUrl: null, googleOAuthRedirectUri: null }),
+          json: async () => ({
+            workCalendarUrl: null,
+            googleCalendarConfigured: true,
+            googleCalendarConnected: false,
+            googleCalendarEmail: null,
+          }),
         } as Response);
       }
       if (path === "/api/dashboard") {
