@@ -28,16 +28,24 @@ describe("auth shell", () => {
   });
 
   it("logs in and shows the dashboard shell", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ user: null }) } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          user: { id: 1, name: "Editor", email: "editor@example.com" },
-        }),
-      } as Response)
-      .mockResolvedValueOnce({
+    let user: { id: number; name: string; email: string } | null = null;
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/auth/me") {
+        return Promise.resolve({ ok: true, json: async () => ({ user }) } as Response);
+      }
+      if (path === "/api/auth/login") {
+        user = { id: 1, name: "Editor", email: "editor@example.com" };
+        return Promise.resolve({ ok: true, json: async () => ({ user }) } as Response);
+      }
+      if (path === "/api/me/preferences") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ workCalendarUrl: null, googleOAuthRedirectUri: null }),
+        } as Response);
+      }
+      if (path === "/api/dashboard") {
+        return Promise.resolve({
         ok: true,
         json: async () => ({
           alerts: { overdue: [], dueSoon: [] },
@@ -47,7 +55,10 @@ describe("auth shell", () => {
           recentDecisions: [],
           activeSeries: [],
         }),
-      } as Response);
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
 
     render(<App />);
 

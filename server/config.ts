@@ -16,6 +16,7 @@ export type AppConfig = {
   nodeEnv: string;
   googleCalendarId: string;
   googleCalendarApiKey: string;
+  googleOAuthRedirectUri: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -37,5 +38,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: env.NODE_ENV ?? "development",
     googleCalendarId: env.GOOGLE_CALENDAR_ID ?? "",
     googleCalendarApiKey: env.GOOGLE_CALENDAR_API_KEY ?? "",
+    googleOAuthRedirectUri: env.GOOGLE_OAUTH_REDIRECT_URI ?? "",
   };
 }

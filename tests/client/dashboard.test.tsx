@@ -47,8 +47,9 @@ async function expandTaskCard(publicId: string) {
   return taskCard;
 }
 
-function setupAppFetch() {
+function setupAppFetch(options: { workCalendarUrl?: string | null } = {}) {
   const people: PersonDto[] = [avery];
+  let workCalendarUrl = options.workCalendarUrl ?? null;
   const tasks: TaskDto[] = [
     {
       publicId: "T099",
@@ -201,6 +202,26 @@ function setupAppFetch() {
 
     if (url.pathname === "/api/auth/me") {
       return json({ user: { id: 1, name: "Editor", email: "editor@example.com" } });
+    }
+
+    if (url.pathname === "/api/me/preferences" && method === "GET") {
+      return json({ workCalendarUrl, googleOAuthRedirectUri: null });
+    }
+
+    if (url.pathname === "/api/me/preferences" && method === "PUT") {
+      const nextUrl = body.workCalendarUrl === null ? null : String(body.workCalendarUrl).trim();
+      if (nextUrl) {
+        try {
+          const parsed = new URL(nextUrl);
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            return json({ error: "Enter a valid http or https calendar URL." }, 400);
+          }
+        } catch {
+          return json({ error: "Enter a valid http or https calendar URL." }, 400);
+        }
+      }
+      workCalendarUrl = nextUrl || null;
+      return json({ workCalendarUrl, googleOAuthRedirectUri: null });
     }
 
     if (url.pathname === "/api/dashboard") {
@@ -541,6 +562,66 @@ afterEach(() => {
 });
 
 describe("dashboard and workspace flows", () => {
+  it("loads the saved work calendar shortcut", async () => {
+    setupAppFetch({ workCalendarUrl: "https://calendar.example.com/team" });
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+      "href",
+      "https://calendar.example.com/team",
+    );
+  });
+
+  it("saves and clears the work calendar from Meetings", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+
+    await userEvent.type(
+      await screen.findByLabelText("Work calendar URL"),
+      "https://calendar.example.com/team",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save calendar" }));
+
+    expect(await screen.findByText("Work calendar saved.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open work calendar" })).toHaveAttribute(
+      "href",
+      "https://calendar.example.com/team",
+    );
+
+    const saveCall = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.find(
+        ([input, init]) => String(input) === "/api/me/preferences" && init?.method === "PUT",
+      );
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toEqual({
+      workCalendarUrl: "https://calendar.example.com/team",
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear calendar" }));
+
+    expect(await screen.findByText("Work calendar cleared.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows a work calendar validation error without changing the rail", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(await screen.findByLabelText("Work calendar URL"), "javascript:alert(1)");
+    await userEvent.click(screen.getByRole("button", { name: "Save calendar" }));
+
+    expect(
+      await screen.findByText("Enter a valid http or https calendar URL."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open work calendar" })).not.toBeInTheDocument();
+  });
+
   it("shows dashboard detail and opens global search results", async () => {
     setupAppFetch();
     render(<App />);

@@ -356,6 +356,11 @@ textarea {
   margin: 0;
 }
 
+.form-status {
+  color: #14532d;
+  margin: 0;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -772,6 +777,7 @@ button:disabled {
 }
 
 .editor-form-title-row,
+.calendar-settings-panel,
 .calendar-import-panel,
 .calendar-import-preview {
   grid-column: 1 / -1;
@@ -786,6 +792,34 @@ button:disabled {
 
 .editor-form-title-row h3 {
   margin: 0;
+}
+
+.calendar-settings-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 18px;
+  border: 1px solid #c8d0dc;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.calendar-settings-panel h3,
+.calendar-settings-panel .form-error,
+.calendar-settings-panel .form-status {
+  grid-column: 1 / -1;
+}
+
+.calendar-settings-panel h3 {
+  margin: 0;
+}
+
+.calendar-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .calendar-import-panel {

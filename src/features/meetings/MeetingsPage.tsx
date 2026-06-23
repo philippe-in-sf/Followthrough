@@ -1,5 +1,15 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CalendarPlus, LinkIcon, Plus, Save, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  CalendarPlus,
+  ChevronDown,
+  LinkIcon,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import type {
   AuditLogDto,
   GoogleCalendarImportEventDto,
@@ -316,9 +326,13 @@ function CheckboxGroup({
 export function MeetingsPage({
   focusMeetingPublicId,
   onMeetingFocusHandled,
+  workCalendarUrl,
+  onWorkCalendarUrlChange,
 }: {
   focusMeetingPublicId?: string | null;
   onMeetingFocusHandled?: () => void;
+  workCalendarUrl?: string | null;
+  onWorkCalendarUrlChange?: (workCalendarUrl: string | null) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
@@ -335,6 +349,10 @@ export function MeetingsPage({
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportDetails, setCalendarImportDetails] =
     useState<CalendarImportDetails | null>(null);
+  const [workCalendarInput, setWorkCalendarInput] = useState(workCalendarUrl ?? "");
+  const [workCalendarSaving, setWorkCalendarSaving] = useState(false);
+  const [workCalendarError, setWorkCalendarError] = useState("");
+  const [workCalendarStatus, setWorkCalendarStatus] = useState("");
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
@@ -444,6 +462,42 @@ export function MeetingsPage({
   useEffect(() => {
     void load();
   }, [meetingQuery]);
+
+  useEffect(() => {
+    setWorkCalendarInput(workCalendarUrl ?? "");
+  }, [workCalendarUrl]);
+
+  async function saveWorkCalendar(nextWorkCalendarUrl: string | null) {
+    setWorkCalendarSaving(true);
+    setWorkCalendarError("");
+    setWorkCalendarStatus("");
+    try {
+      const preferences = await api.preferences.update({
+        workCalendarUrl: nextWorkCalendarUrl,
+      });
+      setWorkCalendarInput(preferences.workCalendarUrl ?? "");
+      onWorkCalendarUrlChange?.(preferences.workCalendarUrl);
+      setWorkCalendarStatus(
+        preferences.workCalendarUrl ? "Work calendar saved." : "Work calendar cleared.",
+      );
+    } catch (error) {
+      setWorkCalendarError(
+        error instanceof Error ? error.message : "Work calendar could not be saved.",
+      );
+    } finally {
+      setWorkCalendarSaving(false);
+    }
+  }
+
+  async function submitWorkCalendar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveWorkCalendar(workCalendarInput);
+  }
+
+  async function clearWorkCalendar() {
+    setWorkCalendarInput("");
+    await saveWorkCalendar(null);
+  }
 
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
     const attendeeIds = new Set(selectedIds);
@@ -1144,6 +1198,50 @@ export function MeetingsPage({
           </button>
         </form>
       </div>
+      <form
+        className="calendar-settings-panel"
+        aria-label="Calendar settings"
+        onSubmit={submitWorkCalendar}
+      >
+        <h3>Calendar settings</h3>
+        <FormField label="Work calendar URL">
+          <input
+            type="url"
+            value={workCalendarInput}
+            onChange={(event) => setWorkCalendarInput(event.target.value)}
+            placeholder="https://calendar.example.com/team"
+          />
+        </FormField>
+        <div className="calendar-settings-actions">
+          <button
+            className="primary-button icon-text-button"
+            type="submit"
+            disabled={workCalendarSaving}
+          >
+            <Save aria-hidden="true" size={17} />
+            {workCalendarSaving ? "Saving" : "Save calendar"}
+          </button>
+          <button
+            className="secondary-button icon-text-button"
+            type="button"
+            onClick={clearWorkCalendar}
+            disabled={workCalendarSaving || !workCalendarInput.trim()}
+          >
+            <Trash2 aria-hidden="true" size={17} />
+            Clear calendar
+          </button>
+        </div>
+        {workCalendarError ? (
+          <p className="form-error" role="alert">
+            {workCalendarError}
+          </p>
+        ) : null}
+        {workCalendarStatus ? (
+          <p className="form-status" role="status">
+            {workCalendarStatus}
+          </p>
+        ) : null}
+      </form>
       <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <div className="editor-form-title-row">
           <h3>Add meeting</h3>
@@ -1362,57 +1460,155 @@ export function MeetingsPage({
                 <span className="lane-count">{countLabel(lane.meetings.length, "meeting")}</span>
               </header>
               <div className="record-list">
-                {lane.meetings.map((meeting) => (
+                {lane.meetings.map((meeting) => {
+                  const isExpanded = Boolean(expandedMeetingPublicIds[meeting.publicId]);
+                  const detailsId = `meeting-details-${meeting.publicId}`;
+                  const meetingSummaryText = singleLineText(meeting.title, "Untitled meeting");
+
+                  return (
             <article
               aria-label={`Meeting ${meeting.publicId}`}
               className="meeting-card record-card-meeting"
               id={`meeting-${meeting.publicId}`}
               key={meeting.publicId}
             >
-              <div className="record-row meeting-row">
-                <div>
-                  <strong>
-                    <LinkedText text={meeting.title} />
-                  </strong>
+              <button
+                aria-controls={detailsId}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${meeting.publicId} ${meetingSummaryText}`}
+                className="meeting-summary-button"
+                type="button"
+                onClick={() => toggleMeeting(meeting.publicId)}
+              >
+                <span className="meeting-summary-title">
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`meeting-expand-icon ${isExpanded ? "meeting-expand-icon-open" : ""}`}
+                    size={17}
+                  />
+                  <strong>{meetingSummaryText}</strong>
                   <span>{meeting.publicId}</span>
-                </div>
-                <StatusBadge label={meeting.meetingType} />
-                {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                <span>{new Date(meeting.startsAt).toLocaleString()}</span>
-                <span>{meeting.summary ? <LinkedText text={meeting.summary} /> : "No summary"}</span>
-                <span>
-                  {meeting.attendees.length > 0
-                    ? meeting.attendees.map((attendee) => attendee.name).join(", ")
-                    : "No attendees"}
                 </span>
-                <div className="task-links">
-                  {meeting.tasks.length === 0 ? (
-                    <span>No tasks</span>
-                  ) : (
-                    meeting.tasks.map((task) => (
-                      <span key={task.publicId}>
-                        <strong>{task.publicId}</strong> <LinkedText text={task.description} />
-                      </span>
-                    ))
-                  )}
-                </div>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => openMeetingNotes(meeting)}
-                  aria-label={`Open notes for ${meeting.publicId}`}
-                >
-                  Notes
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => editMeeting(meeting)}
-                  aria-label={`Edit details for ${meeting.publicId}`}
-                >
-                  Edit details
-                </button>
-              </div>
+                <span className="meeting-summary-meta">
+                  <StatusBadge label={meeting.meetingType} />
+                  {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                  {meeting.archived ? <StatusBadge label="Archived" /> : null}
+                  {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                  {hasClearedBlockers(meeting) ? (
+                    <StatusBadge label="Blocker cleared" tone="good" />
+                  ) : null}
+                  <span className="meeting-summary-date">
+                    {new Date(meeting.startsAt).toLocaleString()}
+                  </span>
+                  <span className="meeting-summary-counts">
+                    {countLabel(meeting.tasks.length, "task")}
+                  </span>
+                  <span className="meeting-summary-text">
+                    {singleLineText(meeting.summary, "No summary")}
+                  </span>
+                </span>
+              </button>
+              {isExpanded ? (
+                <div className="meeting-expanded-content" id={detailsId}>
+                  <div className="meeting-detail-grid">
+                    <section className="meeting-detail-section">
+                      <h4>Summary</h4>
+                      <p>
+                        <LinkedText text={meeting.summary || "No summary"} />
+                      </p>
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Blockers</h4>
+                      <p>
+                        <LinkedText text={meeting.blockers || "No blockers"} />
+                      </p>
+                      {meeting.blockersClearedAt ? (
+                        <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
+                      ) : null}
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Attendees</h4>
+                      <p>{attendeeSummary(meeting)}</p>
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Tasks</h4>
+                      {meeting.tasks.length === 0 ? (
+                        <p className="meeting-empty-detail">No tasks</p>
+                      ) : (
+                        <div className="task-links">
+                          {meeting.tasks.map((task) => (
+                            <span key={task.publicId}>
+                              <strong>{task.publicId}</strong>{" "}
+                              <LinkedText text={task.description} />
+                              {hasActiveBlockers(task) ? (
+                                <StatusBadge label="Blocker" tone="bad" />
+                              ) : null}
+                              {hasClearedBlockers(task) ? (
+                                <StatusBadge label="Blocker cleared" tone="good" />
+                              ) : null}
+                              {hasActiveBlockers(task) ? (
+                                <small className="task-link-notes">
+                                  <LinkedText text={task.blockers} />
+                                </small>
+                              ) : null}
+                              {(task.notes ?? "").trim() ? (
+                                <small className="task-link-notes">
+                                  <LinkedText text={task.notes} />
+                                </small>
+                              ) : null}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                    <section className="meeting-detail-section">
+                      <h4>Links</h4>
+                      {meeting.links.length === 0 ? (
+                        <p className="meeting-empty-detail">No links</p>
+                      ) : (
+                        <div className="meeting-link-list">
+                          {meeting.links.map((link) => (
+                            <a href={link.url} key={link.id} rel="noreferrer" target="_blank">
+                              <LinkIcon aria-hidden="true" size={16} />
+                              <span>{link.label}</span>
+                              <small>{linkTypeLabel(link.linkType)}</small>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                  <div className="meeting-card-actions">
+                    {meeting.archived ? (
+                      <button
+                        className="secondary-button icon-text-button"
+                        type="button"
+                        onClick={() => restoreMeeting(meeting)}
+                      >
+                        <RotateCcw aria-hidden="true" size={16} />
+                        Restore meeting {meeting.publicId}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => openMeetingNotes(meeting)}
+                          aria-label={`Open notes for ${meeting.publicId}`}
+                        >
+                          Notes
+                        </button>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => editMeeting(meeting)}
+                          aria-label={`Edit details for ${meeting.publicId}`}
+                        >
+                          Edit details
+                        </button>
+                      </>
+                    )}
+                  </div>
               {editingMeetingPublicId === meeting.publicId ? (
                 <form
                   className="meeting-edit-form"

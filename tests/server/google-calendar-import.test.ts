@@ -24,6 +24,7 @@ const baseConfig: AppConfig = {
   nodeEnv: "test",
   googleCalendarId: "",
   googleCalendarApiKey: "",
+  googleOAuthRedirectUri: "",
 };
 
 async function setup(config: Partial<AppConfig> = {}) {
