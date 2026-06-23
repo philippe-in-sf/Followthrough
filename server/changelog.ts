@@ -72,6 +72,7 @@ export function renderChangelogHtml(markdown: string, version: string) {
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-MW7M9JGM');</script>
     <!-- End Google Tag Manager -->
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="1b43ed9f-c702-40a9-9db4-ad20277b7a12" data-blockingmode="auto" type="text/javascript"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Followthrough changelog</title>

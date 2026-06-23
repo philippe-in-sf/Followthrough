@@ -23,6 +23,12 @@ describe("document shell", () => {
       html.indexOf('<meta charset="UTF-8" />'),
     );
     expect(html).toContain("GTM-MW7M9JGM");
+    expect(html).toContain('id="Cookiebot"');
+    expect(html).toContain("https://consent.cookiebot.com/uc.js");
+    expect(html).toContain("1b43ed9f-c702-40a9-9db4-ad20277b7a12");
+    expect(html.indexOf('id="Cookiebot"')).toBeLessThan(
+      html.indexOf('<meta charset="UTF-8" />'),
+    );
     expect(html.indexOf("<!-- Google Tag Manager (noscript) -->")).toBeGreaterThan(
       html.indexOf("<body>"),
     );

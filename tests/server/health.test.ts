@@ -42,5 +42,7 @@ describe("public status endpoints", () => {
     expect(page.text).toContain("googletagmanager.com/gtm.js?id='+i+dl");
     expect(page.text).toContain("GTM-MW7M9JGM");
     expect(page.text).toContain("googletagmanager.com/ns.html?id=GTM-MW7M9JGM");
+    expect(page.text).toContain("https://consent.cookiebot.com/uc.js");
+    expect(page.text).toContain("1b43ed9f-c702-40a9-9db4-ad20277b7a12");
   });
 });
