@@ -2,6 +2,7 @@ import express from "express";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
 import { googleCalendarRoutes } from "./calendar/routes.js";
+import { readChangelog, renderChangelogHtml } from "./changelog.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import { dashboardRoutes } from "./dashboard/routes.js";
 import { decisionRoutes } from "./decisions/routes.js";
