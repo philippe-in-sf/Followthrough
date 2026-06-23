@@ -19,4 +19,15 @@ describe("skin contrast styles", () => {
       ".app-shell[data-skin] .meeting-summary-title > span:last-child,\n.app-shell[data-skin] .meeting-summary-date,\n.app-shell[data-skin] .meeting-summary-counts,\n.app-shell[data-skin] .task-summary-title > span:last-child,\n.app-shell[data-skin] .task-summary-meta > span:not(.status-badge)",
     );
   });
+
+  it("keeps Google Calendar panels dark and readable inside skins", () => {
+    const css = styles();
+
+    expect(css).toContain(
+      ".app-shell[data-skin] .calendar-settings-panel,\n.app-shell[data-skin] .calendar-import-panel,\n.app-shell[data-skin] .calendar-import-preview",
+    );
+    expect(css).toContain(".app-shell[data-skin] .google-calendar-connection");
+    expect(css).toContain("border-bottom-color: var(--skin-border)");
+  });
+
 });

@@ -2428,6 +2428,10 @@ button:disabled {
 .app-shell[data-skin] .search-results,
 .app-shell[data-skin] .summary-panel,
 .app-shell[data-skin] .empty-state,
+.app-shell[data-skin] .calendar-settings-panel,
+.app-shell[data-skin] .calendar-import-panel,
+.app-shell[data-skin] .calendar-import-preview,
+.app-shell[data-skin] .calendar-import-result,
 .app-shell[data-skin] .compact-list li,
 .app-shell[data-skin] .compact-record-button,
 .app-shell[data-skin] .editor-form,
@@ -2440,10 +2444,21 @@ button:disabled {
 .app-shell[data-skin] .person-related-list li {
   border-color: var(--skin-border);
   background: var(--skin-surface);
+  color: var(--skin-text);
 }
 
 .app-shell[data-skin] .search-results button {
   color: var(--skin-text);
+}
+
+.app-shell[data-skin] .google-calendar-connection {
+  border-bottom-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .google-calendar-connection span,
+.app-shell[data-skin] .calendar-import-result span,
+.app-shell[data-skin] .calendar-import-preview span {
+  color: var(--skin-muted);
 }
 
 .app-shell[data-skin] .meeting-summary-button,
