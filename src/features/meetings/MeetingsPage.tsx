@@ -1531,422 +1531,419 @@ export function MeetingsPage({
                 {lane.meetings.map((meeting) => {
                   const isExpanded = Boolean(expandedMeetingPublicIds[meeting.publicId]);
                   const detailsId = `meeting-details-${meeting.publicId}`;
-                  const meetingSummaryText = singleLineText(meeting.title, "Untitled meeting");
+                  const meetingTitleText = singleLineText(meeting.title, "Untitled meeting");
+                  const meetingSummaryText = singleLineText(meeting.summary, "No summary");
 
                   return (
-            <article
-              aria-label={`Meeting ${meeting.publicId}`}
-              className="meeting-card record-card-meeting"
-              id={`meeting-${meeting.publicId}`}
-              key={meeting.publicId}
-            >
-              <button
-                aria-controls={detailsId}
-                aria-expanded={isExpanded}
-                aria-label={`${isExpanded ? "Collapse" : "Expand"} meeting ${meeting.publicId} ${meetingSummaryText}`}
-                className="meeting-summary-button"
-                type="button"
-                onClick={() => toggleMeeting(meeting.publicId)}
-              >
-                <span className="meeting-summary-title">
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`meeting-expand-icon ${isExpanded ? "meeting-expand-icon-open" : ""}`}
-                    size={17}
-                  />
-                  <strong>{meetingSummaryText}</strong>
-                  <span>{meeting.publicId}</span>
-                </span>
-                <span className="meeting-summary-meta">
-                  <StatusBadge label={meeting.meetingType} />
-                  {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                  {meeting.archived ? <StatusBadge label="Archived" /> : null}
-                  {hasActiveBlockers(meeting) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                  {hasClearedBlockers(meeting) ? (
-                    <StatusBadge label="Blocker cleared" tone="good" />
-                  ) : null}
-                  <span className="meeting-summary-date">
-                    {new Date(meeting.startsAt).toLocaleString()}
-                  </span>
-                  <span className="meeting-summary-counts">
-                    {countLabel(meeting.tasks.length, "task")}
-                  </span>
-                  <span className="meeting-summary-text">
-                    {singleLineText(meeting.summary, "No summary")}
-                  </span>
-                </span>
-              </button>
-              {isExpanded ? (
-                <div className="meeting-expanded-content" id={detailsId}>
-                  <div className="meeting-detail-grid">
-                    <section className="meeting-detail-section">
-                      <h4>Summary</h4>
-                      <p>
-                        <LinkedText text={meeting.summary || "No summary"} />
-                      </p>
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Blockers</h4>
-                      <p>
-                        <LinkedText text={meeting.blockers || "No blockers"} />
-                      </p>
-                      {meeting.blockersClearedAt ? (
-                        <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
-                      ) : null}
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Attendees</h4>
-                      <p>{attendeeSummary(meeting)}</p>
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Tasks</h4>
-                      {meeting.tasks.length === 0 ? (
-                        <p className="meeting-empty-detail">No tasks</p>
-                      ) : (
-                        <div className="task-links">
-                          {meeting.tasks.map((task) => (
-                            <span key={task.publicId}>
-                              <strong>{task.publicId}</strong>{" "}
-                              <LinkedText text={task.description} />
-                              {hasActiveBlockers(task) ? (
-                                <StatusBadge label="Blocker" tone="bad" />
-                              ) : null}
-                              {hasClearedBlockers(task) ? (
-                                <StatusBadge label="Blocker cleared" tone="good" />
-                              ) : null}
-                              {hasActiveBlockers(task) ? (
-                                <small className="task-link-notes">
-                                  <LinkedText text={task.blockers} />
-                                </small>
-                              ) : null}
-                              {(task.notes ?? "").trim() ? (
-                                <small className="task-link-notes">
-                                  <LinkedText text={task.notes} />
-                                </small>
-                              ) : null}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                    <section className="meeting-detail-section">
-                      <h4>Links</h4>
-                      {meeting.links.length === 0 ? (
-                        <p className="meeting-empty-detail">No links</p>
-                      ) : (
-                        <div className="meeting-link-list">
-                          {meeting.links.map((link) => (
-                            <a href={link.url} key={link.id} rel="noreferrer" target="_blank">
-                              <LinkIcon aria-hidden="true" size={16} />
-                              <span>{link.label}</span>
-                              <small>{linkTypeLabel(link.linkType)}</small>
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  </div>
-                  <div className="meeting-card-actions">
-                    {meeting.archived ? (
+                    <article
+                      aria-label={`Meeting ${meeting.publicId}`}
+                      className="meeting-card record-card-meeting"
+                      id={`meeting-${meeting.publicId}`}
+                      key={meeting.publicId}
+                    >
                       <button
-                        className="secondary-button icon-text-button"
+                        aria-controls={detailsId}
+                        aria-expanded={isExpanded}
+                        aria-label={`${
+                          isExpanded ? "Collapse" : "Expand"
+                        } meeting ${meeting.publicId} ${meetingTitleText}`}
+                        className="meeting-summary-button"
                         type="button"
-                        onClick={() => restoreMeeting(meeting)}
+                        onClick={() => toggleMeeting(meeting.publicId)}
                       >
-                        <RotateCcw aria-hidden="true" size={16} />
-                        Restore meeting {meeting.publicId}
+                        <span className="meeting-summary-title">
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`meeting-expand-icon ${
+                              isExpanded ? "meeting-expand-icon-open" : ""
+                            }`}
+                            size={17}
+                          />
+                          <strong>{meetingTitleText}</strong>
+                          <span>{meeting.publicId}</span>
+                        </span>
+                        <span className="meeting-summary-meta">
+                          <StatusBadge label={meeting.meetingType} />
+                          {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                          {meeting.archived ? <StatusBadge label="Archived" /> : null}
+                          {hasActiveBlockers(meeting) ? (
+                            <StatusBadge label="Blocker" tone="bad" />
+                          ) : null}
+                          {hasClearedBlockers(meeting) ? (
+                            <StatusBadge label="Blocker cleared" tone="good" />
+                          ) : null}
+                          <span className="meeting-summary-date">
+                            {new Date(meeting.startsAt).toLocaleString()}
+                          </span>
+                          <span className="meeting-summary-counts">
+                            {countLabel(meeting.attendees.length, "attendee")}
+                          </span>
+                          <span className="meeting-summary-counts">
+                            {countLabel(meeting.tasks.length, "task")}
+                          </span>
+                          <span className="meeting-summary-text">{meetingSummaryText}</span>
+                        </span>
                       </button>
-                    ) : (
-                      <>
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={() => openMeetingNotes(meeting)}
-                          aria-label={`Open notes for ${meeting.publicId}`}
-                        >
-                          Notes
-                        </button>
-                        <button
-                          className="secondary-button"
-                          type="button"
-                          onClick={() => editMeeting(meeting)}
-                          aria-label={`Edit details for ${meeting.publicId}`}
-                        >
-                          Edit details
-                        </button>
-                      </>
-                    )}
-                  </div>
-              {editingMeetingPublicId === meeting.publicId ? (
-                <form
-                  className="meeting-edit-form"
-                  onSubmit={(event) => submitMeetingEdit(event, meeting)}
-                >
-                  <h3>Edit details for {meeting.publicId}</h3>
-                  <FormField label={`Meeting title for ${meeting.publicId}`}>
-                    <input
-                      value={meetingEditForm.title}
-                      onChange={(event) =>
-                        setMeetingEditForm({ ...meetingEditForm, title: event.target.value })
-                      }
-                      required
-                    />
-                  </FormField>
-                  <FormField label={`Meeting start for ${meeting.publicId}`}>
-                    <input
-                      type="datetime-local"
-                      value={meetingEditForm.startsAt}
-                      onChange={(event) =>
-                        setMeetingEditForm({ ...meetingEditForm, startsAt: event.target.value })
-                      }
-                      required
-                    />
-                  </FormField>
-                  <FormField label={`Meeting type for ${meeting.publicId}`}>
-                    <select
-                      value={meetingEditForm.meetingType}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          meetingType: event.target.value as MeetingType,
-                          seriesPublicId:
-                            event.target.value === "single" ? "" : meetingEditForm.seriesPublicId,
-                        })
-                      }
-                    >
-                      <option value="single">Single</option>
-                      <option value="recurring">Recurring</option>
-                    </select>
-                  </FormField>
-                  <FormField label={`Meeting series for ${meeting.publicId}`}>
-                    <select
-                      value={meetingEditForm.seriesPublicId}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          seriesPublicId: event.target.value,
-                        })
-                      }
-                      required={meetingEditForm.meetingType === "recurring"}
-                      disabled={meetingEditForm.meetingType === "single"}
-                    >
-                      <option value="">No series</option>
-                      {series.map((item) => (
-                        <option key={item.publicId} value={item.publicId}>
-                          {collapseLinks(item.title)}
-                        </option>
-                      ))}
-                    </select>
-                  </FormField>
-                  <FormField label={`Meeting summary for ${meeting.publicId}`}>
-                    <textarea
-                      value={meetingEditForm.summary}
-                      onChange={(event) =>
-                        setMeetingEditForm({ ...meetingEditForm, summary: event.target.value })
-                      }
-                    />
-                  </FormField>
-                  <FormField label={`Meeting blockers for ${meeting.publicId}`}>
-                    <textarea
-                      value={meetingEditForm.blockers}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          blockers: event.target.value,
-                          blockersCleared: event.target.value.trim()
-                            ? meetingEditForm.blockersCleared
-                            : false,
-                        })
-                      }
-                    />
-                  </FormField>
-                  <CheckboxGroup
-                    legend={`Existing attendees for ${meeting.publicId}`}
-                    options={people.map((person) => ({
-                      publicId: person.publicId,
-                      label: person.name,
-                    }))}
-                    selected={meetingEditForm.attendeePublicIds}
-                    onChange={(attendeePublicIds) =>
-                      setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
-                    }
-                  />
-                  <FormField label={`New attendee names for ${meeting.publicId}`}>
-                    <input
-                      value={meetingEditForm.attendeeNames}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          attendeeNames: event.target.value,
-                        })
-                      }
-                      placeholder="Morgan, Taylor"
-                    />
-                  </FormField>
-                  <CheckboxGroup
-                    legend={`Meeting tasks for ${meeting.publicId}`}
-                    options={tasks.map((task) => ({
-                      publicId: task.publicId,
-                      label: taskOptionLabel(task),
-                    }))}
-                    selected={meetingEditForm.taskPublicIds}
-                    onChange={(taskPublicIds) =>
-                      setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
-                    }
-                  />
-                  <label className="checkbox-line">
-                    <input
-                      type="checkbox"
-                      checked={meetingEditForm.private}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          private: event.target.checked,
-                        })
-                      }
-                    />
-                    <span>Private</span>
-                  </label>
-                  <label className="checkbox-line">
-                    <input
-                      type="checkbox"
-                      checked={meetingEditForm.blockersCleared}
-                      disabled={!meetingEditForm.blockers.trim()}
-                      onChange={(event) =>
-                        setMeetingEditForm({
-                          ...meetingEditForm,
-                          blockersCleared: event.target.checked,
-                        })
-                      }
-                    />
-                    <span>Blocker cleared</span>
-                  </label>
-                  <div className="form-actions">
-                    <button className="primary-button" type="submit">
-                      Save meeting {meeting.publicId}
-                    </button>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => {
-                        setEditingMeetingPublicId(null);
-                        setMeetingEditForm(emptyMeetingForm);
-                      }}
-                    >
-                      Cancel edit {meeting.publicId}
-                    </button>
-                    <button
-                      className="danger-button icon-text-button"
-                      type="button"
-                      onClick={() => archiveMeeting(meeting)}
-                    >
-                      <Archive aria-hidden="true" size={16} />
-                      Archive meeting {meeting.publicId}
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-              {!meeting.archived ? (
-              <form className="meeting-task-form" onSubmit={(event) => submitMeetingTask(event, meeting)}>
-                <h3>Add task to {meeting.publicId}</h3>
-                <FormField label={`New task description for ${meeting.publicId}`}>
-                  <input
-                    value={getMeetingTaskForm(meeting.publicId).description}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        description: event.target.value,
-                      })
-                    }
-                    required
-                  />
-                </FormField>
-                <FormField label={`New task blockers for ${meeting.publicId}`}>
-                  <textarea
-                    value={getMeetingTaskForm(meeting.publicId).blockers}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        blockers: event.target.value,
-                        blockersCleared: event.target.value.trim()
-                          ? getMeetingTaskForm(meeting.publicId).blockersCleared
-                          : false,
-                      })
-                    }
-                  />
-                </FormField>
-                <FormField label={`New task notes for ${meeting.publicId}`}>
-                  <textarea
-                    value={getMeetingTaskForm(meeting.publicId).notes}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        notes: event.target.value,
-                      })
-                    }
-                  />
-                </FormField>
-                <FormField label={`New task assignee for ${meeting.publicId}`}>
-                  <select
-                    value={getMeetingTaskForm(meeting.publicId).assigneePublicId}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        assigneePublicId: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Unassigned</option>
-                    {people.map((person) => (
-                      <option key={person.publicId} value={person.publicId}>
-                        {person.name}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label={`New task status for ${meeting.publicId}`}>
-                  <select
-                    value={getMeetingTaskForm(meeting.publicId).status}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        status: event.target.value as TaskDto["status"],
-                      })
-                    }
-                  >
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Blocked">Blocked</option>
-                    <option value="Done">Done</option>
-                  </select>
-                </FormField>
-                <FormField label={`New task due date for ${meeting.publicId}`}>
-                  <input
-                    type="date"
-                    value={getMeetingTaskForm(meeting.publicId).dueDate}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        dueDate: event.target.value,
-                      })
-                    }
-                  />
-                </FormField>
-                <label className="checkbox-line">
-                  <input
-                    type="checkbox"
-                    checked={getMeetingTaskForm(meeting.publicId).private}
-                    onChange={(event) =>
-                      updateMeetingTaskForm(meeting.publicId, {
-                        private: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>Private</span>
-                </label>
-                <button className="primary-button" type="submit">
-                  Add task to {meeting.publicId}
-                </button>
-              </form>
-              ) : null}
-              <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
-                </div>
-              ) : null}
-            </article>
+                      {isExpanded ? (
+                        <div className="meeting-expanded-content" id={detailsId}>
+                          <div className="meeting-detail-grid">
+                            <section className="meeting-detail-section">
+                              <h4>Details</h4>
+                              <p>{new Date(meeting.startsAt).toLocaleString()}</p>
+                              <p>{meeting.meetingType}</p>
+                              <div className="meeting-detail-badges">
+                                <StatusBadge label={meeting.meetingType} />
+                                {meeting.private ? (
+                                  <StatusBadge label="Private" tone="warn" />
+                                ) : null}
+                                {meeting.archived ? <StatusBadge label="Archived" /> : null}
+                              </div>
+                            </section>
+                            <section className="meeting-detail-section">
+                              <h4>Summary</h4>
+                              <p>
+                                <LinkedText text={meeting.summary || "No summary"} />
+                              </p>
+                            </section>
+                            <section className="meeting-detail-section">
+                              <h4>Blockers</h4>
+                              {hasBlockers(meeting) ? (
+                                <MeetingBlockerNote meeting={meeting} />
+                              ) : (
+                                <p className="muted meeting-empty-detail">No blockers</p>
+                              )}
+                            </section>
+                            <section className="meeting-detail-section">
+                              <h4>Attendees</h4>
+                              <p>{attendeeSummary(meeting)}</p>
+                            </section>
+                            <section className="meeting-detail-section">
+                              <h4>Tasks</h4>
+                              <MeetingTaskLinks meeting={meeting} />
+                            </section>
+                            <section className="meeting-detail-section">
+                              <h4>Links</h4>
+                              <MeetingStructuredLinks meeting={meeting} />
+                            </section>
+                          </div>
+                          <div className="meeting-card-actions">
+                            {meeting.archived ? (
+                              <button
+                                className="secondary-button icon-text-button"
+                                type="button"
+                                onClick={() => restoreMeeting(meeting)}
+                                aria-label={`Restore meeting ${meeting.publicId}`}
+                              >
+                                <RotateCcw aria-hidden="true" size={16} />
+                                Restore meeting
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  className="secondary-button"
+                                  type="button"
+                                  onClick={() => openMeetingNotes(meeting)}
+                                  aria-label={`Open notes for ${meeting.publicId}`}
+                                >
+                                  Notes
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  type="button"
+                                  onClick={() => editMeeting(meeting)}
+                                  aria-label={`Edit details for ${meeting.publicId}`}
+                                >
+                                  Edit details
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          {editingMeetingPublicId === meeting.publicId ? (
+                            <form
+                              className="meeting-edit-form"
+                              onSubmit={(event) => submitMeetingEdit(event, meeting)}
+                            >
+                              <h3>Edit details for {meeting.publicId}</h3>
+                              <FormField label={`Meeting title for ${meeting.publicId}`}>
+                                <input
+                                  value={meetingEditForm.title}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      title: event.target.value,
+                                    })
+                                  }
+                                  required
+                                />
+                              </FormField>
+                              <FormField label={`Meeting start for ${meeting.publicId}`}>
+                                <input
+                                  type="datetime-local"
+                                  value={meetingEditForm.startsAt}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      startsAt: event.target.value,
+                                    })
+                                  }
+                                  required
+                                />
+                              </FormField>
+                              <FormField label={`Meeting type for ${meeting.publicId}`}>
+                                <select
+                                  value={meetingEditForm.meetingType}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      meetingType: event.target.value as MeetingType,
+                                      seriesPublicId:
+                                        event.target.value === "single"
+                                          ? ""
+                                          : meetingEditForm.seriesPublicId,
+                                    })
+                                  }
+                                >
+                                  <option value="single">Single</option>
+                                  <option value="recurring">Recurring</option>
+                                </select>
+                              </FormField>
+                              <FormField label={`Meeting series for ${meeting.publicId}`}>
+                                <select
+                                  value={meetingEditForm.seriesPublicId}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      seriesPublicId: event.target.value,
+                                    })
+                                  }
+                                  required={meetingEditForm.meetingType === "recurring"}
+                                  disabled={meetingEditForm.meetingType === "single"}
+                                >
+                                  <option value="">No series</option>
+                                  {series.map((item) => (
+                                    <option key={item.publicId} value={item.publicId}>
+                                      {collapseLinks(item.title)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </FormField>
+                              <FormField label={`Meeting summary for ${meeting.publicId}`}>
+                                <textarea
+                                  value={meetingEditForm.summary}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      summary: event.target.value,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                              <FormField label={`Meeting blockers for ${meeting.publicId}`}>
+                                <textarea
+                                  value={meetingEditForm.blockers}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      blockers: event.target.value,
+                                      blockersCleared: event.target.value.trim()
+                                        ? meetingEditForm.blockersCleared
+                                        : false,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                              <CheckboxGroup
+                                legend={`Existing attendees for ${meeting.publicId}`}
+                                options={people.map((person) => ({
+                                  publicId: person.publicId,
+                                  label: person.name,
+                                }))}
+                                selected={meetingEditForm.attendeePublicIds}
+                                onChange={(attendeePublicIds) =>
+                                  setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
+                                }
+                              />
+                              <FormField label={`New attendee names for ${meeting.publicId}`}>
+                                <input
+                                  value={meetingEditForm.attendeeNames}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      attendeeNames: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Morgan, Taylor"
+                                />
+                              </FormField>
+                              <CheckboxGroup
+                                legend={`Meeting tasks for ${meeting.publicId}`}
+                                options={tasks.map((task) => ({
+                                  publicId: task.publicId,
+                                  label: taskOptionLabel(task),
+                                }))}
+                                selected={meetingEditForm.taskPublicIds}
+                                onChange={(taskPublicIds) =>
+                                  setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
+                                }
+                              />
+                              <label className="checkbox-line">
+                                <input
+                                  type="checkbox"
+                                  checked={meetingEditForm.private}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      private: event.target.checked,
+                                    })
+                                  }
+                                />
+                                <span>Private</span>
+                              </label>
+                              <label className="checkbox-line">
+                                <input
+                                  type="checkbox"
+                                  checked={meetingEditForm.blockersCleared}
+                                  disabled={!meetingEditForm.blockers.trim()}
+                                  onChange={(event) =>
+                                    setMeetingEditForm({
+                                      ...meetingEditForm,
+                                      blockersCleared: event.target.checked,
+                                    })
+                                  }
+                                />
+                                <span>Blocker cleared</span>
+                              </label>
+                              <div className="form-actions">
+                                <button className="primary-button" type="submit">
+                                  Save meeting {meeting.publicId}
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingMeetingPublicId(null);
+                                    setMeetingEditForm(emptyMeetingForm);
+                                  }}
+                                >
+                                  Cancel edit {meeting.publicId}
+                                </button>
+                                <button
+                                  className="danger-button icon-text-button"
+                                  type="button"
+                                  onClick={() => archiveMeeting(meeting)}
+                                >
+                                  <Archive aria-hidden="true" size={16} />
+                                  Archive meeting {meeting.publicId}
+                                </button>
+                              </div>
+                            </form>
+                          ) : null}
+                          {!meeting.archived ? (
+                            <form
+                              className="meeting-task-form"
+                              onSubmit={(event) => submitMeetingTask(event, meeting)}
+                            >
+                              <h3>Add task to {meeting.publicId}</h3>
+                              <FormField
+                                label={`New task description for ${meeting.publicId}`}
+                              >
+                                <input
+                                  value={getMeetingTaskForm(meeting.publicId).description}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      description: event.target.value,
+                                    })
+                                  }
+                                  required
+                                />
+                              </FormField>
+                              <FormField label={`New task blockers for ${meeting.publicId}`}>
+                                <textarea
+                                  value={getMeetingTaskForm(meeting.publicId).blockers}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      blockers: event.target.value,
+                                      blockersCleared: event.target.value.trim()
+                                        ? getMeetingTaskForm(meeting.publicId).blockersCleared
+                                        : false,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                              <FormField label={`New task notes for ${meeting.publicId}`}>
+                                <textarea
+                                  value={getMeetingTaskForm(meeting.publicId).notes}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      notes: event.target.value,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                              <FormField label={`New task assignee for ${meeting.publicId}`}>
+                                <select
+                                  value={getMeetingTaskForm(meeting.publicId).assigneePublicId}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      assigneePublicId: event.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="">Unassigned</option>
+                                  {people.map((person) => (
+                                    <option key={person.publicId} value={person.publicId}>
+                                      {person.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </FormField>
+                              <FormField label={`New task status for ${meeting.publicId}`}>
+                                <select
+                                  value={getMeetingTaskForm(meeting.publicId).status}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      status: event.target.value as TaskDto["status"],
+                                    })
+                                  }
+                                >
+                                  <option value="Open">Open</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Blocked">Blocked</option>
+                                  <option value="Done">Done</option>
+                                </select>
+                              </FormField>
+                              <FormField label={`New task due date for ${meeting.publicId}`}>
+                                <input
+                                  type="date"
+                                  value={getMeetingTaskForm(meeting.publicId).dueDate}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      dueDate: event.target.value,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                              <label className="checkbox-line">
+                                <input
+                                  type="checkbox"
+                                  checked={getMeetingTaskForm(meeting.publicId).private}
+                                  onChange={(event) =>
+                                    updateMeetingTaskForm(meeting.publicId, {
+                                      private: event.target.checked,
+                                    })
+                                  }
+                                />
+                                <span>Private</span>
+                              </label>
+                              <button className="primary-button" type="submit">
+                                Add task to {meeting.publicId}
+                              </button>
+                            </form>
+                          ) : null}
+                          <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
+                        </div>
+                      ) : null}
+                    </article>
                   );
                 })}
               </div>

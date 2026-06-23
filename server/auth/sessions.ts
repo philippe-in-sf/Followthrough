@@ -9,6 +9,10 @@ export type AuthUser = {
   email: string;
 };
 
+type SessionUserRow = AuthUser & {
+  expiresAt: string;
+};
+
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -63,14 +67,23 @@ export function getSessionUser(
 
   const row = db
     .prepare(
-      `SELECT users.id, users.name, users.email
+      `SELECT users.id, users.name, users.email, sessions.expires_at AS expiresAt
        FROM sessions
        JOIN users ON users.id = sessions.user_id
-       WHERE sessions.token_hash = ? AND datetime(sessions.expires_at) > datetime('now')`,
+       WHERE sessions.token_hash = ?`,
     )
-    .get(hashToken(token)) as AuthUser | undefined;
+    .get(hashToken(token)) as SessionUserRow | undefined;
 
-  return row ?? null;
+  if (!row) return null;
+
+  const expiresAt = Date.parse(row.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+  };
 }
 
 export function destroySession(

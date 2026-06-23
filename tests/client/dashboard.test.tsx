@@ -846,6 +846,55 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Adopt weekly review")).toBeInTheDocument();
   });
 
+  it("keeps task filters collapsed until expanded", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    await screen.findByText("Prep launch plan");
+
+    const main = within(screen.getByRole("main"));
+    expect(main.getByRole("button", { name: "Show task filters" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(main.getByText("All assignees, statuses, and due dates")).toBeInTheDocument();
+    expect(main.queryByLabelText("Filter assignee")).not.toBeInTheDocument();
+
+    await userEvent.click(main.getByRole("button", { name: "Show task filters" }));
+    expect(main.getByRole("button", { name: "Hide task filters" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    await userEvent.selectOptions(main.getByLabelText("Filter assignee"), "P001");
+    await userEvent.selectOptions(main.getByLabelText("Filter status"), "Open");
+    await userEvent.selectOptions(main.getByLabelText("Filter alert"), "overdue");
+
+    expect(await main.findByText("Assignee: Avery")).toBeInTheDocument();
+    expect(main.getByText("Status: Open")).toBeInTheDocument();
+    expect(main.getByText("Due date: Overdue")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const fetchedFilteredTasks = vi.mocked(globalThis.fetch).mock.calls.some(([input]) => {
+        const url = new URL(String(input), "http://task-manager.test");
+        return (
+          url.pathname === "/api/tasks" &&
+          url.searchParams.get("assigneePublicId") === "P001" &&
+          url.searchParams.get("status") === "Open" &&
+          url.searchParams.get("alert") === "overdue"
+        );
+      });
+      expect(fetchedFilteredTasks).toBe(true);
+    });
+
+    await userEvent.click(main.getByRole("button", { name: "Clear task filters" }));
+    expect(await main.findByText("All assignees, statuses, and due dates")).toBeInTheDocument();
+    expect(main.getByLabelText("Filter assignee")).toHaveValue("");
+    expect(main.getByLabelText("Filter status")).toHaveValue("");
+    expect(main.getByLabelText("Filter alert")).toHaveValue("");
+  });
+
   it("archives and restores tasks and meetings from detail views only", async () => {
     setupAppFetch();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
