@@ -45,4 +45,19 @@ describe("public status endpoints", () => {
     expect(page.text).toContain("https://consent.cookiebot.com/uc.js");
     expect(page.text).toContain("1b43ed9f-c702-40a9-9db4-ad20277b7a12");
   });
+
+  it("serves the privacy policy publicly", async () => {
+    const app = createApp();
+    const page = await request(app).get("/privacy");
+
+    expect(page.status).toBe(200);
+    expect(page.text).toContain("Followthrough privacy policy");
+    expect(page.text).toContain("PRIVACY NOTICE");
+    expect(page.text).toContain("Followthrough, LLC");
+    expect(page.text).toContain("privacy@philippe-tasks.net");
+    expect(page.text).toContain("googletagmanager.com/gtm.js?id='+i+dl");
+    expect(page.text).toContain("GTM-MW7M9JGM");
+    expect(page.text).toContain("https://consent.cookiebot.com/uc.js");
+    expect(page.text).toContain("1b43ed9f-c702-40a9-9db4-ad20277b7a12");
+  });
 });

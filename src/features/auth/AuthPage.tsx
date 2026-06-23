@@ -111,6 +111,7 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
           <nav className="marketing-links" aria-label="Homepage links">
             <a href="#purpose">Purpose</a>
             <a href="#access">Sign in</a>
+            <a href="/privacy">Privacy</a>
           </nav>
         </header>
 
@@ -228,9 +229,14 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
           >
             {mode === "login" ? "Use an invite code" : "Back to sign in"}
           </button>
-          <a className="auth-changelog-link" href="/changelog">
-            View changelog
-          </a>
+          <div className="auth-legal-links">
+            <a className="auth-changelog-link" href="/changelog">
+              View changelog
+            </a>
+            <a className="auth-changelog-link" href="/privacy">
+              Privacy policy
+            </a>
+          </div>
         </section>
       </section>
     </main>

@@ -103,6 +103,10 @@ describe("AppShell split context rail", () => {
       "href",
       "/changelog",
     );
+    expect(screen.getByRole("link", { name: "Open privacy policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
   });
 
   it("switches sections from the icon rail", async () => {
@@ -152,6 +156,10 @@ describe("AppShell split context rail", () => {
     expect(screen.getByRole("link", { name: "Open changelog" })).toHaveAttribute(
       "href",
       "/changelog",
+    );
+    expect(screen.getByRole("link", { name: "Open privacy policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
     );
     expect(screen.getByLabelText("Version 1.0.1")).toBeInTheDocument();
   });

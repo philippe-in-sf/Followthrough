@@ -1,4 +1,4 @@
-import { CalendarCheck, ScrollText } from "lucide-react";
+import { CalendarCheck, ScrollText, ShieldCheck } from "lucide-react";
 import { BrandMark } from "./BrandMark";
 import { sectionOrder, type AppSection } from "./shellNavigation";
 
@@ -53,6 +53,14 @@ export function IconRail({
           title="Changelog"
         >
           <ScrollText aria-hidden="true" size={20} strokeWidth={2.1} />
+        </a>
+        <a
+          aria-label="Open privacy policy"
+          className="icon-rail-button rail-calendar-link"
+          href="/privacy"
+          title="Privacy policy"
+        >
+          <ShieldCheck aria-hidden="true" size={20} strokeWidth={2.1} />
         </a>
         <p className="rail-version" aria-label={`Version ${version}`}>
           <span className="rail-version-label">Version </span>

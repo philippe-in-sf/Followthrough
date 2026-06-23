@@ -719,10 +719,16 @@ textarea {
   min-height: 42px;
 }
 
+.auth-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 14px;
+}
+
 .auth-changelog-link {
   display: flex;
   width: fit-content;
-  margin-top: 14px;
   color: #2563eb;
   font-size: 0.9rem;
   font-weight: 700;

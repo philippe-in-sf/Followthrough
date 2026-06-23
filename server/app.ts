@@ -13,6 +13,7 @@ import { HttpError } from "./errors.js";
 import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
+import { readPrivacyPolicyHtml, renderPrivacyPolicyHtml } from "./privacyPolicy.js";
 import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
@@ -48,6 +49,10 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.get("/changelog", (_req, res) => {
     res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
+  });
+
+  app.get("/privacy", (_req, res) => {
+    res.type("html").send(renderPrivacyPolicyHtml(readPrivacyPolicyHtml()));
   });
 
   app.use("/api/auth", authRoutes(db, config));

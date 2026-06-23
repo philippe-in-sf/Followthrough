@@ -25,6 +25,10 @@ describe("auth shell", () => {
       "href",
       "/changelog",
     );
+    expect(screen.getByRole("link", { name: "Privacy policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
   });
 
   it("logs in and shows the dashboard shell", async () => {
@@ -80,6 +84,10 @@ describe("auth shell", () => {
     expect(screen.getByRole("link", { name: "Open changelog" })).toHaveAttribute(
       "href",
       "/changelog",
+    );
+    expect(screen.getByRole("link", { name: "Open privacy policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
     );
   });
 });

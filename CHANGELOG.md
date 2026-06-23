@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.6 - 2026-06-23
+
+### Added
+
+- Added a public privacy policy page linked from signed-out and authenticated shells.
+
 ## 1.1.5 - 2026-06-23
 
 ### Added
