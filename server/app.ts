@@ -12,6 +12,7 @@ import { createEmailSender, type EmailSender } from "./email/mailer.js";
 import { HttpError } from "./errors.js";
 import { meetingRoutes } from "./meetings/routes.js";
 import { peopleRoutes } from "./people/routes.js";
+import { preferenceRoutes } from "./preferences/routes.js";
 import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
@@ -56,7 +57,8 @@ export function createApp(deps: AppDependencies = {}) {
   const meetings = meetingRoutes(db, config);
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db));
-  protectedApi.use("/google-calendar", googleCalendarRoutes(config));
+  protectedApi.use("/google-calendar", googleCalendarRoutes(db, config));
+  protectedApi.use("/me", preferenceRoutes(db, config));
   protectedApi.use("/meetings", meetings.meetingsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/people", peopleRoutes(db));

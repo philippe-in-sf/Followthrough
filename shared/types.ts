@@ -111,6 +111,13 @@ export type GoogleCalendarImportEventDto = {
   }>;
 };
 
+export type UserPreferencesDto = {
+  workCalendarUrl: string | null;
+  googleCalendarConfigured: boolean;
+  googleCalendarConnected: boolean;
+  googleCalendarEmail: string | null;
+};
+
 export type MeetingSeriesDto = {
   publicId: string;
   title: string;

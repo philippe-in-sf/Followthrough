@@ -10,7 +10,7 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
-## 1.0.31 - 2026-06-23
+## 1.1.3 - 2026-06-23
 
 ### Added
 
@@ -21,6 +21,24 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Restored collapsed meeting cards after the branch rebase so meeting details expand on demand again.
 - Made session expiry checks use the application clock instead of SQLite wall-clock time.
 - Stabilized Vitest browser storage setup for app-shell tests.
+
+## 1.1.2 - 2026-06-22
+
+### Fixed
+
+- Fixed Google Calendar settings and import panel contrast inside app skins so dark themes no longer show light panels with low-contrast text.
+
+## 1.1.1 - 2026-06-22
+
+### Changed
+
+- Made Google Calendar import user-connectable through OAuth, with the pasted calendar URL kept as a secondary shortcut option.
+
+## 1.1.0 - 2026-06-22
+
+### Added
+
+- Added two light skins — **Daylight** (cool blue-gray) and **Parchment** (warm amber) — so the skin selector now offers a mix of dark and light themes.
 
 ## 1.0.30 - 2026-06-21
 

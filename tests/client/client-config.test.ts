@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { loadClientConfig } from "../../src/clientConfig";
 
 describe("client config", () => {
-  it("leaves the work calendar shortcut disabled by default", () => {
+  it("leaves the calendar shortcut disabled by default", () => {
     expect(loadClientConfig({}).workCalendarUrl).toBeNull();
   });
 
-  it("uses a configured http or https work calendar URL", () => {
+  it("uses a configured http or https calendar shortcut URL", () => {
     expect(loadClientConfig({ VITE_WORK_CALENDAR_URL: " https://calendar.example.com/team " }).workCalendarUrl).toBe(
       "https://calendar.example.com/team",
     );
@@ -15,7 +15,7 @@ describe("client config", () => {
     );
   });
 
-  it("rejects malformed or non-web work calendar URLs", () => {
+  it("rejects malformed or non-web calendar shortcut URLs", () => {
     expect(loadClientConfig({ VITE_WORK_CALENDAR_URL: "calendar.example.com/team" }).workCalendarUrl).toBeNull();
     expect(loadClientConfig({ VITE_WORK_CALENDAR_URL: "javascript:alert(1)" }).workCalendarUrl).toBeNull();
   });

@@ -326,9 +326,21 @@ function CheckboxGroup({
 export function MeetingsPage({
   focusMeetingPublicId,
   onMeetingFocusHandled,
+  workCalendarUrl,
+  onWorkCalendarUrlChange,
+  googleCalendarConfigured = false,
+  googleCalendarConnected = false,
+  googleCalendarEmail = null,
+  onGoogleCalendarConnectionChange,
 }: {
   focusMeetingPublicId?: string | null;
   onMeetingFocusHandled?: () => void;
+  workCalendarUrl?: string | null;
+  onWorkCalendarUrlChange?: (workCalendarUrl: string | null) => void;
+  googleCalendarConfigured?: boolean;
+  googleCalendarConnected?: boolean;
+  googleCalendarEmail?: string | null;
+  onGoogleCalendarConnectionChange?: (connected: boolean, email: string | null) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
@@ -345,6 +357,13 @@ export function MeetingsPage({
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportDetails, setCalendarImportDetails] =
     useState<CalendarImportDetails | null>(null);
+  const [workCalendarInput, setWorkCalendarInput] = useState(workCalendarUrl ?? "");
+  const [workCalendarSaving, setWorkCalendarSaving] = useState(false);
+  const [workCalendarError, setWorkCalendarError] = useState("");
+  const [workCalendarStatus, setWorkCalendarStatus] = useState("");
+  const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
+  const [googleCalendarError, setGoogleCalendarError] = useState("");
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState("");
   const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
   const [occurrenceForm, setOccurrenceForm] =
     useState<OccurrenceFormState>(emptyOccurrenceForm);
@@ -454,6 +473,61 @@ export function MeetingsPage({
   useEffect(() => {
     void load();
   }, [meetingQuery]);
+
+  useEffect(() => {
+    setWorkCalendarInput(workCalendarUrl ?? "");
+  }, [workCalendarUrl]);
+
+  async function saveWorkCalendar(nextWorkCalendarUrl: string | null) {
+    setWorkCalendarSaving(true);
+    setWorkCalendarError("");
+    setWorkCalendarStatus("");
+    try {
+      const preferences = await api.preferences.update({
+        workCalendarUrl: nextWorkCalendarUrl,
+      });
+      setWorkCalendarInput(preferences.workCalendarUrl ?? "");
+      onWorkCalendarUrlChange?.(preferences.workCalendarUrl);
+      setWorkCalendarStatus(
+        preferences.workCalendarUrl
+          ? "Calendar shortcut saved."
+          : "Calendar shortcut cleared.",
+      );
+    } catch (error) {
+      setWorkCalendarError(
+        error instanceof Error ? error.message : "Calendar shortcut could not be saved.",
+      );
+    } finally {
+      setWorkCalendarSaving(false);
+    }
+  }
+
+  async function submitWorkCalendar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveWorkCalendar(workCalendarInput);
+  }
+
+  async function clearWorkCalendar() {
+    setWorkCalendarInput("");
+    await saveWorkCalendar(null);
+  }
+
+  async function disconnectGoogleCalendar() {
+    setGoogleCalendarDisconnecting(true);
+    setGoogleCalendarError("");
+    setGoogleCalendarStatus("");
+    try {
+      await api.googleCalendar.disconnect();
+      onGoogleCalendarConnectionChange?.(false, null);
+      setGoogleCalendarStatus("Google Calendar disconnected.");
+    } catch (error) {
+      setGoogleCalendarError(
+        error instanceof Error ? error.message : "Google Calendar could not be disconnected.",
+      );
+    } finally {
+      setGoogleCalendarDisconnecting(false);
+    }
+  }
 
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
     const attendeeIds = new Set(selectedIds);
@@ -1154,6 +1228,88 @@ export function MeetingsPage({
           </button>
         </form>
       </div>
+      <form
+        className="calendar-settings-panel"
+        aria-label="Calendar settings"
+        onSubmit={submitWorkCalendar}
+      >
+        <h3>Calendar settings</h3>
+        <section className="google-calendar-connection" aria-label="Google Calendar connection">
+          <div>
+            <strong>Google Calendar</strong>
+            <span>
+              {googleCalendarConnected
+                ? `Connected as ${googleCalendarEmail ?? "Google Calendar"}`
+                : googleCalendarConfigured
+                  ? "Google Calendar is not connected."
+                  : "Google Calendar connection is not available."}
+            </span>
+          </div>
+          {googleCalendarConnected ? (
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={disconnectGoogleCalendar}
+              disabled={googleCalendarDisconnecting}
+            >
+              <Trash2 aria-hidden="true" size={17} />
+              {googleCalendarDisconnecting ? "Disconnecting" : "Disconnect Google Calendar"}
+            </button>
+          ) : googleCalendarConfigured ? (
+            <a className="primary-button icon-text-button" href="/api/google-calendar/connect">
+              <CalendarPlus aria-hidden="true" size={17} />
+              Connect Google Calendar
+            </a>
+          ) : null}
+        </section>
+        {googleCalendarError ? (
+          <p className="form-error" role="alert">
+            {googleCalendarError}
+          </p>
+        ) : null}
+        {googleCalendarStatus ? (
+          <p className="form-status" role="status">
+            {googleCalendarStatus}
+          </p>
+        ) : null}
+        <FormField label="Calendar shortcut URL">
+          <input
+            type="url"
+            value={workCalendarInput}
+            onChange={(event) => setWorkCalendarInput(event.target.value)}
+            placeholder="https://calendar.example.com/team"
+          />
+        </FormField>
+        <div className="calendar-settings-actions">
+          <button
+            className="primary-button icon-text-button"
+            type="submit"
+            disabled={workCalendarSaving}
+          >
+            <Save aria-hidden="true" size={17} />
+            {workCalendarSaving ? "Saving" : "Save shortcut"}
+          </button>
+          <button
+            className="secondary-button icon-text-button"
+            type="button"
+            onClick={clearWorkCalendar}
+            disabled={workCalendarSaving || !workCalendarInput.trim()}
+          >
+            <Trash2 aria-hidden="true" size={17} />
+            Clear shortcut
+          </button>
+        </div>
+        {workCalendarError ? (
+          <p className="form-error" role="alert">
+            {workCalendarError}
+          </p>
+        ) : null}
+        {workCalendarStatus ? (
+          <p className="form-status" role="status">
+            {workCalendarStatus}
+          </p>
+        ) : null}
+      </form>
       <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <div className="editor-form-title-row">
           <h3>Add meeting</h3>

@@ -764,6 +764,11 @@ textarea {
   margin: 0;
 }
 
+.form-status {
+  color: #14532d;
+  margin: 0;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -778,6 +783,7 @@ textarea {
   background: #2563eb;
   color: #ffffff;
   padding: 10px 14px;
+  text-decoration: none;
 }
 
 .secondary-button {
@@ -1271,6 +1277,7 @@ button:disabled {
 }
 
 .editor-form-title-row,
+.calendar-settings-panel,
 .calendar-import-panel,
 .calendar-import-preview {
   grid-column: 1 / -1;
@@ -1285,6 +1292,55 @@ button:disabled {
 
 .editor-form-title-row h3 {
   margin: 0;
+}
+
+.calendar-settings-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 18px;
+  border: 1px solid #c8d0dc;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.calendar-settings-panel h3,
+.google-calendar-connection,
+.calendar-settings-panel .form-error,
+.calendar-settings-panel .form-status {
+  grid-column: 1 / -1;
+}
+
+.calendar-settings-panel h3 {
+  margin: 0;
+}
+
+.google-calendar-connection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #d9dee7;
+  padding-bottom: 12px;
+}
+
+.google-calendar-connection > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.google-calendar-connection span {
+  color: #5b6475;
+  font-size: 0.88rem;
+}
+
+.calendar-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .calendar-import-panel {
@@ -2864,6 +2920,54 @@ button:disabled {
   --skin-shadow: rgba(0, 0, 0, 0.36);
 }
 
+.app-shell[data-skin="daylight"] {
+  --skin-bg: #f0f4f8;
+  --skin-surface: #ffffff;
+  --skin-surface-alt: #e4ecf4;
+  --skin-surface-raised: #dde5ee;
+  --skin-border: #c5d0dc;
+  --skin-field-border: #a8b8c8;
+  --skin-text: #1a2535;
+  --skin-muted: #526070;
+  --skin-rail-bg: #1a2535;
+  --skin-rail-text: #f0f4f8;
+  --skin-rail-muted: #7a9ab0;
+  --skin-rail-icon: #9ab8cc;
+  --skin-rail-active-bg: #2d4a6a;
+  --skin-rail-active-text: #ffffff;
+  --skin-accent: #2563eb;
+  --skin-accent-soft: #dbeafe;
+  --skin-action: #2563eb;
+  --skin-action-text: #ffffff;
+  --skin-secondary-bg: #e8eef4;
+  --skin-focus: #2563eb;
+  --skin-shadow: rgba(0, 0, 0, 0.10);
+}
+
+.app-shell[data-skin="parchment"] {
+  --skin-bg: #faf7f2;
+  --skin-surface: #ffffff;
+  --skin-surface-alt: #f4efe6;
+  --skin-surface-raised: #ede5d8;
+  --skin-border: #d5c8b5;
+  --skin-field-border: #bfaf99;
+  --skin-text: #2a1f10;
+  --skin-muted: #6b5a42;
+  --skin-rail-bg: #2a1f10;
+  --skin-rail-text: #faf7f2;
+  --skin-rail-muted: #9a8570;
+  --skin-rail-icon: #b8a590;
+  --skin-rail-active-bg: #5c3d1e;
+  --skin-rail-active-text: #faf7f2;
+  --skin-accent: #d97706;
+  --skin-accent-soft: #fef3c7;
+  --skin-action: #d97706;
+  --skin-action-text: #ffffff;
+  --skin-secondary-bg: #f0e8d8;
+  --skin-focus: #d97706;
+  --skin-shadow: rgba(0, 0, 0, 0.10);
+}
+
 .app-shell[data-skin] .icon-rail {
   background: var(--skin-rail-bg);
   color: var(--skin-rail-text);
@@ -2988,6 +3092,10 @@ button:disabled {
 .app-shell[data-skin] .search-results,
 .app-shell[data-skin] .summary-panel,
 .app-shell[data-skin] .empty-state,
+.app-shell[data-skin] .calendar-settings-panel,
+.app-shell[data-skin] .calendar-import-panel,
+.app-shell[data-skin] .calendar-import-preview,
+.app-shell[data-skin] .calendar-import-result,
 .app-shell[data-skin] .compact-list li,
 .app-shell[data-skin] .compact-record-button,
 .app-shell[data-skin] .editor-form,
@@ -3000,10 +3108,21 @@ button:disabled {
 .app-shell[data-skin] .person-related-list li {
   border-color: var(--skin-border);
   background: var(--skin-surface);
+  color: var(--skin-text);
 }
 
 .app-shell[data-skin] .search-results button {
   color: var(--skin-text);
+}
+
+.app-shell[data-skin] .google-calendar-connection {
+  border-bottom-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .google-calendar-connection span,
+.app-shell[data-skin] .calendar-import-result span,
+.app-shell[data-skin] .calendar-import-preview span {
+  color: var(--skin-muted);
 }
 
 .app-shell[data-skin] .meeting-summary-button,

@@ -13,6 +13,7 @@ import type {
   TaskDto,
   TaskReminderMode,
   TaskStatus,
+  UserPreferencesDto,
 } from "../../shared/types";
 import type { User } from "./types";
 
@@ -171,6 +172,14 @@ export const api = {
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
   search: (query: string) =>
     request<{ results: SearchResult[] }>(`/api/search?${new URLSearchParams({ q: query })}`),
+  preferences: {
+    get: () => request<UserPreferencesDto>("/api/me/preferences"),
+    update: (body: { workCalendarUrl: string | null }) =>
+      request<UserPreferencesDto>("/api/me/preferences", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+  },
   people: {
     list: () => request<{ people: PersonDto[] }>("/api/people"),
     create: (body: { name: string; email?: string }) =>
@@ -240,6 +249,8 @@ export const api = {
       request<{ events: GoogleCalendarImportEventDto[] }>(
         `/api/google-calendar/events?${new URLSearchParams({ query })}`,
       ),
+    disconnect: () =>
+      request<void>("/api/google-calendar/connection", { method: "DELETE" }),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),
