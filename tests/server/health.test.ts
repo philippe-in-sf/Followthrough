@@ -39,5 +39,8 @@ describe("public status endpoints", () => {
     expect(page.status).toBe(200);
     expect(page.text).toContain("Followthrough changelog");
     expect(page.text).toContain(`Current deployed package version: ${packageVersion()}`);
+    expect(page.text).toContain("googletagmanager.com/gtm.js?id='+i+dl");
+    expect(page.text).toContain("GTM-MW7M9JGM");
+    expect(page.text).toContain("googletagmanager.com/ns.html?id=GTM-MW7M9JGM");
   });
 });
