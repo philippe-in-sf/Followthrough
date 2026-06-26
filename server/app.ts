@@ -17,6 +17,7 @@ import { preferenceRoutes } from "./preferences/routes.js";
 import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
+import { waitlistRoutes } from "./waitlist/routes.js";
 
 export type AppDependencies = {
   db?: AppDatabase;
@@ -52,6 +53,7 @@ export function createApp(deps: AppDependencies = {}) {
   });
 
   app.use("/api/auth", authRoutes(db, config));
+  app.use("/api/waitlist", waitlistRoutes(db));
 
   const protectedApi = express.Router();
   protectedApi.use(requireAuth(db, config));

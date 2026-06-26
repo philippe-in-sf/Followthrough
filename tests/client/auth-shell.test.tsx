@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("auth shell", () => {
-  it("shows login when there is no current user", async () => {
+  it("shows compact access panels when there is no current user", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ user: null }),
@@ -21,11 +21,55 @@ describe("auth shell", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View changelog" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Account access" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "Join the waiting list" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByText(/Followthrough is currently in private beta/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Join the waiting list/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Email$/i)).not.toBeVisible();
+    expect(screen.getByLabelText(/email address/i)).not.toBeVisible();
+    expect(screen.getByRole("link", { name: "Changelog" })).toHaveAttribute(
       "href",
       "/changelog",
     );
+  });
+
+  it("submits a public beta waitlist request", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/auth/me") {
+        return Promise.resolve({ ok: true, json: async () => ({ user: null }) } as Response);
+      }
+      if (path === "/api/waitlist") {
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true }) } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Join the waiting list" }));
+    const waitlist = screen.getByRole("region", { name: "Join the waiting list" });
+    await userEvent.type(within(waitlist).getByLabelText(/your name/i), "Morgan Lee");
+    await userEvent.type(within(waitlist).getByLabelText(/email address/i), "morgan@example.com");
+    await userEvent.click(within(waitlist).getByRole("button", { name: /Join waiting list/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/waitlist",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ name: "Morgan Lee", email: "morgan@example.com" }),
+        }),
+      ),
+    );
+    expect(await within(waitlist).findByText(/You're on the waiting list/i)).toBeInTheDocument();
   });
 
   it("logs in and shows the dashboard shell", async () => {
@@ -79,9 +123,12 @@ describe("auth shell", () => {
 
     render(<App />);
 
-    await userEvent.type(await screen.findByLabelText(/email/i), "editor@example.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "long-enough-password");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    await userEvent.click(await screen.findByRole("button", { name: "Account access" }));
+    const authPanel = screen.getByRole("region", { name: "Account access" });
+    expect(within(authPanel).queryByRole("link", { name: "Changelog" })).not.toBeInTheDocument();
+    await userEvent.type(within(authPanel).getByLabelText(/^Email$/i), "editor@example.com");
+    await userEvent.type(within(authPanel).getByLabelText(/password/i), "long-enough-password");
+    await userEvent.click(within(authPanel).getByRole("button", { name: /sign in/i }));
 
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "Primary sections" })).toBeInTheDocument(),

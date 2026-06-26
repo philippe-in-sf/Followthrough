@@ -172,6 +172,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  waitlist: (body: { name: string; email: string }) =>
+    request<{ ok: true }>("/api/waitlist", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
   search: (query: string) =>

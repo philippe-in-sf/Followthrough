@@ -57,4 +57,10 @@ describe("skin contrast styles", () => {
     expect(css).toContain("border-bottom-color: var(--skin-border)");
   });
 
+  it("keeps marketing eyebrow labels readable on light homepage sections", () => {
+    const css = styles();
+
+    expect(css).toContain(".marketing-eyebrow {\n  margin: 0 0 12px;\n  color: #0f766e;");
+    expect(css).toContain(".marketing-hero .marketing-eyebrow {\n  color: #facc15;");
+  });
 });

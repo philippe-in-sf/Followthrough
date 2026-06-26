@@ -117,6 +117,18 @@ describe("database migrations", () => {
     });
   });
 
+  it("creates the public waitlist table", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+
+    const row = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get("waitlist_signups");
+
+    expect(row).toEqual({ name: "waitlist_signups" });
+  });
+
   it("backfills existing users and shared records into the default team", () => {
     const db = createTestDatabase();
     dbs.push(db);

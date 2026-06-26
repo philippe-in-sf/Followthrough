@@ -10,6 +10,19 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.11 - 2026-06-26
+
+### Added
+
+- Added public private-beta waitlist signup from the signed-out homepage.
+- Added storage for waitlist names and normalized email addresses.
+
+### Changed
+
+- Collapsed account access and waitlist forms into compact expandable panels.
+- Moved the changelog link into a simple signed-out footer.
+- Improved signed-out homepage label contrast on light sections.
+
 ## 1.1.10 - 2026-06-26
 
 ### Fixed

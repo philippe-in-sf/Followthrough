@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BellRing,
   CalendarCheck,
+  ChevronDown,
   ListChecks,
   Search,
   UsersRound,
@@ -15,7 +16,18 @@ import { FormField } from "../../components/FormField";
 
 export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [openAccessPanel, setOpenAccessPanel] = useState<"account" | "waitlist" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  const [waitlistStatus, setWaitlistStatus] = useState<string | null>(null);
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+
+  const accountPanelOpen = openAccessPanel === "account";
+  const waitlistPanelOpen = openAccessPanel === "waitlist";
+
+  function toggleAccessPanel(panel: "account" | "waitlist") {
+    setOpenAccessPanel((current) => (current === panel ? null : panel));
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +50,28 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
       onAuth(result.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
+    }
+  }
+
+  async function submitWaitlist(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setWaitlistError(null);
+    setWaitlistStatus(null);
+    setWaitlistSubmitting(true);
+
+    try {
+      await api.waitlist({
+        name: String(form.get("waitlistName")),
+        email: String(form.get("waitlistEmail")),
+      });
+      formElement.reset();
+      setWaitlistStatus("You're on the waiting list. We'll follow up when access opens.");
+    } catch (err) {
+      setWaitlistError(err instanceof Error ? err.message : "Unable to join the waiting list");
+    } finally {
+      setWaitlistSubmitting(false);
     }
   }
 
@@ -110,6 +144,7 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
           </a>
           <nav className="marketing-links" aria-label="Homepage links">
             <a href="#purpose">Purpose</a>
+            <a href="#waitlist">Waitlist</a>
             <a href="#access">Sign in</a>
           </nav>
         </header>
@@ -183,56 +218,126 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
       </section>
 
       <section className="marketing-access" id="access" aria-labelledby="access-heading">
-        <div className="marketing-access-copy">
-          <p className="marketing-eyebrow">Workspace access</p>
-          <h2 id="access-heading">Enter your workspace or join with an invite code.</h2>
-          <p>
-            Followthrough is private by default. Create an account only when someone on the team has shared an invite code
-            with you.
-          </p>
+        <div className="marketing-access-details">
+          <div className="marketing-access-copy">
+            <p className="marketing-eyebrow">Workspace access</p>
+            <h2 id="access-heading">Enter your workspace or join with an invite code.</h2>
+            <p>
+              Followthrough is currently in private beta. Existing workspaces can sign in or create accounts with an
+              invite code; everyone else can add their name and email to the waiting list.
+            </p>
+          </div>
         </div>
-        <section className="auth-panel" aria-label="Account access">
-          <h2>{mode === "login" ? "Sign in" : "Create account"}</h2>
-          <form onSubmit={submit} className="stack">
-            {mode === "signup" ? (
-              <FormField label="Name">
-                <input name="name" autoComplete="name" required />
-              </FormField>
-            ) : null}
-            <FormField label="Email">
-              <input name="email" type="email" autoComplete="email" required />
-            </FormField>
-            <FormField label="Password">
-              <input
-                name="password"
-                type="password"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                required
-              />
-            </FormField>
-            {mode === "signup" ? (
-              <FormField label="Invite code">
-                <input name="inviteCode" required />
-              </FormField>
-            ) : null}
-            {error ? <p className="form-error">{error}</p> : null}
-            <button className="primary-button auth-submit-button" type="submit">
-              <span>{mode === "login" ? "Sign in" : "Create account"}</span>
-              <ArrowRight aria-hidden="true" size={18} />
-            </button>
-          </form>
-          <button
-            className="link-button"
-            type="button"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+        <div className="marketing-access-panels">
+          <section
+            className={`auth-panel access-panel${accountPanelOpen ? " is-open" : ""}`}
+            id="account-access"
+            aria-labelledby="account-access-heading"
           >
-            {mode === "login" ? "Use an invite code" : "Back to sign in"}
-          </button>
-          <a className="auth-changelog-link" href="/changelog">
-            View changelog
-          </a>
-        </section>
+            <h2 className="access-panel-heading">
+              <button
+                id="account-access-heading"
+                className="access-panel-toggle"
+                type="button"
+                aria-expanded={accountPanelOpen}
+                aria-controls="account-access-body"
+                onClick={() => toggleAccessPanel("account")}
+              >
+                <span>Account access</span>
+                <ChevronDown className="access-panel-chevron" aria-hidden="true" size={20} />
+              </button>
+            </h2>
+            <div id="account-access-body" className="access-panel-body" hidden={!accountPanelOpen}>
+              <form onSubmit={submit} className="stack">
+                {mode === "signup" ? (
+                  <FormField label="Name">
+                    <input name="name" autoComplete="name" required />
+                  </FormField>
+                ) : null}
+                <FormField label="Email">
+                  <input name="email" type="email" autoComplete="email" required />
+                </FormField>
+                <FormField label="Password">
+                  <input
+                    name="password"
+                    type="password"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    required
+                  />
+                </FormField>
+                {mode === "signup" ? (
+                  <FormField label="Invite code">
+                    <input name="inviteCode" required />
+                  </FormField>
+                ) : null}
+                {error ? <p className="form-error">{error}</p> : null}
+                <button className="primary-button auth-submit-button" type="submit">
+                  <span>{mode === "login" ? "Sign in" : "Create account"}</span>
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+              </form>
+              <button
+                className="link-button"
+                type="button"
+                onClick={() => setMode(mode === "login" ? "signup" : "login")}
+              >
+                {mode === "login" ? "Use an invite code" : "Back to sign in"}
+              </button>
+            </div>
+          </section>
+
+          <section
+            className={`waitlist-panel access-panel${waitlistPanelOpen ? " is-open" : ""}`}
+            id="waitlist"
+            aria-labelledby="waitlist-heading"
+          >
+            <h3 className="access-panel-heading">
+              <button
+                id="waitlist-heading"
+                className="access-panel-toggle"
+                type="button"
+                aria-expanded={waitlistPanelOpen}
+                aria-controls="waitlist-body"
+                onClick={() => toggleAccessPanel("waitlist")}
+              >
+                <span>Join the waiting list</span>
+                <ChevronDown className="access-panel-chevron" aria-hidden="true" size={20} />
+              </button>
+            </h3>
+            <div id="waitlist-body" className="access-panel-body" hidden={!waitlistPanelOpen}>
+              <p className="marketing-eyebrow">Private beta</p>
+              <p>Leave your details and we will reach out when more beta spots are available.</p>
+              <form onSubmit={submitWaitlist} className="waitlist-form">
+                <FormField label="Your name">
+                  <input name="waitlistName" autoComplete="name" required />
+                </FormField>
+                <FormField label="Email address">
+                  <input name="waitlistEmail" type="email" autoComplete="email" required />
+                </FormField>
+                {waitlistError ? <p className="form-error">{waitlistError}</p> : null}
+                {waitlistStatus ? (
+                  <p className="form-status" aria-live="polite">
+                    {waitlistStatus}
+                  </p>
+                ) : null}
+                <button
+                  className="primary-button waitlist-submit-button"
+                  type="submit"
+                  disabled={waitlistSubmitting}
+                >
+                  <span>{waitlistSubmitting ? "Joining..." : "Join waiting list"}</span>
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+              </form>
+            </div>
+          </section>
+        </div>
       </section>
+
+      <footer className="marketing-footer" aria-label="Site footer">
+        <span>Followthrough</span>
+        <a href="/changelog">Changelog</a>
+      </footer>
     </main>
   );
 }
