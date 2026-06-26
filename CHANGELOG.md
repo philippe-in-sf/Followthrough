@@ -10,6 +10,18 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.10 - 2026-06-26
+
+### Fixed
+
+- Fixed Meetings page dark-skin contrast for the archive toggle and attendee/task checkbox rows.
+
+## 1.1.9 - 2026-06-26
+
+### Fixed
+
+- Fixed Admin team settings contrast inside app skins so darker themes no longer show light configuration panels, table rows, or role selectors.
+
 ## 1.1.8 - 2026-06-26
 
 ### Added

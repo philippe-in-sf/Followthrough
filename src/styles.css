@@ -3159,6 +3159,22 @@ button:disabled {
   color: var(--skin-text);
 }
 
+.app-shell[data-skin] .record-view-toggle,
+.app-shell[data-skin] .record-view-toggle button.active {
+  border-color: var(--skin-border);
+  background: var(--skin-surface);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .record-view-toggle button {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .record-view-toggle button.active {
+  background: var(--skin-surface-alt);
+  box-shadow: 0 1px 2px var(--skin-shadow);
+}
+
 .app-shell[data-skin] .primary-button {
   background: var(--skin-action);
   color: var(--skin-action-text);
@@ -3175,7 +3191,8 @@ button:disabled {
 .app-shell[data-skin] .form-field select,
 .app-shell[data-skin] .form-field textarea,
 .app-shell[data-skin] .filter-bar select,
-.app-shell[data-skin] .global-search input {
+.app-shell[data-skin] .global-search input,
+.app-shell[data-skin] .admin-user-table select {
   border-color: var(--skin-field-border);
   background: var(--skin-surface);
   color: var(--skin-text);
@@ -3194,6 +3211,8 @@ button:disabled {
 .app-shell[data-skin] .record-lane,
 .app-shell[data-skin] .meeting-card,
 .app-shell[data-skin] .task-card,
+.app-shell[data-skin] .admin-panel,
+.app-shell[data-skin] .admin-add-user-form,
 .app-shell[data-skin] .record-row,
 .app-shell[data-skin] .series-row,
 .app-shell[data-skin] .checkbox-group,
@@ -3213,8 +3232,36 @@ button:disabled {
 
 .app-shell[data-skin] .google-calendar-connection span,
 .app-shell[data-skin] .calendar-import-result span,
-.app-shell[data-skin] .calendar-import-preview span {
+.app-shell[data-skin] .calendar-import-preview span,
+.app-shell[data-skin] .checkbox-group-summary {
   color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .checkbox-option-list,
+.app-shell[data-skin] .checkbox-group-empty {
+  border-top-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .checkbox-group label,
+.app-shell[data-skin] .checkbox-line {
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .checkbox-group label {
+  background: var(--skin-surface-alt);
+}
+
+.app-shell[data-skin] .checkbox-group label:hover {
+  background: var(--skin-surface-raised);
+}
+
+.app-shell[data-skin] .admin-user-table th {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .admin-user-table th,
+.app-shell[data-skin] .admin-user-table td {
+  border-bottom-color: var(--skin-border);
 }
 
 .app-shell[data-skin] .meeting-summary-button,
