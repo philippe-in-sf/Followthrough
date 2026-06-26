@@ -4,6 +4,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 ## Unreleased
 
+### Added
+
+- Added single-team workspaces with `admin` and `member` roles.
+- Added admin-only team settings for team name, logo, and shared calendar shortcut.
+- Added admin user management for direct user creation and role assignment, with a last-admin safeguard.
+
+### Changed
+
+- Scoped shared people, tasks, meetings, meeting series, decisions, dashboard data, and search results to the signed-in user's team.
+- Kept invite-code signup as a member-onboarding path while direct CLI user creation remains an admin fallback.
+
 ### Planned
 
 - Keep adding release notes before each package version bump and deployment.

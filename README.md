@@ -4,7 +4,9 @@ A single-server multi-user task manager for meetings, notes, tasks, standalone t
 
 ## Features
 
-- Invite-code signup and simple session login
+- Invite-code signup, direct admin user creation, and simple session login
+- Single-team workspaces with `admin` and `member` roles
+- Admin settings for team name, logo, shared calendar shortcut, users, and roles
 - Shared People list for assignees and meeting attendees
 - Meetings with date/time, attendees, summary, notes, structured links, linked tasks, and public IDs like `M001`
 - Single meetings and recurring meeting series
@@ -37,10 +39,10 @@ npm run dev
 
 Open `http://localhost:3000`, sign up with the invite code, then log in.
 
-Invite codes are the easiest way to add users: create a code once, share it, and
-let people sign themselves up. `--limit` controls how many signups can use the
-same code. `npm run user:create` is still available when you need to create a
-login directly in the configured database. Omit `--password` to generate a
+Invite codes are the easiest way to let people sign themselves up as team
+members. Admins can also add users directly from the Admin screen and choose
+`admin` or `member` for each user. `npm run user:create` remains available as a
+fallback for direct database administration. Omit `--password` to generate a
 temporary password, or pass `--password=...` to set one.
 
 ## Configuration
@@ -72,7 +74,7 @@ GOOGLE_OAUTH_REDIRECT_URI=
 
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
-The calendar shortcut URL is configured in the Meetings screen for each signed-in user. `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
+The shared calendar shortcut URL is configured by admins in the Admin screen. Per-user calendar shortcut preferences remain available as a fallback, and `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
 
 Google Calendar import uses OAuth. Configure the deployment once with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI`, then each signed-in user connects their own Google account from the Meetings screen. The pasted calendar shortcut remains available as a secondary option; it is not required for Google Calendar imports. Connected users can search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
 
@@ -194,8 +196,9 @@ Persistent site data stays under:
 
 ### Add users in production
 
-Create one invite code on the server, then tell users to choose "Use an invite
-code" on the sign-in screen:
+Admins can add users directly from the Admin screen and assign `admin` or
+`member` roles. Invite codes remain available when users should sign themselves
+up as members:
 
 ```bash
 cd /opt/web-ui-task-manager/current
@@ -203,12 +206,13 @@ sudo env DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite 
   npm run invite:create -- --code=team-start --limit=50 --label="Team access"
 ```
 
-The direct user-creation command is still available as a fallback:
+The direct user-creation command is still available as a fallback. It creates an
+admin by default; pass `--role=member` to create a member:
 
 ```bash
 cd /opt/web-ui-task-manager/current
 sudo env DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite \
-  npm run user:create -- --name="Bert Hall" --email=bhall@stackoverflow.com
+  npm run user:create -- --name="Bert Hall" --email=bhall@stackoverflow.com --role=member
 ```
 
 ### Deploy all configured sites
