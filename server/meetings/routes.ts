@@ -143,10 +143,31 @@ function getSeriesRow(db: AppDatabase, publicId: string, includeArchived = false
   return row;
 }
 
+function getTeamSeriesRow(
+  db: AppDatabase,
+  publicId: string,
+  teamId: number,
+  includeArchived = false,
+) {
+  const row = db
+    .prepare(
+      `SELECT id, public_id, title, cadence_label, active, archived_at
+       FROM meeting_series
+       WHERE public_id = ?
+       AND team_id = ?
+       ${includeArchived ? "" : "AND archived_at IS NULL"}`,
+    )
+    .get(publicId, teamId) as SeriesRow | undefined;
+
+  if (!row) throw notFound("Meeting series not found");
+  return row;
+}
+
 function getMeetingRow(
   db: AppDatabase,
   publicId: string,
   userId: number,
+  teamId: number,
   includeArchived = false,
 ) {
   const row = db
@@ -159,10 +180,11 @@ function getMeetingRow(
        FROM meetings
        LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
        WHERE meetings.public_id = ?
+       AND meetings.team_id = ?
        AND ${visibleMeetingCondition()}
        ${includeArchived ? "" : "AND meetings.archived_at IS NULL"}`,
     )
-    .get(publicId, userId) as MeetingRow | undefined;
+    .get(publicId, teamId, userId) as MeetingRow | undefined;
 
   if (!row) throw notFound("Meeting not found");
   return row;
@@ -234,18 +256,18 @@ function toMeeting(
   };
 }
 
-function resolvePeople(db: AppDatabase, publicIds: string[]) {
+function resolvePeople(db: AppDatabase, publicIds: string[], teamId: number) {
   const uniqueIds = [...new Set(publicIds)];
   return uniqueIds.map((publicId) => {
     const row = db
-      .prepare("SELECT id FROM people WHERE public_id = ? AND archived_at IS NULL")
-      .get(publicId) as { id: number } | undefined;
+      .prepare("SELECT id FROM people WHERE public_id = ? AND team_id = ? AND archived_at IS NULL")
+      .get(publicId, teamId) as { id: number } | undefined;
     if (!row) throw badRequest(`Person not found: ${publicId}`);
     return row.id;
   });
 }
 
-function resolveTasks(db: AppDatabase, publicIds: string[], userId: number) {
+function resolveTasks(db: AppDatabase, publicIds: string[], userId: number, teamId: number) {
   const uniqueIds = [...new Set(publicIds)];
   return uniqueIds.map((publicId) => {
     const row = db
@@ -253,10 +275,11 @@ function resolveTasks(db: AppDatabase, publicIds: string[], userId: number) {
         `SELECT id
          FROM tasks
          WHERE public_id = ?
+         AND team_id = ?
          AND (private = 0 OR created_by_user_id = ?)
          AND archived_at IS NULL`,
       )
-      .get(publicId, userId) as { id: number } | undefined;
+      .get(publicId, teamId, userId) as { id: number } | undefined;
     if (!row) throw badRequest(`Task not found: ${publicId}`);
     return row.id;
   });
@@ -269,9 +292,10 @@ function replaceMeetingLinks(
   taskPublicIds: string[],
   seriesId: number | null,
   userId: number,
+  teamId: number,
 ) {
   db.prepare("DELETE FROM meeting_attendees WHERE meeting_id = ?").run(meetingId);
-  for (const personId of resolvePeople(db, attendeePublicIds)) {
+  for (const personId of resolvePeople(db, attendeePublicIds, teamId)) {
     db.prepare("INSERT INTO meeting_attendees (meeting_id, person_id) VALUES (?, ?)").run(
       meetingId,
       personId,
@@ -279,7 +303,7 @@ function replaceMeetingLinks(
   }
 
   db.prepare("DELETE FROM meeting_tasks WHERE meeting_id = ?").run(meetingId);
-  for (const taskId of resolveTasks(db, taskPublicIds, userId)) {
+  for (const taskId of resolveTasks(db, taskPublicIds, userId, teamId)) {
     db.prepare("INSERT INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
       meetingId,
       taskId,
@@ -313,9 +337,12 @@ function createMeeting(
   config: AppConfig,
   input: z.infer<typeof meetingInputSchema>,
   userId: number,
+  teamId: number,
 ) {
   return withTransaction(db, () => {
-    const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
+    const series = input.seriesPublicId
+      ? getTeamSeriesRow(db, input.seriesPublicId, teamId)
+      : null;
 
     if (input.meetingType === "single" && series) {
       throw badRequest("Single meetings cannot belong to a recurring series");
@@ -342,8 +369,8 @@ function createMeeting(
     });
     db.prepare(
       `INSERT INTO meetings
-       (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       publicId,
       input.title,
@@ -356,9 +383,10 @@ function createMeeting(
       notes,
       input.private ? 1 : 0,
       userId,
+      teamId,
     );
 
-    const meetingRow = getMeetingRow(db, publicId, userId);
+    const meetingRow = getMeetingRow(db, publicId, userId, teamId);
     replaceMeetingLinks(
       db,
       meetingRow.id,
@@ -366,10 +394,11 @@ function createMeeting(
       input.taskPublicIds,
       series?.id ?? null,
       userId,
+      teamId,
     );
     replaceStructuredMeetingLinks(db, meetingRow.id, links);
 
-    const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId), userId);
+    const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);
     recordAuditEvent(db, {
       entityType: "meeting",
       entityPublicId: meeting.publicId,
@@ -387,15 +416,16 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
   const meetingsRouter = Router();
   const seriesRouter = Router();
 
-  seriesRouter.get("/", (_req, res) => {
+  seriesRouter.get("/", (req, res) => {
     const rows = db
       .prepare(
         `SELECT id, public_id, title, cadence_label, active, archived_at
          FROM meeting_series
-         WHERE archived_at IS NULL
+         WHERE team_id = ?
+         AND archived_at IS NULL
          ORDER BY title COLLATE NOCASE`,
       )
-      .all() as SeriesRow[];
+      .all(req.user?.teamId ?? 0) as SeriesRow[];
     res.json({ series: rows.map(toSeries) });
   });
 
@@ -405,11 +435,11 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
       const series = withTransaction(db, () => {
         const publicId = nextPublicId(db, "S");
         db.prepare(
-          `INSERT INTO meeting_series (public_id, title, cadence_label, active)
-           VALUES (?, ?, ?, ?)`,
-        ).run(publicId, input.title, input.cadenceLabel || null, input.active ? 1 : 0);
+          `INSERT INTO meeting_series (public_id, title, cadence_label, active, team_id)
+           VALUES (?, ?, ?, ?, ?)`,
+        ).run(publicId, input.title, input.cadenceLabel || null, input.active ? 1 : 0, req.user?.teamId ?? 0);
 
-        return getSeriesRow(db, publicId);
+        return getTeamSeriesRow(db, publicId, req.user?.teamId ?? 0);
       });
 
       res.status(201).json({ series: toSeries(series) });
@@ -420,7 +450,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   seriesRouter.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ series: toSeries(getSeriesRow(db, req.params.publicId)) });
+      res.json({ series: toSeries(getTeamSeriesRow(db, req.params.publicId, req.user?.teamId ?? 0)) });
     } catch (error) {
       next(error);
     }
@@ -433,12 +463,12 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         .prepare(
           `UPDATE meeting_series
            SET title = ?, cadence_label = ?, active = ?, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
         )
-        .run(input.title, input.cadenceLabel || null, input.active ? 1 : 0, req.params.publicId);
+        .run(input.title, input.cadenceLabel || null, input.active ? 1 : 0, req.params.publicId, req.user?.teamId ?? 0);
 
       if (result.changes === 0) throw notFound("Meeting series not found");
-      res.json({ series: toSeries(getSeriesRow(db, req.params.publicId)) });
+      res.json({ series: toSeries(getTeamSeriesRow(db, req.params.publicId, req.user?.teamId ?? 0)) });
     } catch (error) {
       next(error);
     }
@@ -450,9 +480,9 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         .prepare(
           `UPDATE meeting_series
            SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
         )
-        .run(req.params.publicId);
+        .run(req.params.publicId, req.user?.teamId ?? 0);
 
       if (result.changes === 0) throw notFound("Meeting series not found");
       res.status(204).end();
@@ -465,7 +495,8 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const input = parseBody(req, occurrenceSchema);
       const meeting = withTransaction(db, () => {
-        const series = getSeriesRow(db, req.params.publicId);
+        const teamId = req.user?.teamId ?? 0;
+        const series = getTeamSeriesRow(db, req.params.publicId, teamId);
         if (series.active !== 1) throw badRequest("Meeting series is inactive");
 
         const userId = req.user?.id ?? 0;
@@ -485,8 +516,8 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         });
         db.prepare(
           `INSERT INTO meetings
-           (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id)
-           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, ?, ?, ?)`,
+           (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
+           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           publicId,
           input.title || series.title,
@@ -498,13 +529,14 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           notes,
           input.private ? 1 : 0,
           userId,
+          teamId,
         );
 
-        const row = getMeetingRow(db, publicId, userId);
-        replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id, userId);
+        const row = getMeetingRow(db, publicId, userId, teamId);
+        replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id, userId, teamId);
         replaceStructuredMeetingLinks(db, row.id, links);
         linkOpenSeriesTasksToMeeting(db, series.id, row.id, userId);
-        const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId), userId);
+        const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);
         recordAuditEvent(db, {
           entityType: "meeting",
           entityPublicId: meeting.publicId,
@@ -538,10 +570,11 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
          FROM meetings
          LEFT JOIN meeting_series ON meeting_series.id = meetings.series_id
          WHERE ${archiveCondition}
+         AND meetings.team_id = ?
          AND ${visibleMeetingCondition()}
          ORDER BY meetings.starts_at DESC`,
       )
-      .all(userId) as MeetingRow[];
+      .all(req.user?.teamId ?? 0, userId) as MeetingRow[];
 
     res.json({ meetings: rows.map((row) => toMeeting(db, config, row, userId)) });
   });
@@ -549,7 +582,9 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
   meetingsRouter.post("/", (req, res, next) => {
     try {
       const input = parseBody(req, meetingInputSchema);
-      res.status(201).json({ meeting: createMeeting(db, config, input, req.user?.id ?? 0) });
+      res.status(201).json({
+        meeting: createMeeting(db, config, input, req.user?.id ?? 0, req.user?.teamId ?? 0),
+      });
     } catch (error) {
       next(error);
     }
@@ -557,7 +592,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
 
   meetingsRouter.get("/:publicId/audit", (req, res, next) => {
     try {
-      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0, true);
+      getMeetingRow(db, req.params.publicId, req.user?.id ?? 0, req.user?.teamId ?? 0, true);
       res.json({ auditEvents: getAuditEvents(db, "meeting", req.params.publicId) });
     } catch (error) {
       next(error);
@@ -570,7 +605,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         meeting: toMeeting(
           db,
           config,
-          getMeetingRow(db, req.params.publicId, req.user?.id ?? 0),
+          getMeetingRow(db, req.params.publicId, req.user?.id ?? 0, req.user?.teamId ?? 0),
           req.user?.id ?? 0,
         ),
       });
@@ -584,12 +619,15 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
       const input = parseBody(req, meetingUpdateInputSchema);
       const meeting = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const existing = getMeetingRow(db, req.params.publicId, userId);
+        const teamId = req.user?.teamId ?? 0;
+        const existing = getMeetingRow(db, req.params.publicId, userId, teamId);
         if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
           throw badRequest("Only the creator can make this meeting private");
         }
         const before = toMeeting(db, config, existing, userId);
-        const series = input.seriesPublicId ? getSeriesRow(db, input.seriesPublicId) : null;
+        const series = input.seriesPublicId
+          ? getTeamSeriesRow(db, input.seriesPublicId, teamId)
+          : null;
 
         if (input.meetingType === "single" && series) {
           throw badRequest("Single meetings cannot belong to a recurring series");
@@ -639,10 +677,16 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.taskPublicIds,
           series?.id ?? null,
           userId,
+          teamId,
         );
         replaceStructuredMeetingLinks(db, existing.id, links);
 
-        const updated = toMeeting(db, config, getMeetingRow(db, req.params.publicId, userId), userId);
+        const updated = toMeeting(
+          db,
+          config,
+          getMeetingRow(db, req.params.publicId, userId, teamId),
+          userId,
+        );
         recordAuditEvent(db, {
           entityType: "meeting",
           entityPublicId: updated.publicId,
@@ -665,17 +709,18 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     try {
       withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const existing = getMeetingRow(db, req.params.publicId, userId);
+        const existing = getMeetingRow(db, req.params.publicId, userId, req.user?.teamId ?? 0);
         const before = toMeeting(db, config, existing, userId);
         const result = db
           .prepare(
             `UPDATE meetings
              SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ?
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND archived_at IS NULL`,
           )
-          .run(req.params.publicId, userId);
+          .run(req.params.publicId, req.user?.teamId ?? 0, userId);
 
         if (result.changes === 0) throw notFound("Meeting not found");
         recordAuditEvent(db, {
@@ -697,7 +742,13 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const meeting = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const existing = getMeetingRow(db, req.params.publicId, userId, true);
+        const existing = getMeetingRow(
+          db,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+          true,
+        );
         const before = toMeeting(db, config, existing, userId);
         if (!before.archived) throw badRequest("Meeting is not archived");
 
@@ -706,16 +757,17 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
             `UPDATE meetings
              SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ?
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND archived_at IS NOT NULL`,
           )
-          .run(req.params.publicId, userId);
+          .run(req.params.publicId, req.user?.teamId ?? 0, userId);
 
         if (result.changes === 0) throw notFound("Meeting not found");
         const after = toMeeting(
           db,
           config,
-          getMeetingRow(db, req.params.publicId, userId),
+          getMeetingRow(db, req.params.publicId, userId, req.user?.teamId ?? 0),
           userId,
         );
         recordAuditEvent(db, {

@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
+import type { User } from "../../src/api/types";
 import { appVersion } from "../../src/version";
 
 const originalFetch = globalThis.fetch;
@@ -28,14 +29,25 @@ describe("auth shell", () => {
   });
 
   it("logs in and shows the dashboard shell", async () => {
-    let user: { id: number; name: string; email: string } | null = null;
+    let user: User | null = null;
     globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
       const path = String(input);
       if (path === "/api/auth/me") {
         return Promise.resolve({ ok: true, json: async () => ({ user }) } as Response);
       }
       if (path === "/api/auth/login") {
-        user = { id: 1, name: "Editor", email: "editor@example.com" };
+        user = {
+          id: 1,
+          name: "Editor",
+          email: "editor@example.com",
+          role: "admin",
+          team: {
+            id: 1,
+            name: "Default Team",
+            logoUrl: null,
+            workCalendarUrl: null,
+          },
+        };
         return Promise.resolve({ ok: true, json: async () => ({ user }) } as Response);
       }
       if (path === "/api/me/preferences") {

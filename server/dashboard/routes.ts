@@ -29,6 +29,7 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
 
   router.get("/", (req, res) => {
     const userId = req.user?.id ?? 0;
+    const teamId = req.user?.teamId ?? 0;
     const taskRows = db
       .prepare(
         `SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.blockers_cleared_at,
@@ -40,11 +41,12 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
          FROM tasks
          LEFT JOIN people ON people.id = tasks.assignee_person_id
          WHERE tasks.archived_at IS NULL
+         AND tasks.team_id = ?
          AND tasks.status <> 'Done'
          AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
          ORDER BY tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
       )
-      .all(userId) as DashboardTaskRow[];
+      .all(teamId, userId) as DashboardTaskRow[];
 
     const tasks = taskRows.map((row) => ({
       publicId: row.public_id,
@@ -81,11 +83,12 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
                 blockers, blockers_cleared_at AS blockersClearedAt
          FROM meetings
          WHERE archived_at IS NULL
+         AND team_id = ?
          AND (private = 0 OR created_by_user_id = ?)
          ORDER BY starts_at DESC
          LIMIT 5`,
       )
-      .all(userId) as DashboardMeeting[];
+      .all(teamId, userId) as DashboardMeeting[];
 
     const activeBlockerMeetings = db
       .prepare(
@@ -93,13 +96,14 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
                 blockers, blockers_cleared_at AS blockersClearedAt
          FROM meetings
          WHERE archived_at IS NULL
+         AND team_id = ?
          AND TRIM(blockers) <> ''
          AND blockers_cleared_at IS NULL
          AND (private = 0 OR created_by_user_id = ?)
          ORDER BY starts_at DESC
          LIMIT 8`,
       )
-      .all(userId) as DashboardMeeting[];
+      .all(teamId, userId) as DashboardMeeting[];
 
     const recentDecisions = db
       .prepare(
@@ -107,20 +111,22 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
                 decision_date AS decisionDate
          FROM decisions
          WHERE archived_at IS NULL
+         AND team_id = ?
          ORDER BY decision_date DESC, created_at DESC
          LIMIT 5`,
       )
-      .all();
+      .all(teamId);
 
     const series = db
       .prepare(
         `SELECT public_id AS publicId, title, cadence_label AS cadenceLabel
          FROM meeting_series
-         WHERE archived_at IS NULL AND active = 1
+         WHERE team_id = ?
+         AND archived_at IS NULL AND active = 1
          ORDER BY title COLLATE NOCASE
          LIMIT 8`,
       )
-      .all();
+      .all(teamId);
 
     res.json({
       alerts: {

@@ -5,7 +5,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { appSkinStorageKey } from "../../src/appSkins";
 import { AppShell, type AppSection } from "../../src/components/AppShell";
 
-const user = { id: 1, name: "Editor", email: "editor@example.com" };
+const user = {
+  id: 1,
+  name: "Editor",
+  email: "editor@example.com",
+  role: "admin" as const,
+  team: {
+    id: 1,
+    name: "Default Team",
+    logoUrl: null,
+    workCalendarUrl: null,
+  },
+};
 
 afterEach(() => {
   localStorage.clear();

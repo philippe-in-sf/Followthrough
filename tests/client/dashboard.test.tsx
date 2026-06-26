@@ -211,7 +211,20 @@ function setupAppFetch(
     const body = init?.body ? JSON.parse(String(init.body)) : {};
 
     if (url.pathname === "/api/auth/me") {
-      return json({ user: { id: 1, name: "Editor", email: "editor@example.com" } });
+      return json({
+        user: {
+          id: 1,
+          name: "Editor",
+          email: "editor@example.com",
+          role: "admin",
+          team: {
+            id: 1,
+            name: "Default Team",
+            logoUrl: null,
+            workCalendarUrl: null,
+          },
+        },
+      });
     }
 
     if (url.pathname === "/api/me/preferences" && method === "GET") {

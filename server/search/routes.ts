@@ -15,6 +15,7 @@ export function searchRoutes(db: AppDatabase) {
 
   router.get("/", (req, res) => {
     const userId = req.user?.id ?? 0;
+    const teamId = req.user?.teamId ?? 0;
     const q = String(req.query.q ?? "").trim();
     if (!q) {
       res.json({ results: [] });
@@ -31,32 +32,38 @@ export function searchRoutes(db: AppDatabase) {
           sql: `SELECT public_id, description AS title
                 FROM tasks
                 WHERE public_id = ?
+                AND team_id = ?
                 AND archived_at IS NULL
                 AND (private = 0 OR created_by_user_id = ?)`,
-          params: [q, userId],
+          params: [q, teamId, userId],
         },
         {
           type: "meeting",
           sql: `SELECT public_id, title
                 FROM meetings
                 WHERE public_id = ?
+                AND team_id = ?
                 AND archived_at IS NULL
                 AND (private = 0 OR created_by_user_id = ?)`,
-          params: [q, userId],
+          params: [q, teamId, userId],
         },
         {
           type: "decision",
           sql: `SELECT public_id, decision_text AS title
                 FROM decisions
-                WHERE public_id = ? AND archived_at IS NULL`,
-          params: [q],
+                WHERE public_id = ?
+                AND team_id = ?
+                AND archived_at IS NULL`,
+          params: [q, teamId],
         },
         {
           type: "person",
           sql: `SELECT public_id, name AS title
                 FROM people
-                WHERE public_id = ? AND archived_at IS NULL`,
-          params: [q],
+                WHERE public_id = ?
+                AND team_id = ?
+                AND archived_at IS NULL`,
+          params: [q, teamId],
         },
       ] as const;
 
@@ -83,10 +90,11 @@ export function searchRoutes(db: AppDatabase) {
             `SELECT public_id, description AS title
              FROM tasks
              WHERE archived_at IS NULL
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND (description LIKE ? OR blockers LIKE ? OR notes LIKE ?)`,
           )
-          .all(userId, like, like, like) as Array<{ public_id: string; title: string }>
+          .all(teamId, userId, like, like, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "task" as const,
         publicId: row.public_id,
@@ -99,6 +107,7 @@ export function searchRoutes(db: AppDatabase) {
             `SELECT public_id, title
              FROM meetings
              WHERE archived_at IS NULL
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND (
                title LIKE ?
@@ -113,7 +122,7 @@ export function searchRoutes(db: AppDatabase) {
                )
              )`,
           )
-          .all(userId, like, like, like, like, like, like) as Array<{
+          .all(teamId, userId, like, like, like, like, like, like) as Array<{
           public_id: string;
           title: string;
         }>
@@ -128,9 +137,11 @@ export function searchRoutes(db: AppDatabase) {
           .prepare(
             `SELECT public_id, decision_text AS title
              FROM decisions
-             WHERE archived_at IS NULL AND (decision_text LIKE ? OR context LIKE ?)`,
+             WHERE archived_at IS NULL
+             AND team_id = ?
+             AND (decision_text LIKE ? OR context LIKE ?)`,
           )
-          .all(like, like) as Array<{ public_id: string; title: string }>
+          .all(teamId, like, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "decision" as const,
         publicId: row.public_id,
@@ -142,9 +153,11 @@ export function searchRoutes(db: AppDatabase) {
           .prepare(
             `SELECT public_id, name AS title
              FROM people
-             WHERE archived_at IS NULL AND (name LIKE ? OR email LIKE ?)`,
+             WHERE archived_at IS NULL
+             AND team_id = ?
+             AND (name LIKE ? OR email LIKE ?)`,
           )
-          .all(like, like) as Array<{ public_id: string; title: string }>
+          .all(teamId, like, like) as Array<{ public_id: string; title: string }>
       ).map((row) => ({
         type: "person" as const,
         publicId: row.public_id,
