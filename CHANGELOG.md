@@ -10,6 +10,43 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.11 - 2026-06-26
+
+### Added
+
+- Added public private-beta waitlist signup from the signed-out homepage.
+- Added storage for waitlist names and normalized email addresses.
+
+### Changed
+
+- Collapsed account access and waitlist forms into compact expandable panels.
+- Moved the changelog link into a simple signed-out footer.
+- Improved signed-out homepage label contrast on light sections.
+
+## 1.1.10 - 2026-06-26
+
+### Fixed
+
+- Fixed Meetings page dark-skin contrast for the archive toggle and attendee/task checkbox rows.
+
+## 1.1.9 - 2026-06-26
+
+### Fixed
+
+- Fixed Admin team settings contrast inside app skins so darker themes no longer show light configuration panels, table rows, or role selectors.
+
+## 1.1.8 - 2026-06-26
+
+### Added
+
+- Added a unified Add meeting flow for one-time meetings, existing recurring meetings, and new recurring meetings.
+- Added support for carrying explicitly selected task links into recurring occurrences alongside open series task carry-over.
+
+### Changed
+
+- Removed the separate Meeting series and Next occurrence creation forms from the Meetings page.
+- Kept active recurring series as a compact reference lane instead of a second scheduling workflow.
+
 ## 1.1.7 - 2026-06-26
 
 ### Added

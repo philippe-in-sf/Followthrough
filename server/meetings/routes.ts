@@ -71,6 +71,7 @@ const occurrenceSchema = z.object({
   notes: z.string().default(""),
   links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
+  taskPublicIds: z.array(publicIdSchema).default([]),
   private: z.boolean().default(false),
 });
 
@@ -533,7 +534,15 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         );
 
         const row = getMeetingRow(db, publicId, userId, teamId);
-        replaceMeetingLinks(db, row.id, input.attendeePublicIds, [], series.id, userId, teamId);
+        replaceMeetingLinks(
+          db,
+          row.id,
+          input.attendeePublicIds,
+          input.taskPublicIds,
+          series.id,
+          userId,
+          teamId,
+        );
         replaceStructuredMeetingLinks(db, row.id, links);
         linkOpenSeriesTasksToMeeting(db, series.id, row.id, userId);
         const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);

@@ -30,4 +30,37 @@ describe("skin contrast styles", () => {
     expect(css).toContain("border-bottom-color: var(--skin-border)");
   });
 
+  it("keeps meeting checkbox option rows dark and readable inside skins", () => {
+    const css = styles();
+
+    expect(css).toContain(
+      ".app-shell[data-skin] .record-view-toggle,\n.app-shell[data-skin] .record-view-toggle button.active",
+    );
+    expect(css).toContain(".app-shell[data-skin] .record-view-toggle button");
+    expect(css).toContain(
+      ".app-shell[data-skin] .checkbox-option-list,\n.app-shell[data-skin] .checkbox-group-empty",
+    );
+    expect(css).toContain(
+      ".app-shell[data-skin] .checkbox-group label,\n.app-shell[data-skin] .checkbox-line",
+    );
+    expect(css).toContain(".app-shell[data-skin] .checkbox-group label:hover");
+    expect(css).toContain("background: var(--skin-surface-alt)");
+  });
+
+  it("keeps admin configuration panels dark and readable inside skins", () => {
+    const css = styles();
+
+    expect(css).toContain(".app-shell[data-skin] .admin-panel");
+    expect(css).toContain(".app-shell[data-skin] .admin-add-user-form");
+    expect(css).toContain(".app-shell[data-skin] .admin-user-table th");
+    expect(css).toContain(".app-shell[data-skin] .admin-user-table td");
+    expect(css).toContain("border-bottom-color: var(--skin-border)");
+  });
+
+  it("keeps marketing eyebrow labels readable on light homepage sections", () => {
+    const css = styles();
+
+    expect(css).toContain(".marketing-eyebrow {\n  margin: 0 0 12px;\n  color: #0f766e;");
+    expect(css).toContain(".marketing-hero .marketing-eyebrow {\n  color: #facc15;");
+  });
 });

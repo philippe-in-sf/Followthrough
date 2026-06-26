@@ -17,7 +17,6 @@ import type {
   MeetingLinkDto,
   MeetingLinkType,
   MeetingSeriesDto,
-  MeetingType,
   PersonDto,
   TaskDto,
 } from "../../../shared/types";
@@ -34,8 +33,10 @@ type MeetingFormState = {
   publicId: string;
   title: string;
   startsAt: string;
-  meetingType: MeetingType;
-  seriesPublicId: string;
+  recurrenceMode: RecurrenceMode;
+  existingSeriesPublicId: string;
+  newSeriesTitle: string;
+  newSeriesCadenceLabel: string;
   summary: string;
   blockers: string;
   blockersCleared: boolean;
@@ -45,23 +46,7 @@ type MeetingFormState = {
   private: boolean;
 };
 
-type SeriesFormState = {
-  title: string;
-  cadenceLabel: string;
-  active: boolean;
-};
-
-type OccurrenceFormState = {
-  seriesPublicId: string;
-  startsAt: string;
-  title: string;
-  summary: string;
-  blockers: string;
-  blockersCleared: boolean;
-  attendeePublicIds: string[];
-  attendeeNames: string;
-  private: boolean;
-};
+type RecurrenceMode = "single" | "existing" | "new";
 
 type MeetingTaskFormState = {
   description: string;
@@ -100,32 +85,16 @@ const emptyMeetingForm: MeetingFormState = {
   publicId: "",
   title: "",
   startsAt: "",
-  meetingType: "single",
-  seriesPublicId: "",
+  recurrenceMode: "single",
+  existingSeriesPublicId: "",
+  newSeriesTitle: "",
+  newSeriesCadenceLabel: "",
   summary: "",
   blockers: "",
   blockersCleared: false,
   attendeePublicIds: [],
   attendeeNames: "",
   taskPublicIds: [],
-  private: false,
-};
-
-const emptySeriesForm: SeriesFormState = {
-  title: "",
-  cadenceLabel: "",
-  active: true,
-};
-
-const emptyOccurrenceForm: OccurrenceFormState = {
-  seriesPublicId: "",
-  startsAt: "",
-  title: "",
-  summary: "",
-  blockers: "",
-  blockersCleared: false,
-  attendeePublicIds: [],
-  attendeeNames: "",
   private: false,
 };
 
@@ -364,9 +333,6 @@ export function MeetingsPage({
   const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
   const [googleCalendarError, setGoogleCalendarError] = useState("");
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState("");
-  const [seriesForm, setSeriesForm] = useState<SeriesFormState>(emptySeriesForm);
-  const [occurrenceForm, setOccurrenceForm] =
-    useState<OccurrenceFormState>(emptyOccurrenceForm);
   const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
@@ -551,26 +517,18 @@ export function MeetingsPage({
     return [...attendeeIds];
   }
 
-  async function submitSeries(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await api.series.create(seriesForm);
-    setSeriesForm(emptySeriesForm);
-    await load();
-  }
-
   async function submitMeeting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const attendeePublicIds = await resolveAttendeePublicIds(
       meetingForm.attendeePublicIds,
       meetingForm.attendeeNames,
     );
-    const body = {
+    const sharedMeetingFields = {
       title: meetingForm.title,
       startsAt: toApiDateTime(meetingForm.startsAt),
-      meetingType: meetingForm.meetingType,
-      seriesPublicId:
-        meetingForm.meetingType === "recurring" ? meetingForm.seriesPublicId || null : null,
       summary: meetingForm.summary,
+      blockers: meetingForm.blockers,
+      blockersCleared: meetingForm.blockersCleared,
       notes: calendarImportDetails?.notes ?? "",
       links: calendarImportDetails?.links ?? [],
       attendeePublicIds,
@@ -578,7 +536,30 @@ export function MeetingsPage({
       private: meetingForm.private,
     };
 
-    await api.meetings.create(body);
+    if (meetingForm.recurrenceMode === "existing") {
+      await api.series.createOccurrence(
+        meetingForm.existingSeriesPublicId,
+        sharedMeetingFields,
+      );
+    } else {
+      const seriesPublicId =
+        meetingForm.recurrenceMode === "new"
+          ? (
+              await api.series.create({
+                title: meetingForm.newSeriesTitle,
+                cadenceLabel: meetingForm.newSeriesCadenceLabel,
+                active: true,
+              })
+            ).series.publicId
+          : null;
+
+      await api.meetings.create({
+        ...sharedMeetingFields,
+        meetingType: seriesPublicId ? "recurring" : "single",
+        seriesPublicId,
+      });
+    }
+
     setMeetingForm(emptyMeetingForm);
     setCalendarImportDetails(null);
     await load();
@@ -613,8 +594,10 @@ export function MeetingsPage({
       ...meetingForm,
       title: event.title,
       startsAt: toDateTimeInputValue(event.startsAt),
-      meetingType: "single",
-      seriesPublicId: "",
+      recurrenceMode: "single",
+      existingSeriesPublicId: "",
+      newSeriesTitle: "",
+      newSeriesCadenceLabel: "",
       summary: event.summary,
       attendeeNames,
     });
@@ -627,25 +610,6 @@ export function MeetingsPage({
     setCalendarImportError("");
   }
 
-  async function submitOccurrence(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const attendeePublicIds = await resolveAttendeePublicIds(
-      occurrenceForm.attendeePublicIds,
-      occurrenceForm.attendeeNames,
-    );
-    await api.series.createOccurrence(occurrenceForm.seriesPublicId, {
-      title: occurrenceForm.title,
-      startsAt: toApiDateTime(occurrenceForm.startsAt),
-      summary: occurrenceForm.summary,
-      blockers: occurrenceForm.blockers,
-      blockersCleared: occurrenceForm.blockersCleared,
-      attendeePublicIds,
-      private: occurrenceForm.private,
-    });
-    setOccurrenceForm(emptyOccurrenceForm);
-    await load();
-  }
-
   function editMeeting(meeting: MeetingDto) {
     expandMeeting(meeting.publicId);
     setEditingMeetingPublicId(meeting.publicId);
@@ -653,8 +617,10 @@ export function MeetingsPage({
       publicId: meeting.publicId,
       title: meeting.title,
       startsAt: toDateTimeInputValue(meeting.startsAt),
-      meetingType: meeting.meetingType,
-      seriesPublicId: meeting.seriesPublicId ?? "",
+      recurrenceMode: meeting.meetingType === "recurring" ? "existing" : "single",
+      existingSeriesPublicId: meeting.seriesPublicId ?? "",
+      newSeriesTitle: "",
+      newSeriesCadenceLabel: "",
       summary: meeting.summary,
       blockers: meeting.blockers,
       blockersCleared: meeting.blockersClearedAt !== null,
@@ -697,10 +663,10 @@ export function MeetingsPage({
     await api.meetings.update(meeting.publicId, {
       title: meetingEditForm.title,
       startsAt: toApiDateTime(meetingEditForm.startsAt),
-      meetingType: meetingEditForm.meetingType,
+      meetingType: meetingEditForm.recurrenceMode === "existing" ? "recurring" : "single",
       seriesPublicId:
-        meetingEditForm.meetingType === "recurring"
-          ? meetingEditForm.seriesPublicId || null
+        meetingEditForm.recurrenceMode === "existing"
+          ? meetingEditForm.existingSeriesPublicId || null
           : null,
       summary: meetingEditForm.summary,
       blockers: meetingEditForm.blockers,
@@ -1105,129 +1071,6 @@ export function MeetingsPage({
       </header>
       {meetingArchiveView === "active" ? (
       <>
-      <div className="form-grid meeting-tools-grid">
-        <form className="editor-form meeting-tool-form" onSubmit={submitSeries}>
-          <h3>Meeting series</h3>
-          <FormField label="Series title">
-            <input
-              value={seriesForm.title}
-              onChange={(event) => setSeriesForm({ ...seriesForm, title: event.target.value })}
-              required
-            />
-          </FormField>
-          <FormField label="Cadence">
-            <input
-              value={seriesForm.cadenceLabel}
-              onChange={(event) =>
-                setSeriesForm({ ...seriesForm, cadenceLabel: event.target.value })
-              }
-              placeholder="Weekly"
-            />
-          </FormField>
-          <label className="checkbox-line">
-            <input
-              type="checkbox"
-              checked={seriesForm.active}
-              onChange={(event) =>
-                setSeriesForm({ ...seriesForm, active: event.target.checked })
-              }
-            />
-            <span>Active</span>
-          </label>
-          <button className="primary-button" type="submit">
-            Add series
-          </button>
-        </form>
-        <form className="editor-form meeting-tool-form" onSubmit={submitOccurrence}>
-          <h3>Next occurrence</h3>
-          <FormField label="Occurrence series">
-            <select
-              value={occurrenceForm.seriesPublicId}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, seriesPublicId: event.target.value })
-              }
-              required
-            >
-              <option value="">Choose series</option>
-              {series.map((item) => (
-                <option key={item.publicId} value={item.publicId}>
-                  {collapseLinks(item.title)}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Occurrence start">
-            <input
-              type="datetime-local"
-              value={occurrenceForm.startsAt}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, startsAt: event.target.value })
-              }
-              required
-            />
-          </FormField>
-          <FormField label="Occurrence title">
-            <input
-              value={occurrenceForm.title}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, title: event.target.value })
-              }
-            />
-          </FormField>
-          <FormField label="Occurrence summary">
-            <textarea
-              value={occurrenceForm.summary}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, summary: event.target.value })
-              }
-            />
-          </FormField>
-          <FormField label="Occurrence blockers">
-            <textarea
-              value={occurrenceForm.blockers}
-              onChange={(event) =>
-                setOccurrenceForm({
-                  ...occurrenceForm,
-                  blockers: event.target.value,
-                  blockersCleared: event.target.value.trim()
-                    ? occurrenceForm.blockersCleared
-                    : false,
-                })
-              }
-            />
-          </FormField>
-          <CheckboxGroup
-            legend="Existing occurrence attendees"
-            options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
-            selected={occurrenceForm.attendeePublicIds}
-            onChange={(attendeePublicIds) =>
-              setOccurrenceForm({ ...occurrenceForm, attendeePublicIds })
-            }
-          />
-          <FormField label="Occurrence attendee names">
-            <input
-              value={occurrenceForm.attendeeNames}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, attendeeNames: event.target.value })
-              }
-              placeholder="Morgan, Taylor"
-            />
-          </FormField>
-          <label className="checkbox-line">
-            <input
-              type="checkbox"
-              checked={occurrenceForm.private}
-              onChange={(event) =>
-                setOccurrenceForm({ ...occurrenceForm, private: event.target.checked })
-              }
-            />
-            <span>Private</span>
-          </label>
-          <button className="primary-button" type="submit">
-            Create occurrence
-          </button>
-        </form>
-      </div>
       <form
         className="calendar-settings-panel"
         aria-label="Calendar settings"
@@ -1385,38 +1228,70 @@ export function MeetingsPage({
             required
           />
         </FormField>
-        <FormField label="Meeting type">
+        <FormField label="Recurrence">
           <select
-            value={meetingForm.meetingType}
+            value={meetingForm.recurrenceMode}
             onChange={(event) =>
               setMeetingForm({
                 ...meetingForm,
-                meetingType: event.target.value as MeetingType,
-                seriesPublicId: event.target.value === "single" ? "" : meetingForm.seriesPublicId,
+                recurrenceMode: event.target.value as RecurrenceMode,
+                existingSeriesPublicId:
+                  event.target.value === "existing" ? meetingForm.existingSeriesPublicId : "",
+                newSeriesTitle:
+                  event.target.value === "new" ? meetingForm.newSeriesTitle : "",
+                newSeriesCadenceLabel:
+                  event.target.value === "new" ? meetingForm.newSeriesCadenceLabel : "",
               })
             }
           >
-            <option value="single">Single</option>
-            <option value="recurring">Recurring</option>
+            <option value="single">One-time meeting</option>
+            <option value="existing">Use existing recurring meeting</option>
+            <option value="new">Start new recurring meeting</option>
           </select>
         </FormField>
-        <FormField label="Meeting series">
-          <select
-            value={meetingForm.seriesPublicId}
-            onChange={(event) =>
-              setMeetingForm({ ...meetingForm, seriesPublicId: event.target.value })
-            }
-            required={meetingForm.meetingType === "recurring"}
-            disabled={meetingForm.meetingType === "single"}
-          >
-            <option value="">No series</option>
-            {series.map((item) => (
-              <option key={item.publicId} value={item.publicId}>
-                {collapseLinks(item.title)}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        {meetingForm.recurrenceMode === "existing" ? (
+          <FormField label="Existing recurring meeting">
+            <select
+              value={meetingForm.existingSeriesPublicId}
+              onChange={(event) =>
+                setMeetingForm({ ...meetingForm, existingSeriesPublicId: event.target.value })
+              }
+              required
+            >
+              <option value="">Choose recurring meeting</option>
+              {series.map((item) => (
+                <option key={item.publicId} value={item.publicId}>
+                  {collapseLinks(item.title)}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        ) : null}
+        {meetingForm.recurrenceMode === "new" ? (
+          <>
+            <FormField label="New recurring meeting name">
+              <input
+                value={meetingForm.newSeriesTitle}
+                onChange={(event) =>
+                  setMeetingForm({ ...meetingForm, newSeriesTitle: event.target.value })
+                }
+                required
+              />
+            </FormField>
+            <FormField label="Cadence">
+              <input
+                value={meetingForm.newSeriesCadenceLabel}
+                onChange={(event) =>
+                  setMeetingForm({
+                    ...meetingForm,
+                    newSeriesCadenceLabel: event.target.value,
+                  })
+                }
+                placeholder="Weekly"
+              />
+            </FormField>
+          </>
+        ) : null}
         <FormField label="Meeting summary">
           <textarea
             value={meetingForm.summary}
@@ -1691,33 +1566,36 @@ export function MeetingsPage({
                               </FormField>
                               <FormField label={`Meeting type for ${meeting.publicId}`}>
                                 <select
-                                  value={meetingEditForm.meetingType}
+                                  value={meetingEditForm.recurrenceMode}
                                   onChange={(event) =>
                                     setMeetingEditForm({
                                       ...meetingEditForm,
-                                      meetingType: event.target.value as MeetingType,
-                                      seriesPublicId:
-                                        event.target.value === "single"
-                                          ? ""
-                                          : meetingEditForm.seriesPublicId,
+                                      recurrenceMode:
+                                        event.target.value === "existing"
+                                          ? "existing"
+                                          : "single",
+                                      existingSeriesPublicId:
+                                        event.target.value === "existing"
+                                          ? meetingEditForm.existingSeriesPublicId
+                                          : "",
                                     })
                                   }
                                 >
                                   <option value="single">Single</option>
-                                  <option value="recurring">Recurring</option>
+                                  <option value="existing">Recurring</option>
                                 </select>
                               </FormField>
                               <FormField label={`Meeting series for ${meeting.publicId}`}>
                                 <select
-                                  value={meetingEditForm.seriesPublicId}
+                                  value={meetingEditForm.existingSeriesPublicId}
                                   onChange={(event) =>
                                     setMeetingEditForm({
                                       ...meetingEditForm,
-                                      seriesPublicId: event.target.value,
+                                      existingSeriesPublicId: event.target.value,
                                     })
                                   }
-                                  required={meetingEditForm.meetingType === "recurring"}
-                                  disabled={meetingEditForm.meetingType === "single"}
+                                  required={meetingEditForm.recurrenceMode === "existing"}
+                                  disabled={meetingEditForm.recurrenceMode === "single"}
                                 >
                                   <option value="">No series</option>
                                   {series.map((item) => (

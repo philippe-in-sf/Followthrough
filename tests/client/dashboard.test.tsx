@@ -1029,6 +1029,8 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add series" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create occurrence" })).not.toBeInTheDocument();
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
     expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
     expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
@@ -1037,13 +1039,11 @@ describe("dashboard and workspace flows", () => {
       deckUrl,
     );
 
-    const futureOccurrenceDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    await userEvent.selectOptions(screen.getByLabelText("Occurrence series"), "S001");
-    await userEvent.type(screen.getByLabelText("Occurrence start"), "2099-06-16T09:00");
-    await userEvent.type(screen.getByLabelText("Occurrence title"), "Project sync follow-up");
-    await userEvent.click(screen.getByRole("button", { name: "Create occurrence" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
+    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
     expect(
@@ -1053,6 +1053,26 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
     const nextOccurrenceCard = await expandMeetingCard("M011");
     expect(within(nextOccurrenceCard).getByText("Carry roadmap")).toBeInTheDocument();
+  });
+
+  it("starts a new recurring meeting from the Add meeting form", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Customer standup kickoff");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-07-01T10:00");
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "new");
+    await userEvent.type(screen.getByLabelText("New recurring meeting name"), "Customer standup");
+    await userEvent.type(screen.getByLabelText("Cadence"), "Weekly");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    expect(await screen.findByText("Customer standup kickoff")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Recurring series" })).getByText(
+        "Customer standup",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("edits meeting notes and structured links", async () => {

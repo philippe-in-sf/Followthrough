@@ -144,6 +144,7 @@ type OccurrenceInput = {
   notes?: string;
   links?: MeetingLinkInput[];
   attendeePublicIds: string[];
+  taskPublicIds?: string[];
   private?: boolean;
 };
 
@@ -168,6 +169,11 @@ export const api = {
     inviteCode: string;
   }) =>
     request<{ user: User }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  waitlist: (body: { name: string; email: string }) =>
+    request<{ ok: true }>("/api/waitlist", {
       method: "POST",
       body: JSON.stringify(body),
     }),

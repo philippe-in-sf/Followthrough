@@ -231,6 +231,13 @@ describe("meetings", () => {
       originMeetingPublicId: firstMeeting.body.meeting.publicId,
     });
 
+    const selectedTask = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Bring metrics dashboard",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-16",
+    });
+
     const next = await request(app)
       .post(`/api/meeting-series/${series.body.series.publicId}/occurrences`)
       .set("Cookie", cookie)
@@ -246,12 +253,14 @@ describe("meetings", () => {
           },
         ],
         attendeePublicIds: [personPublicId],
+        taskPublicIds: [selectedTask.body.task.publicId],
       });
 
     expect(next.status).toBe(201);
     expect(next.body.meeting.publicId).toBe("M002");
     expect(next.body.meeting.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
       "T001",
+      "T003",
     ]);
     expect(next.body.meeting.notes).toBe("First notes.\n\nSecond notes.");
     expect(next.body.meeting.links).toEqual([
