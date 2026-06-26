@@ -144,6 +144,7 @@ type OccurrenceInput = {
   notes?: string;
   links?: MeetingLinkInput[];
   attendeePublicIds: string[];
+  taskPublicIds?: string[];
   private?: boolean;
 };
 
