@@ -4,6 +4,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 ## Unreleased
 
+### Planned
+
+- Keep adding release notes before each package version bump and deployment.
+- Consider adding richer archive filters once real archived volume makes the shape obvious.
+- Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
+
+## 1.1.3 - 2026-06-26
+
 ### Added
 
 - Added single-team workspaces with `admin` and `member` roles.
@@ -14,12 +22,6 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 - Scoped shared people, tasks, meetings, meeting series, decisions, dashboard data, and search results to the signed-in user's team.
 - Kept invite-code signup as a member-onboarding path while direct CLI user creation remains an admin fallback.
-
-### Planned
-
-- Keep adding release notes before each package version bump and deployment.
-- Consider adding richer archive filters once real archived volume makes the shape obvious.
-- Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
 ## 1.1.2 - 2026-06-22
 
