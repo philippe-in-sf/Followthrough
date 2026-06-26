@@ -10,6 +10,18 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.8 - 2026-06-26
+
+### Added
+
+- Added a unified Add meeting flow for one-time meetings, existing recurring meetings, and new recurring meetings.
+- Added support for carrying explicitly selected task links into recurring occurrences alongside open series task carry-over.
+
+### Changed
+
+- Removed the separate Meeting series and Next occurrence creation forms from the Meetings page.
+- Kept active recurring series as a compact reference lane instead of a second scheduling workflow.
+
 ## 1.1.7 - 2026-06-26
 
 ### Added
