@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
+import { loadConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
@@ -11,7 +12,7 @@ async function setup() {
   dbs.push(db);
   migrateDatabase(db);
   db.prepare("INSERT INTO invite_codes (code, usage_limit) VALUES (?, ?)").run("join", 10);
-  const app = createApp({ db });
+  const app = createApp({ db, config: { ...loadConfig(), sessionTtlDays: 3650 } });
   const signup = await request(app).post("/api/auth/signup").send({
     name: "Editor",
     email: "editor@example.com",
