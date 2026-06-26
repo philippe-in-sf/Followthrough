@@ -23,7 +23,7 @@ async function setup(options: { personEmail?: string } = {}) {
   const app = createApp({
     db,
     emailSender,
-    config: { ...loadConfig(), appBaseUrl: "https://philippe-tasks.net" },
+    config: { ...loadConfig(), appBaseUrl: "https://philippe-tasks.net", sessionTtlDays: 3650 },
   });
   const signup = await request(app).post("/api/auth/signup").send({
     name: "Editor",

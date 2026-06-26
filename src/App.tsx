@@ -4,6 +4,7 @@ import type { User } from "./api/types";
 import { AppShell, type AppSection } from "./components/AppShell";
 import { loadClientConfig } from "./clientConfig";
 import { AuthPage } from "./features/auth/AuthPage";
+import { AdminPage } from "./features/admin/AdminPage";
 import { DashboardPage, type DashboardRecordTarget } from "./features/dashboard/DashboardPage";
 import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
@@ -11,6 +12,7 @@ import { PeoplePage } from "./features/people/PeoplePage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { appVersion } from "./version";
 import type { UserPreferencesDto } from "../shared/types";
+import type { TeamDto } from "../shared/types";
 
 type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions">;
 
@@ -40,6 +42,8 @@ function renderSection({
   googleCalendarConnected,
   googleCalendarEmail,
   onGoogleCalendarConnectionChange,
+  user,
+  onTeamChange,
 }: {
   section: AppSection;
   focusedRecord: FocusTarget | null;
@@ -51,6 +55,8 @@ function renderSection({
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;
   onGoogleCalendarConnectionChange: (connected: boolean, email: string | null) => void;
+  user: User;
+  onTeamChange: (team: TeamDto) => void;
 }) {
   switch (section) {
     case "Dashboard":
@@ -84,6 +90,8 @@ function renderSection({
       );
     case "People":
       return <PeoplePage />;
+    case "Admin":
+      return user.role === "admin" ? <AdminPage onTeamChange={onTeamChange} /> : null;
   }
 }
 
@@ -185,6 +193,10 @@ export function App() {
     [],
   );
 
+  const setTeam = useCallback((team: TeamDto) => {
+    setUser((current) => (current ? { ...current, team } : current));
+  }, []);
+
   if (user === undefined) return <main className="loading">Loading...</main>;
   if (!user) return <AuthPage onAuth={handleAuth} />;
 
@@ -194,6 +206,8 @@ export function App() {
     setPreferences(fallbackPreferences);
   }
 
+  const calendarShortcutUrl = user.team.workCalendarUrl ?? preferences.workCalendarUrl;
+
   return (
     <AppShell
       user={user}
@@ -201,19 +215,21 @@ export function App() {
       onSectionChange={changeSection}
       onLogout={logout}
       version={appVersion}
-      workCalendarUrl={preferences.workCalendarUrl}
+      workCalendarUrl={calendarShortcutUrl}
     >
       {renderSection({
         section,
         focusedRecord,
         onDashboardRecordOpen: openDashboardRecord,
         onRecordFocusHandled: clearFocusedRecord,
-        workCalendarUrl: preferences.workCalendarUrl,
+        workCalendarUrl: calendarShortcutUrl,
         onWorkCalendarUrlChange: setWorkCalendarUrl,
         googleCalendarConfigured: preferences.googleCalendarConfigured,
         googleCalendarConnected: preferences.googleCalendarConnected,
         googleCalendarEmail: preferences.googleCalendarEmail,
         onGoogleCalendarConnectionChange: setGoogleCalendarConnection,
+        user,
+        onTeamChange: setTeam,
       })}
     </AppShell>
   );

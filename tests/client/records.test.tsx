@@ -5,6 +5,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
 
 const originalFetch = globalThis.fetch;
+const currentUser = {
+  id: 1,
+  name: "Editor",
+  email: "editor@example.com",
+  role: "admin" as const,
+  team: {
+    id: 1,
+    name: "Default Team",
+    logoUrl: null,
+    workCalendarUrl: null,
+  },
+};
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -18,7 +30,7 @@ function mockLoggedInFetch() {
       return Promise.resolve({
         ok: true,
         json: async () => ({
-          user: { id: 1, name: "Editor", email: "editor@example.com" },
+          user: currentUser,
         }),
       } as Response);
     }
@@ -115,7 +127,7 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            user: { id: 1, name: "Editor", email: "editor@example.com" },
+            user: currentUser,
           }),
         } as Response);
       }
@@ -174,7 +186,7 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            user: { id: 1, name: "Editor", email: "editor@example.com" },
+            user: currentUser,
           }),
         } as Response);
       }
@@ -260,7 +272,7 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            user: { id: 1, name: "Editor", email: "editor@example.com" },
+            user: currentUser,
           }),
         } as Response);
       }
@@ -320,7 +332,7 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            user: { id: 1, name: "Editor", email: "editor@example.com" },
+            user: currentUser,
           }),
         } as Response);
       }
@@ -388,7 +400,7 @@ describe("record pages", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            user: { id: 1, name: "Editor", email: "editor@example.com" },
+            user: currentUser,
           }),
         } as Response);
       }

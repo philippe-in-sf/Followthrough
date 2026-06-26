@@ -109,15 +109,16 @@ function toRelatedDecision(row: RelatedDecisionRow): PersonRelatedDecisionDto {
 export function peopleRoutes(db: AppDatabase) {
   const router = Router();
 
-  router.get("/", (_req, res) => {
+  router.get("/", (req, res) => {
     const rows = db
       .prepare(
         `SELECT public_id, name, email, archived_at
          FROM people
-         WHERE archived_at IS NULL
+         WHERE team_id = ?
+         AND archived_at IS NULL
          ORDER BY name COLLATE NOCASE`,
       )
-      .all() as PersonRow[];
+      .all(req.user?.teamId ?? 0) as PersonRow[];
 
     res.json({ people: rows.map(toPerson) });
   });
@@ -127,10 +128,11 @@ export function peopleRoutes(db: AppDatabase) {
       const input = parseBody(req, personInputSchema);
       const person = withTransaction(db, () => {
         const publicId = nextPublicId(db, "P");
-        db.prepare("INSERT INTO people (public_id, name, email) VALUES (?, ?, ?)").run(
+        db.prepare("INSERT INTO people (public_id, name, email, team_id) VALUES (?, ?, ?, ?)").run(
           publicId,
           input.name,
           input.email || null,
+          req.user?.teamId ?? 0,
         );
 
         const created = {
@@ -158,8 +160,20 @@ export function peopleRoutes(db: AppDatabase) {
     }
   });
 
-  router.get("/:publicId/audit", (req, res) => {
-    res.json({ auditEvents: getAuditEvents(db, "person", req.params.publicId) });
+  router.get("/:publicId/audit", (req, res, next) => {
+    try {
+      const person = db
+        .prepare(
+          `SELECT public_id
+           FROM people
+           WHERE public_id = ? AND team_id = ?`,
+        )
+        .get(req.params.publicId, req.user?.teamId ?? 0);
+      if (!person) throw notFound("Person not found");
+      res.json({ auditEvents: getAuditEvents(db, "person", req.params.publicId) });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get("/:publicId/records", (req, res, next) => {
@@ -169,9 +183,9 @@ export function peopleRoutes(db: AppDatabase) {
         .prepare(
           `SELECT public_id, name, email, archived_at
            FROM people
-           WHERE public_id = ? AND archived_at IS NULL`,
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
         )
-        .get(req.params.publicId) as PersonRow | undefined;
+        .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow | undefined;
 
       if (!person) throw notFound("Person not found");
 
@@ -182,6 +196,8 @@ export function peopleRoutes(db: AppDatabase) {
            FROM tasks
            JOIN people ON people.id = tasks.assignee_person_id
            WHERE people.public_id = ?
+           AND people.team_id = ?
+           AND tasks.team_id = ?
            AND tasks.archived_at IS NULL
            AND ${visibleTaskCondition()}
            ORDER BY tasks.status = 'Done',
@@ -189,7 +205,12 @@ export function peopleRoutes(db: AppDatabase) {
                     tasks.due_date ASC,
                     tasks.created_at ASC`,
         )
-        .all(req.params.publicId, userId) as RelatedTaskRow[];
+        .all(
+          req.params.publicId,
+          req.user?.teamId ?? 0,
+          req.user?.teamId ?? 0,
+          userId,
+        ) as RelatedTaskRow[];
 
       const meetings = db
         .prepare(
@@ -200,11 +221,18 @@ export function peopleRoutes(db: AppDatabase) {
            JOIN people ON people.id = meeting_attendees.person_id
            JOIN meetings ON meetings.id = meeting_attendees.meeting_id
            WHERE people.public_id = ?
+           AND people.team_id = ?
+           AND meetings.team_id = ?
            AND meetings.archived_at IS NULL
            AND ${visibleMeetingCondition()}
            ORDER BY meetings.starts_at DESC, meetings.public_id DESC`,
         )
-        .all(req.params.publicId, userId) as RelatedMeetingRow[];
+        .all(
+          req.params.publicId,
+          req.user?.teamId ?? 0,
+          req.user?.teamId ?? 0,
+          userId,
+        ) as RelatedMeetingRow[];
 
       const decisions = db
         .prepare(
@@ -216,12 +244,21 @@ export function peopleRoutes(db: AppDatabase) {
            JOIN meeting_attendees ON meeting_attendees.meeting_id = meetings.id
            JOIN people ON people.id = meeting_attendees.person_id
            WHERE people.public_id = ?
+           AND people.team_id = ?
+           AND meetings.team_id = ?
+           AND decisions.team_id = ?
            AND decisions.archived_at IS NULL
            AND meetings.archived_at IS NULL
            AND ${visibleMeetingCondition()}
            ORDER BY decisions.decision_date DESC, decisions.created_at DESC`,
         )
-        .all(req.params.publicId, userId) as RelatedDecisionRow[];
+        .all(
+          req.params.publicId,
+          req.user?.teamId ?? 0,
+          req.user?.teamId ?? 0,
+          req.user?.teamId ?? 0,
+          userId,
+        ) as RelatedDecisionRow[];
 
       res.json({
         person: toPerson(person),
@@ -237,8 +274,10 @@ export function peopleRoutes(db: AppDatabase) {
   router.get("/:publicId", (req, res, next) => {
     try {
       const row = db
-        .prepare("SELECT public_id, name, email, archived_at FROM people WHERE public_id = ?")
-        .get(req.params.publicId) as PersonRow | undefined;
+        .prepare(
+          "SELECT public_id, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
+        )
+        .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow | undefined;
 
       if (!row) throw notFound("Person not found");
       res.json({ person: toPerson(row) });
@@ -255,21 +294,23 @@ export function peopleRoutes(db: AppDatabase) {
           .prepare(
             `SELECT public_id, name, email, archived_at
              FROM people
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
-          .get(req.params.publicId) as PersonRow | undefined;
+          .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow | undefined;
 
         if (!beforeRow) throw notFound("Person not found");
 
         db.prepare(
           `UPDATE people
            SET name = ?, email = ?, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
-        ).run(input.name, input.email || null, req.params.publicId);
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
+        ).run(input.name, input.email || null, req.params.publicId, req.user?.teamId ?? 0);
 
         const updatedRow = db
-          .prepare("SELECT public_id, name, email, archived_at FROM people WHERE public_id = ?")
-          .get(req.params.publicId) as PersonRow;
+          .prepare(
+            "SELECT public_id, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
+          )
+          .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow;
 
         recordAuditEvent(db, {
           entityType: "person",
@@ -301,16 +342,16 @@ export function peopleRoutes(db: AppDatabase) {
           .prepare(
             `SELECT id, public_id, name, email, archived_at
              FROM people
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
-          .get(req.params.publicId) as PersonWithIdRow | undefined;
+          .get(req.params.publicId, req.user?.teamId ?? 0) as PersonWithIdRow | undefined;
         const target = db
           .prepare(
             `SELECT id, public_id, name, email, archived_at
              FROM people
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
-          .get(input.targetPublicId) as PersonWithIdRow | undefined;
+          .get(input.targetPublicId, req.user?.teamId ?? 0) as PersonWithIdRow | undefined;
 
         if (!source) throw notFound("Source person not found");
         if (!target) throw notFound("Target person not found");
@@ -410,17 +451,17 @@ export function peopleRoutes(db: AppDatabase) {
           .prepare(
             `SELECT public_id, name, email, archived_at
              FROM people
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
-          .get(req.params.publicId) as PersonRow | undefined;
+          .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow | undefined;
 
         if (!beforeRow) throw notFound("Person not found");
 
         db.prepare(
           `UPDATE people
            SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
-        ).run(req.params.publicId);
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
+        ).run(req.params.publicId, req.user?.teamId ?? 0);
 
         recordAuditEvent(db, {
           entityType: "person",

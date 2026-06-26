@@ -10,19 +10,29 @@ function argValue(name: string) {
 
 const name = argValue("name");
 const email = argValue("email");
+const role = argValue("role") as "admin" | "member" | null;
+const teamId = argValue("team-id");
 const suppliedPassword = argValue("password");
 const password = suppliedPassword ?? randomBytes(18).toString("base64url");
 
 if (!name || !email) {
-  console.error("Usage: npm run user:create -- --name=NAME --email=EMAIL [--password=PASSWORD]");
+  console.error(
+    "Usage: npm run user:create -- --name=NAME --email=EMAIL [--password=PASSWORD] [--role=admin|member] [--team-id=ID]",
+  );
   process.exit(1);
 }
 
 const db = openDatabase(loadConfig().databasePath);
 
 try {
-  const user = await createUser(db, { name, email, password });
-  console.log(`User created: ${user.email}`);
+  const user = await createUser(db, {
+    name,
+    email,
+    password,
+    role: role ?? undefined,
+    teamId: teamId ? Number(teamId) : undefined,
+  });
+  console.log(`User created: ${user.email} (${user.role})`);
   if (!suppliedPassword) {
     console.log(`Temporary password: ${password}`);
   }

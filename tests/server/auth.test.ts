@@ -38,6 +38,13 @@ describe("auth", () => {
     expect(signup.body.user).toMatchObject({
       name: "Philippe",
       email: "philippe@example.com",
+      role: "member",
+      team: {
+        id: 1,
+        name: "Default Team",
+        logoUrl: null,
+        workCalendarUrl: null,
+      },
     });
 
     const me = await request(app)
@@ -45,7 +52,16 @@ describe("auth", () => {
       .set("Cookie", signup.headers["set-cookie"]);
 
     expect(me.status).toBe(200);
-    expect(me.body.user.email).toBe("philippe@example.com");
+    expect(me.body.user).toMatchObject({
+      email: "philippe@example.com",
+      role: "member",
+      team: {
+        id: 1,
+        name: "Default Team",
+        logoUrl: null,
+        workCalendarUrl: null,
+      },
+    });
   });
 
   it("rejects signup with a bad invite code", async () => {
@@ -109,6 +125,32 @@ describe("auth", () => {
     expect(login.body.user).toMatchObject({
       name: "Direct User",
       email: "direct@example.com",
+      role: "admin",
+      team: {
+        id: 1,
+        name: "Default Team",
+        logoUrl: null,
+        workCalendarUrl: null,
+      },
+    });
+  });
+
+  it("creates a direct admin user when a role is supplied", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+
+    const user = await createUser(db, {
+      name: "Admin User",
+      email: "admin@example.com",
+      password: "long-enough-password",
+      role: "admin",
+    });
+
+    expect(user).toMatchObject({
+      email: "admin@example.com",
+      role: "admin",
+      teamId: 1,
     });
   });
 });

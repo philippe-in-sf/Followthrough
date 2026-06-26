@@ -1,5 +1,6 @@
 import express from "express";
-import { requireAuth } from "./auth/authMiddleware.js";
+import { adminRoutes } from "./admin/routes.js";
+import { requireAdmin, requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
 import { googleCalendarRoutes } from "./calendar/routes.js";
 import { readChangelog, renderChangelogHtml } from "./changelog.js";
@@ -55,6 +56,7 @@ export function createApp(deps: AppDependencies = {}) {
   const protectedApi = express.Router();
   protectedApi.use(requireAuth(db, config));
   const meetings = meetingRoutes(db, config);
+  protectedApi.use("/admin", requireAdmin, adminRoutes(db));
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db));
   protectedApi.use("/google-calendar", googleCalendarRoutes(db, config));

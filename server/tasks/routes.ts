@@ -103,16 +103,18 @@ function getTaskByPublicId(
   config: AppConfig,
   publicId: string,
   userId: number,
+  teamId: number,
   includeArchived = false,
 ) {
   const row = db
     .prepare(
       `${taskSelect}
        WHERE tasks.public_id = ?
+       AND tasks.team_id = ?
        AND ${visibleTaskCondition()}
        ${includeArchived ? "" : "AND tasks.archived_at IS NULL"}`,
     )
-    .get(publicId, userId) as TaskRow | undefined;
+    .get(publicId, teamId, userId) as TaskRow | undefined;
 
   if (!row) throw notFound("Task not found");
   return mapTaskRow(row, config);
@@ -126,11 +128,14 @@ function resolveRelations(
     seriesPublicId?: string | null;
   },
   userId: number,
+  teamId: number,
 ): ResolvedTaskRelations {
   const assignee = input.assigneePublicId
     ? (db
-        .prepare("SELECT id FROM people WHERE public_id = ? AND archived_at IS NULL")
-        .get(input.assigneePublicId) as { id: number } | undefined)
+        .prepare(
+          "SELECT id FROM people WHERE public_id = ? AND team_id = ? AND archived_at IS NULL",
+        )
+        .get(input.assigneePublicId, teamId) as { id: number } | undefined)
     : null;
 
   if (input.assigneePublicId && !assignee) {
@@ -143,10 +148,11 @@ function resolveRelations(
           `SELECT id, series_id
            FROM meetings
            WHERE public_id = ?
+           AND team_id = ?
            AND (private = 0 OR created_by_user_id = ?)
            AND archived_at IS NULL`,
         )
-        .get(input.originMeetingPublicId, userId) as
+        .get(input.originMeetingPublicId, teamId, userId) as
         | { id: number; series_id: number | null }
         | undefined)
     : null;
@@ -157,8 +163,10 @@ function resolveRelations(
 
   const explicitSeries = input.seriesPublicId
     ? (db
-        .prepare("SELECT id FROM meeting_series WHERE public_id = ? AND archived_at IS NULL")
-        .get(input.seriesPublicId) as { id: number } | undefined)
+        .prepare(
+          "SELECT id FROM meeting_series WHERE public_id = ? AND team_id = ? AND archived_at IS NULL",
+        )
+        .get(input.seriesPublicId, teamId) as { id: number } | undefined)
     : null;
 
   if (input.seriesPublicId && !explicitSeries) {
@@ -187,7 +195,8 @@ export function taskRoutes(
         : "tasks.archived_at IS NULL",
       visibleTaskCondition(),
     ];
-    const params: Array<string | number> = [userId];
+    const params: Array<string | number> = [req.user?.teamId ?? 0, userId];
+    conditions.unshift("tasks.team_id = ?");
 
     if (typeof req.query.assigneePublicId === "string" && req.query.assigneePublicId) {
       conditions.push("people.public_id = ?");
@@ -220,7 +229,8 @@ export function taskRoutes(
       const input = parseBody(req, taskInputSchema);
       const task = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const relations = resolveRelations(db, input, userId);
+        const teamId = req.user?.teamId ?? 0;
+        const relations = resolveRelations(db, input, userId, teamId);
         const publicId = nextPublicId(db, "T");
         const blockersClearedAt = resolveBlockerClearedAt({
           blockers: input.blockers,
@@ -229,8 +239,8 @@ export function taskRoutes(
         const result = db
           .prepare(
             `INSERT INTO tasks
-             (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, series_id, reminder_mode, private, created_by_user_id, team_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             publicId,
@@ -246,6 +256,7 @@ export function taskRoutes(
             input.reminderMode,
             input.private ? 1 : 0,
             userId,
+            teamId,
           );
 
         if (relations.originMeetingId) {
@@ -255,7 +266,7 @@ export function taskRoutes(
           );
         }
 
-        const created = getTaskByPublicId(db, config, publicId, userId);
+        const created = getTaskByPublicId(db, config, publicId, userId, teamId);
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: created.publicId,
@@ -287,7 +298,14 @@ export function taskRoutes(
 
   router.get("/:publicId/audit", (req, res, next) => {
     try {
-      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0, true);
+      getTaskByPublicId(
+        db,
+        config,
+        req.params.publicId,
+        req.user?.id ?? 0,
+        req.user?.teamId ?? 0,
+        true,
+      );
       res.json({ auditEvents: getAuditEvents(db, "task", req.params.publicId) });
     } catch (error) {
       next(error);
@@ -296,7 +314,15 @@ export function taskRoutes(
 
   router.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ task: getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0) });
+      res.json({
+        task: getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          req.user?.id ?? 0,
+          req.user?.teamId ?? 0,
+        ),
+      });
     } catch (error) {
       next(error);
     }
@@ -312,10 +338,11 @@ export function taskRoutes(
             `SELECT id, blockers, notes, blockers_cleared_at, created_by_user_id, private
              FROM tasks
              WHERE public_id = ?
+             AND team_id = ?
              AND ${visibleTaskCondition()}
              AND archived_at IS NULL`,
           )
-          .get(req.params.publicId, userId) as
+          .get(req.params.publicId, req.user?.teamId ?? 0, userId) as
           | {
               id: number;
               blockers: string;
@@ -329,9 +356,15 @@ export function taskRoutes(
         if (input.private && !canMakePrivate(existing.created_by_user_id, userId)) {
           throw badRequest("Only the creator can make this task private");
         }
-        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
+        const before = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+        );
 
-        const relations = resolveRelations(db, input, userId);
+        const relations = resolveRelations(db, input, userId, req.user?.teamId ?? 0);
         const createdByUserId =
           input.private && existing.created_by_user_id === null
             ? userId
@@ -383,7 +416,13 @@ export function taskRoutes(
           );
         }
 
-        const updated = getTaskByPublicId(db, config, req.params.publicId, userId);
+        const updated = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+        );
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: updated.publicId,
@@ -404,7 +443,13 @@ export function taskRoutes(
 
   router.post("/:publicId/reminders", async (req, res, next) => {
     try {
-      getTaskByPublicId(db, config, req.params.publicId, req.user?.id ?? 0);
+      getTaskByPublicId(
+        db,
+        config,
+        req.params.publicId,
+        req.user?.id ?? 0,
+        req.user?.teamId ?? 0,
+      );
       const reminder = await sendManualTaskReminder(
         db,
         config,
@@ -422,16 +467,23 @@ export function taskRoutes(
     try {
       withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const before = getTaskByPublicId(db, config, req.params.publicId, userId);
+        const before = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+        );
         const result = db
           .prepare(
             `UPDATE tasks
              SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ?
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND archived_at IS NULL`,
           )
-          .run(req.params.publicId, userId);
+          .run(req.params.publicId, req.user?.teamId ?? 0, userId);
 
         if (result.changes === 0) throw notFound("Task not found");
         recordAuditEvent(db, {
@@ -453,7 +505,14 @@ export function taskRoutes(
     try {
       const task = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
-        const before = getTaskByPublicId(db, config, req.params.publicId, userId, true);
+        const before = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+          true,
+        );
         if (!before.archived) throw badRequest("Task is not archived");
 
         const result = db
@@ -461,13 +520,20 @@ export function taskRoutes(
             `UPDATE tasks
              SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ?
+             AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)
              AND archived_at IS NOT NULL`,
           )
-          .run(req.params.publicId, userId);
+          .run(req.params.publicId, req.user?.teamId ?? 0, userId);
 
         if (result.changes === 0) throw notFound("Task not found");
-        const after = getTaskByPublicId(db, config, req.params.publicId, userId);
+        const after = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          req.user?.teamId ?? 0,
+        );
         recordAuditEvent(db, {
           entityType: "task",
           entityPublicId: after.publicId,

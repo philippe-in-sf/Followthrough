@@ -10,9 +10,12 @@ import {
   clearSessionCookie,
   createSession,
   destroySession,
+  getAuthUserById,
   getSessionUser,
+  type AuthUser,
+  type UserRole,
 } from "./sessions.js";
-import { insertUserWithPasswordHash } from "./userManagement.js";
+import { getDefaultTeamId, insertUserWithPasswordHash } from "./userManagement.js";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1),
@@ -34,8 +37,19 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function userDto(row: { id: number; name: string; email: string }) {
-  return { id: row.id, name: row.name, email: row.email };
+function userDto(row: AuthUser) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    team: {
+      id: row.teamId,
+      name: row.teamName,
+      logoUrl: row.teamLogoUrl,
+      workCalendarUrl: row.teamWorkCalendarUrl,
+    },
+  };
 }
 
 export function authRoutes(db: AppDatabase, config: AppConfig) {
@@ -49,12 +63,18 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       const user = withTransaction(db, () => {
         const invite = db
           .prepare(
-            `SELECT id, usage_limit, usage_count
+            `SELECT id, usage_limit, usage_count, team_id, default_role
              FROM invite_codes
              WHERE code = ? AND active = 1`,
           )
           .get(input.inviteCode) as
-          | { id: number; usage_limit: number | null; usage_count: number }
+          | {
+              id: number;
+              usage_limit: number | null;
+              usage_count: number;
+              team_id: number | null;
+              default_role: UserRole | null;
+            }
           | undefined;
 
         if (!invite || (invite.usage_limit !== null && invite.usage_count >= invite.usage_limit)) {
@@ -65,6 +85,8 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
           name: input.name,
           email: input.email,
           passwordHash,
+          teamId: invite.team_id ?? getDefaultTeamId(db),
+          role: invite.default_role ?? "member",
         });
 
         db.prepare("UPDATE invite_codes SET usage_count = usage_count + 1 WHERE id = ?").run(
@@ -95,7 +117,9 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       }
 
       createSession(db, res, user.id, config);
-      res.json({ user: userDto(user) });
+      const authUser = getAuthUserById(db, user.id);
+      if (!authUser) throw badRequest("Email or password is incorrect");
+      res.json({ user: userDto(authUser) });
     } catch (error) {
       next(error);
     }

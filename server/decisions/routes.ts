@@ -36,24 +36,31 @@ function decisionSelect() {
   `;
 }
 
-function getDecisionByPublicId(db: AppDatabase, publicId: string, includeArchived = false) {
+function getDecisionByPublicId(
+  db: AppDatabase,
+  publicId: string,
+  teamId: number,
+  includeArchived = false,
+) {
   const row = db
     .prepare(
       `${decisionSelect()}
-       WHERE decisions.public_id = ? ${includeArchived ? "" : "AND decisions.archived_at IS NULL"}`,
+       WHERE decisions.public_id = ?
+       AND decisions.team_id = ?
+       ${includeArchived ? "" : "AND decisions.archived_at IS NULL"}`,
     )
-    .get(publicId) as DecisionRow | undefined;
+    .get(publicId, teamId) as DecisionRow | undefined;
 
   if (!row) throw notFound("Decision not found");
   return toDecision(row);
 }
 
-function resolveMeetingId(db: AppDatabase, meetingPublicId?: string | null) {
+function resolveMeetingId(db: AppDatabase, teamId: number, meetingPublicId?: string | null) {
   if (!meetingPublicId) return null;
 
   const meeting = db
-    .prepare("SELECT id FROM meetings WHERE public_id = ? AND archived_at IS NULL")
-    .get(meetingPublicId) as { id: number } | undefined;
+    .prepare("SELECT id FROM meetings WHERE public_id = ? AND team_id = ? AND archived_at IS NULL")
+    .get(meetingPublicId, teamId) as { id: number } | undefined;
 
   if (!meeting) throw badRequest("Meeting not found");
   return meeting.id;
@@ -62,14 +69,15 @@ function resolveMeetingId(db: AppDatabase, meetingPublicId?: string | null) {
 export function decisionRoutes(db: AppDatabase) {
   const router = Router();
 
-  router.get("/", (_req, res) => {
+  router.get("/", (req, res) => {
     const rows = db
       .prepare(
         `${decisionSelect()}
-         WHERE decisions.archived_at IS NULL
+         WHERE decisions.team_id = ?
+         AND decisions.archived_at IS NULL
          ORDER BY decisions.decision_date DESC, decisions.created_at DESC`,
       )
-      .all() as DecisionRow[];
+      .all(req.user?.teamId ?? 0) as DecisionRow[];
 
     res.json({ decisions: rows.map(toDecision) });
   });
@@ -78,14 +86,15 @@ export function decisionRoutes(db: AppDatabase) {
     try {
       const input = parseBody(req, decisionInputSchema);
       const decision = withTransaction(db, () => {
-        const meetingId = resolveMeetingId(db, input.meetingPublicId);
+        const teamId = req.user?.teamId ?? 0;
+        const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
         const publicId = nextPublicId(db, "D");
         db.prepare(
-          `INSERT INTO decisions (public_id, decision_text, decision_date, context, meeting_id)
-           VALUES (?, ?, ?, ?, ?)`,
-        ).run(publicId, input.decisionText, input.decisionDate, input.context, meetingId);
+          `INSERT INTO decisions (public_id, decision_text, decision_date, context, meeting_id, team_id)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(publicId, input.decisionText, input.decisionDate, input.context, meetingId, teamId);
 
-        return getDecisionByPublicId(db, publicId);
+        return getDecisionByPublicId(db, publicId, teamId);
       });
 
       res.status(201).json({ decision });
@@ -96,7 +105,9 @@ export function decisionRoutes(db: AppDatabase) {
 
   router.get("/:publicId", (req, res, next) => {
     try {
-      res.json({ decision: getDecisionByPublicId(db, req.params.publicId) });
+      res.json({
+        decision: getDecisionByPublicId(db, req.params.publicId, req.user?.teamId ?? 0),
+      });
     } catch (error) {
       next(error);
     }
@@ -106,13 +117,14 @@ export function decisionRoutes(db: AppDatabase) {
     try {
       const input = parseBody(req, decisionInputSchema);
       const decision = withTransaction(db, () => {
-        const meetingId = resolveMeetingId(db, input.meetingPublicId);
+        const teamId = req.user?.teamId ?? 0;
+        const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
         const result = db
           .prepare(
             `UPDATE decisions
              SET decision_text = ?, decision_date = ?, context = ?,
                  meeting_id = ?, updated_at = CURRENT_TIMESTAMP
-             WHERE public_id = ? AND archived_at IS NULL`,
+             WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
           .run(
             input.decisionText,
@@ -120,10 +132,11 @@ export function decisionRoutes(db: AppDatabase) {
             input.context,
             meetingId,
             req.params.publicId,
+            teamId,
           );
 
         if (result.changes === 0) throw notFound("Decision not found");
-        return getDecisionByPublicId(db, req.params.publicId);
+        return getDecisionByPublicId(db, req.params.publicId, teamId);
       });
 
       res.json({ decision });
@@ -138,9 +151,9 @@ export function decisionRoutes(db: AppDatabase) {
         .prepare(
           `UPDATE decisions
            SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-           WHERE public_id = ? AND archived_at IS NULL`,
+           WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
         )
-        .run(req.params.publicId);
+        .run(req.params.publicId, req.user?.teamId ?? 0);
 
       if (result.changes === 0) throw notFound("Decision not found");
       res.status(204).end();

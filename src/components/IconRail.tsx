@@ -1,25 +1,31 @@
 import { CalendarCheck, ScrollText } from "lucide-react";
 import { BrandMark } from "./BrandMark";
-import { sectionOrder, type AppSection } from "./shellNavigation";
+import { visibleSectionOrder, type AppSection } from "./shellNavigation";
 
 export function IconRail({
   section,
   onSectionChange,
   version,
   workCalendarUrl,
+  isAdmin,
+  teamName,
+  teamLogoUrl,
 }: {
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
   version: string;
   workCalendarUrl?: string | null;
+  isAdmin: boolean;
+  teamName: string;
+  teamLogoUrl?: string | null;
 }) {
   return (
     <aside className="icon-rail" aria-label="Followthrough">
       <div className="app-mark" aria-hidden="true">
-        <BrandMark />
+        <BrandMark logoUrl={teamLogoUrl} teamName={teamName} />
       </div>
       <nav className="icon-rail-nav" aria-label="Primary sections">
-        {sectionOrder.map(({ section: item, icon: Icon }) => (
+        {visibleSectionOrder(isAdmin).map(({ section: item, icon: Icon }) => (
           <button
             aria-current={item === section ? "page" : undefined}
             aria-label={item}

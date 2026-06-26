@@ -3,11 +3,12 @@ import {
   CalendarDays,
   LayoutDashboard,
   ListTodo,
+  Settings,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
-export const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People"] as const;
+export const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People", "Admin"] as const;
 
 export type AppSection = (typeof navItems)[number];
 
@@ -53,9 +54,18 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
     description: "Shared list of assignees and meeting attendees.",
     contextRows: [{ label: "Total people" }, { label: "People with open tasks" }, { label: "People in recent meetings" }],
   },
+  Admin: {
+    icon: Settings,
+    description: "Manage team settings, shared shortcuts, and user roles.",
+    contextRows: [{ label: "Team settings" }, { label: "Users" }, { label: "Roles" }],
+  },
 };
 
 export const sectionOrder = navItems.map((section) => ({
   section,
   ...sectionNavigation[section],
 }));
+
+export function visibleSectionOrder(isAdmin: boolean) {
+  return sectionOrder.filter((item) => item.section !== "Admin" || isAdmin);
+}

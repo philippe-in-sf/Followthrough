@@ -4,8 +4,20 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appSkinStorageKey } from "../../src/appSkins";
 import { AppShell, type AppSection } from "../../src/components/AppShell";
+import type { User } from "../../src/api/types";
 
-const user = { id: 1, name: "Editor", email: "editor@example.com" };
+const user: User = {
+  id: 1,
+  name: "Editor",
+  email: "editor@example.com",
+  role: "admin" as const,
+  team: {
+    id: 1,
+    name: "Default Team",
+    logoUrl: null,
+    workCalendarUrl: null,
+  },
+};
 
 afterEach(() => {
   localStorage.clear();
@@ -15,14 +27,15 @@ function renderShell(
   section: AppSection = "Dashboard",
   options: {
     workCalendarUrl?: string | null;
+    user?: User;
   } = {},
 ) {
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
 
-  render(
+  const result = render(
     <AppShell
-      user={user}
+      user={options.user ?? user}
       section={section}
       onSectionChange={onSectionChange}
       onLogout={onLogout}
@@ -35,7 +48,7 @@ function renderShell(
     </AppShell>,
   );
 
-  return { onSectionChange, onLogout };
+  return { onSectionChange, onLogout, container: result.container };
 }
 
 describe("AppShell split context rail", () => {
@@ -102,6 +115,48 @@ describe("AppShell split context rail", () => {
     expect(screen.getByRole("link", { name: "Open changelog" })).toHaveAttribute(
       "href",
       "/changelog",
+    );
+  });
+
+  it("shows admin navigation for admins", () => {
+    renderShell("Dashboard");
+
+    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("hides admin navigation for members", () => {
+    renderShell("Dashboard", {
+      user: {
+        ...user,
+        role: "member",
+      },
+    });
+
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
+  it("renders team branding in the shell", () => {
+    const { container } = renderShell("Dashboard", {
+      user: {
+        ...user,
+        team: {
+          id: 1,
+          name: "Acme Ops",
+          logoUrl: "https://example.com/logo.png",
+          workCalendarUrl: "https://calendar.example.com/team",
+        },
+      },
+      workCalendarUrl: "https://calendar.example.com/team",
+    });
+
+    expect(screen.getByText("Acme Ops")).toBeInTheDocument();
+    expect(container.querySelector(".team-logo")).toHaveAttribute(
+      "src",
+      "https://example.com/logo.png",
+    );
+    expect(screen.getByRole("link", { name: "Open calendar shortcut" })).toHaveAttribute(
+      "href",
+      "https://calendar.example.com/team",
     );
   });
 

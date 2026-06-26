@@ -10,6 +10,25 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.7 - 2026-06-26
+
+### Added
+
+- Added single-team workspaces with `admin` and `member` roles.
+- Added admin-only team settings for team name, logo, and shared calendar shortcut.
+- Added admin user management for direct user creation and role assignment, with a last-admin safeguard.
+
+### Changed
+
+- Scoped shared people, tasks, meetings, meeting series, decisions, dashboard data, and search results to the signed-in user's team.
+- Kept invite-code signup as a member-onboarding path while direct CLI user creation remains an admin fallback.
+
+## 1.1.6 - 2026-06-26
+
+### Note
+
+- Reserved to avoid reusing a production-reported version number that was not present on remote main.
+
 ## 1.1.5 - 2026-06-23
 
 ### Added
