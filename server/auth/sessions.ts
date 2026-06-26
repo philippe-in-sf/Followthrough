@@ -3,10 +3,17 @@ import type { Response } from "express";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 
+export type UserRole = "admin" | "member";
+
 export type AuthUser = {
   id: number;
   name: string;
   email: string;
+  role: UserRole;
+  teamId: number;
+  teamName: string;
+  teamLogoUrl: string | null;
+  teamWorkCalendarUrl: string | null;
 };
 
 function hashToken(token: string) {
@@ -63,12 +70,40 @@ export function getSessionUser(
 
   const row = db
     .prepare(
-      `SELECT users.id, users.name, users.email
+      `SELECT users.id,
+              users.name,
+              users.email,
+              users.role,
+              users.team_id AS teamId,
+              teams.name AS teamName,
+              teams.logo_url AS teamLogoUrl,
+              teams.work_calendar_url AS teamWorkCalendarUrl
        FROM sessions
        JOIN users ON users.id = sessions.user_id
+       JOIN teams ON teams.id = users.team_id
        WHERE sessions.token_hash = ? AND datetime(sessions.expires_at) > datetime('now')`,
     )
     .get(hashToken(token)) as AuthUser | undefined;
+
+  return row ?? null;
+}
+
+export function getAuthUserById(db: AppDatabase, userId: number): AuthUser | null {
+  const row = db
+    .prepare(
+      `SELECT users.id,
+              users.name,
+              users.email,
+              users.role,
+              users.team_id AS teamId,
+              teams.name AS teamName,
+              teams.logo_url AS teamLogoUrl,
+              teams.work_calendar_url AS teamWorkCalendarUrl
+       FROM users
+       JOIN teams ON teams.id = users.team_id
+       WHERE users.id = ?`,
+    )
+    .get(userId) as AuthUser | undefined;
 
   return row ?? null;
 }
