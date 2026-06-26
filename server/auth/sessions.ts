@@ -16,6 +16,10 @@ export type AuthUser = {
   teamWorkCalendarUrl: string | null;
 };
 
+type SessionUserRow = AuthUser & {
+  expiresAt: string;
+};
+
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -77,15 +81,30 @@ export function getSessionUser(
               users.team_id AS teamId,
               teams.name AS teamName,
               teams.logo_url AS teamLogoUrl,
-              teams.work_calendar_url AS teamWorkCalendarUrl
+              teams.work_calendar_url AS teamWorkCalendarUrl,
+              sessions.expires_at AS expiresAt
        FROM sessions
        JOIN users ON users.id = sessions.user_id
        JOIN teams ON teams.id = users.team_id
-       WHERE sessions.token_hash = ? AND datetime(sessions.expires_at) > datetime('now')`,
+       WHERE sessions.token_hash = ?`,
     )
-    .get(hashToken(token)) as AuthUser | undefined;
+    .get(hashToken(token)) as SessionUserRow | undefined;
 
-  return row ?? null;
+  if (!row) return null;
+
+  const expiresAt = Date.parse(row.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    teamId: row.teamId,
+    teamName: row.teamName,
+    teamLogoUrl: row.teamLogoUrl,
+    teamWorkCalendarUrl: row.teamWorkCalendarUrl,
+  };
 }
 
 export function getAuthUserById(db: AppDatabase, userId: number): AuthUser | null {

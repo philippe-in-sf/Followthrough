@@ -10,7 +10,7 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
-## 1.1.3 - 2026-06-26
+## 1.1.7 - 2026-06-26
 
 ### Added
 
@@ -22,6 +22,36 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 - Scoped shared people, tasks, meetings, meeting series, decisions, dashboard data, and search results to the signed-in user's team.
 - Kept invite-code signup as a member-onboarding path while direct CLI user creation remains an admin fallback.
+
+## 1.1.6 - 2026-06-26
+
+### Note
+
+- Reserved to avoid reusing a production-reported version number that was not present on remote main.
+
+## 1.1.5 - 2026-06-23
+
+### Added
+
+- Added Cookiebot consent loading to the app shell and public changelog page.
+
+## 1.1.4 - 2026-06-23
+
+### Added
+
+- Added Google Tag Manager to the app shell and public changelog page.
+
+## 1.1.3 - 2026-06-23
+
+### Added
+
+- Added a signed-out marketing homepage that explains Followthrough's purpose before account access.
+
+### Fixed
+
+- Restored collapsed meeting cards after the branch rebase so meeting details expand on demand again.
+- Made session expiry checks use the application clock instead of SQLite wall-clock time.
+- Stabilized Vitest browser storage setup for app-shell tests.
 
 ## 1.1.2 - 2026-06-22
 
