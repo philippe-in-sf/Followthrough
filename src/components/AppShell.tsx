@@ -43,15 +43,19 @@ export function AppShell({
         onSectionChange={onSectionChange}
         version={version}
         workCalendarUrl={workCalendarUrl}
+        isAdmin={user.role === "admin"}
+        teamName={user.team.name}
+        teamLogoUrl={user.team.logoUrl}
       />
       <ContextRail section={section} />
       <div className="workspace">
         <header className="topbar">
           <div className="mobile-topbar-mark" aria-hidden="true">
-            <BrandMark />
+            <BrandMark logoUrl={user.team.logoUrl} teamName={user.team.name} />
           </div>
           <GlobalSearch onOpenSection={onSectionChange} />
           <SkinSelector skin={skin} onSkinChange={setSkin} />
+          <span className="team-name">{user.team.name}</span>
           <span className="user-name">{user.name}</span>
           <button className="icon-button sign-out-button" onClick={onLogout} aria-label="Sign out" type="button">
             <LogOut size={18} />

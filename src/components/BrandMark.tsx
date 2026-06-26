@@ -1,4 +1,14 @@
-export function BrandMark() {
+export function BrandMark({
+  logoUrl,
+  teamName = "Followthrough",
+}: {
+  logoUrl?: string | null;
+  teamName?: string;
+}) {
+  if (logoUrl) {
+    return <img alt="" className="team-logo" src={logoUrl} title={teamName} />;
+  }
+
   return (
     <svg
       aria-hidden="true"

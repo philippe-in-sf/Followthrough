@@ -13,7 +13,10 @@ import type {
   TaskDto,
   TaskReminderMode,
   TaskStatus,
+  TeamDto,
+  TeamUserDto,
   UserPreferencesDto,
+  UserRole,
 } from "../../shared/types";
 import type { User } from "./types";
 
@@ -178,6 +181,25 @@ export const api = {
       request<UserPreferencesDto>("/api/me/preferences", {
         method: "PUT",
         body: JSON.stringify(body),
+      }),
+  },
+  admin: {
+    team: () => request<{ team: TeamDto }>("/api/admin/team"),
+    updateTeam: (body: { name: string; logoUrl: string | null; workCalendarUrl: string | null }) =>
+      request<{ team: TeamDto }>("/api/admin/team", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    users: () => request<{ users: TeamUserDto[] }>("/api/admin/users"),
+    createUser: (body: { name: string; email: string; password: string; role: UserRole }) =>
+      request<{ user: TeamUserDto }>("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    updateUserRole: (userId: number, role: UserRole) =>
+      request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
       }),
   },
   people: {
