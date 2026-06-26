@@ -14,3 +14,7 @@ export function notFound(message = "Record not found") {
 export function badRequest(message: string) {
   return new HttpError(400, message);
 }
+
+export function forbidden(message = "Forbidden") {
+  return new HttpError(403, message);
+}

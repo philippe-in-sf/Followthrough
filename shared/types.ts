@@ -4,6 +4,22 @@ export type MeetingType = "single" | "recurring";
 export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "person";
+export type UserRole = "admin" | "member";
+
+export type TeamDto = {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  workCalendarUrl: string | null;
+};
+
+export type TeamUserDto = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  teamId: number;
+};
 
 export type PersonDto = {
   publicId: string;

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
+import { forbidden } from "../errors.js";
 import { getSessionUser, type AuthUser } from "./sessions.js";
 
 declare global {
@@ -22,4 +23,13 @@ export function requireAuth(db: AppDatabase, config: AppConfig) {
     req.user = user;
     next();
   };
+}
+
+export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (req.user?.role !== "admin") {
+    next(forbidden("Admin access required"));
+    return;
+  }
+
+  next();
 }
