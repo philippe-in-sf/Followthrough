@@ -2382,13 +2382,29 @@ button:disabled {
   padding: 10px 12px;
 }
 
-.series-row div {
+.series-row-main {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
 
-.series-row div span {
+.series-row-main strong,
+.series-row-main span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.series-row-main span {
   color: #5b6475;
+}
+
+.series-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .hint-chip-teal {
@@ -2502,6 +2518,73 @@ button:disabled {
 .meeting-notes-sidepanel {
   display: grid;
   gap: 16px;
+}
+
+.series-notes-page {
+  min-height: calc(100vh - 56px);
+}
+
+.series-notes-list {
+  display: grid;
+  gap: 14px;
+}
+
+.series-note-card {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #d9dee7;
+  border-left: 6px solid #0f766e;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.series-note-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #d9dee7;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+
+.series-note-header > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.series-note-header h3,
+.series-note-header span {
+  margin: 0;
+}
+
+.series-note-header h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.series-note-header span {
+  color: #5b6475;
+  font-size: 0.88rem;
+}
+
+.series-note-badges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.series-note-body {
+  color: #3b4354;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  padding: 14px;
+  white-space: pre-wrap;
 }
 
 .notes-panel-header {
@@ -3014,10 +3097,17 @@ button:disabled {
 
   .lane-header,
   .series-row,
+  .series-row-actions,
+  .series-note-header,
   .meeting-notes-header,
   .meeting-notes-titlebar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .series-row-actions,
+  .series-note-badges {
+    justify-content: flex-start;
   }
 
   .meeting-notes-textarea {
@@ -3240,9 +3330,10 @@ button:disabled {
 .app-shell[data-skin] .compact-list small,
 .app-shell[data-skin] .muted,
 .app-shell[data-skin] .record-row span,
-.app-shell[data-skin] .series-row div span,
+.app-shell[data-skin] .series-row-main span,
 .app-shell[data-skin] .audit-list span,
 .app-shell[data-skin] .lane-header p,
+.app-shell[data-skin] .series-note-header span,
 .app-shell[data-skin] .person-related-header span,
 .app-shell[data-skin] .person-related-list span {
   color: var(--skin-muted);
@@ -3332,6 +3423,7 @@ button:disabled {
 .app-shell[data-skin] .record-lane,
 .app-shell[data-skin] .meeting-card,
 .app-shell[data-skin] .task-card,
+.app-shell[data-skin] .series-note-card,
 .app-shell[data-skin] .admin-panel,
 .app-shell[data-skin] .admin-add-user-form,
 .app-shell[data-skin] .record-row,
@@ -3403,6 +3495,8 @@ button:disabled {
 .app-shell[data-skin] .meeting-summary-title strong,
 .app-shell[data-skin] .meeting-summary-text,
 .app-shell[data-skin] .task-summary-title strong,
+.app-shell[data-skin] .series-note-header h3,
+.app-shell[data-skin] .series-note-body,
 .app-shell[data-skin] .meeting-detail-section p,
 .app-shell[data-skin] .task-detail-section p {
   color: var(--skin-text);
@@ -3443,7 +3537,8 @@ button:disabled {
 .app-shell[data-skin] .meeting-task-form,
 .app-shell[data-skin] .person-related-records,
 .app-shell[data-skin] .task-reminder-feedback,
-.app-shell[data-skin] .lane-header {
+.app-shell[data-skin] .lane-header,
+.app-shell[data-skin] .series-note-header {
   background: var(--skin-surface-alt);
 }
 
@@ -3453,12 +3548,14 @@ button:disabled {
 .app-shell[data-skin] .meeting-task-form,
 .app-shell[data-skin] .person-related-records,
 .app-shell[data-skin] .task-reminder-feedback,
-.app-shell[data-skin] .audit-log {
+.app-shell[data-skin] .audit-log,
+.app-shell[data-skin] .series-note-header {
   border-color: var(--skin-border);
 }
 
 .app-shell[data-skin] .series-row,
 .app-shell[data-skin] .record-lane-meeting .lane-header,
+.app-shell[data-skin] .series-note-card,
 .app-shell[data-skin] .record-card-meeting {
   border-left-color: var(--skin-accent);
 }

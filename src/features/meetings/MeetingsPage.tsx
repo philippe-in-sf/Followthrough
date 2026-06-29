@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } 
 import {
   Archive,
   ArrowLeft,
+  BookOpen,
   CalendarPlus,
   ChevronDown,
   LinkIcon,
@@ -341,6 +342,7 @@ export function MeetingsPage({
   );
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [activeNotesMeetingPublicId, setActiveNotesMeetingPublicId] = useState<string | null>(null);
+  const [activeSeriesNotesPublicId, setActiveSeriesNotesPublicId] = useState<string | null>(null);
   const [blockersDraft, setBlockersDraft] = useState("");
   const [blockersClearedDraft, setBlockersClearedDraft] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
@@ -410,6 +412,26 @@ export function MeetingsPage({
     () => meetings.find((meeting) => meeting.publicId === activeNotesMeetingPublicId) ?? null,
     [activeNotesMeetingPublicId, meetings],
   );
+
+  const activeSeriesNotes = useMemo(() => {
+    if (!activeSeriesNotesPublicId) return null;
+    const selectedSeries =
+      series.find((item) => item.publicId === activeSeriesNotesPublicId) ?? null;
+    if (!selectedSeries) return null;
+
+    const seriesMeetings = meetings
+      .filter((meeting) => meeting.seriesPublicId === activeSeriesNotesPublicId)
+      .sort(
+        (left, right) =>
+          new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
+      );
+
+    return {
+      series: selectedSeries,
+      meetings: seriesMeetings,
+      noteCount: seriesMeetings.filter((meeting) => meeting.notes.trim()).length,
+    };
+  }, [activeSeriesNotesPublicId, meetings, series]);
 
   async function load() {
     const requestId = meetingLoadRequestId.current + 1;
@@ -750,12 +772,23 @@ export function MeetingsPage({
 
   function openMeetingNotes(meeting: MeetingDto) {
     setActiveNotesMeetingPublicId(meeting.publicId);
+    setActiveSeriesNotesPublicId(null);
     setEditingMeetingPublicId(null);
     setBlockersDraft(meeting.blockers);
     setBlockersClearedDraft(meeting.blockersClearedAt !== null);
     setNotesDraft(meeting.notes);
     setLinkDrafts(meeting.links.map(toMeetingLinkForm));
     setNewLinkForm(emptyMeetingLinkForm);
+  }
+
+  function openSeriesNotes(seriesPublicId: string) {
+    setActiveSeriesNotesPublicId(seriesPublicId);
+    setActiveNotesMeetingPublicId(null);
+    setEditingMeetingPublicId(null);
+  }
+
+  function closeSeriesNotes() {
+    setActiveSeriesNotesPublicId(null);
   }
 
   function closeMeetingNotes() {
@@ -806,6 +839,89 @@ export function MeetingsPage({
     setLinkDrafts(links);
     setNewLinkForm(emptyMeetingLinkForm);
     await load();
+  }
+
+  if (activeSeriesNotes) {
+    return (
+      <main className="page series-notes-page">
+        <header className="page-header meeting-notes-header">
+          <div className="meeting-notes-titlebar">
+            <button
+              className="secondary-button icon-text-button"
+              type="button"
+              onClick={closeSeriesNotes}
+            >
+              <ArrowLeft aria-hidden="true" size={17} />
+              Back
+            </button>
+            <div>
+              <h2>{activeSeriesNotes.series.title}</h2>
+              <p>
+                {activeSeriesNotes.series.publicId} ·{" "}
+                {activeSeriesNotes.series.cadenceLabel || "Recurring"}
+              </p>
+            </div>
+          </div>
+          <div className="meeting-notes-meta">
+            <span className="lane-count">
+              {countLabel(activeSeriesNotes.meetings.length, "meeting")}
+            </span>
+            <span className="lane-count">
+              {countLabel(activeSeriesNotes.noteCount, "note")}
+            </span>
+          </div>
+        </header>
+
+        {activeSeriesNotes.meetings.length === 0 ? (
+          <EmptyState
+            title="No meetings in this series"
+            detail="Series notes will appear after recurring meetings are created."
+          />
+        ) : (
+          <section
+            aria-label={`Notes for ${activeSeriesNotes.series.title}`}
+            className="series-notes-list"
+          >
+            {activeSeriesNotes.meetings.map((meeting) => {
+              const notes = meeting.notes.trim();
+              return (
+                <article
+                  aria-label={`Notes for meeting ${meeting.publicId}`}
+                  className="series-note-card"
+                  key={meeting.publicId}
+                >
+                  <header className="series-note-header">
+                    <div>
+                      <h3>{meeting.title}</h3>
+                      <span>
+                        {meeting.publicId} · {new Date(meeting.startsAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="series-note-badges">
+                      <StatusBadge label={meeting.meetingType} />
+                      {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                      {hasActiveBlockers(meeting) ? (
+                        <StatusBadge label="Blocker" tone="bad" />
+                      ) : null}
+                      {hasClearedBlockers(meeting) ? (
+                        <StatusBadge label="Blocker cleared" tone="good" />
+                      ) : null}
+                    </div>
+                  </header>
+                  <div className={notes ? "series-note-body" : "series-note-body muted"}>
+                    {notes ? (
+                      <LinkedText text={notes} />
+                    ) : (
+                      "No notes captured for this occurrence."
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+      </main>
+    );
   }
 
   if (activeNotesMeeting) {
@@ -1375,15 +1491,26 @@ export function MeetingsPage({
               <div className="series-list">
                 {series.map((item) => (
                   <div className="series-row" key={item.publicId}>
-                    <div>
+                    <div className="series-row-main">
                       <strong>
                         <LinkedText text={item.title} />
                       </strong>
                       <span>{item.publicId}</span>
                     </div>
-                    <span className="hint-chip hint-chip-teal">
-                      {item.cadenceLabel || "Recurring"}
-                    </span>
+                    <div className="series-row-actions">
+                      <span className="hint-chip hint-chip-teal">
+                        {item.cadenceLabel || "Recurring"}
+                      </span>
+                      <button
+                        aria-label={`Read notes for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
+                        className="secondary-button icon-text-button"
+                        type="button"
+                        onClick={() => openSeriesNotes(item.publicId)}
+                      >
+                        <BookOpen aria-hidden="true" size={16} />
+                        Notes
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
