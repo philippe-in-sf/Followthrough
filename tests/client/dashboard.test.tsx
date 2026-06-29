@@ -53,6 +53,7 @@ function setupAppFetch(
     googleCalendarConfigured?: boolean;
     googleCalendarConnected?: boolean;
     googleCalendarEmail?: string | null;
+    extraMeetings?: MeetingDto[];
   } = {},
 ) {
   const people: PersonDto[] = [avery];
@@ -160,6 +161,7 @@ function setupAppFetch(
       private: false,
       archived: false,
     },
+    ...(options.extraMeetings ?? []),
   ];
   const archivedMeetings: MeetingDto[] = [];
 
@@ -1053,6 +1055,53 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
     const nextOccurrenceCard = await expandMeetingCard("M011");
     expect(within(nextOccurrenceCard).getByText("Carry roadmap")).toBeInTheDocument();
+  });
+
+  it("shows consolidated notes for a recurring series", async () => {
+    setupAppFetch({
+      extraMeetings: [
+        {
+          publicId: "M009",
+          title: "Leadership sync kickoff",
+          startsAt: "2026-06-02T15:00:00.000Z",
+          meetingType: "recurring",
+          seriesPublicId: "S001",
+          summary: "Kickoff readiness",
+          blockers: "",
+          blockersClearedAt: null,
+          notes: "Kickoff notes\nConfirm launch owners.",
+          links: [],
+          attendees: [avery],
+          tasks: [],
+          private: false,
+          archived: false,
+        },
+      ],
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    const seriesRegion = await screen.findByRole("region", { name: "Recurring series" });
+    await userEvent.click(
+      within(seriesRegion).getByRole("button", {
+        name: /Read notes for series S001 Project sync/i,
+      }),
+    );
+
+    expect(await screen.findByRole("heading", { name: "Project sync" })).toBeInTheDocument();
+    expect(screen.getByText("S001 · Weekly")).toBeInTheDocument();
+    expect(screen.getByText("2 meetings")).toBeInTheDocument();
+    expect(screen.getByText("2 notes")).toBeInTheDocument();
+
+    const kickoffNotes = screen.getByLabelText("Notes for meeting M009");
+    const latestNotes = screen.getByLabelText("Notes for meeting M010");
+    expect(kickoffNotes).toHaveTextContent("Kickoff notes");
+    expect(kickoffNotes).toHaveTextContent("Confirm launch owners.");
+    expect(latestNotes).toHaveTextContent("Previous launch notes");
+
+    const noteCards = screen.getAllByLabelText(/Notes for meeting M0/);
+    expect(noteCards[0]).toHaveAccessibleName("Notes for meeting M009");
+    expect(noteCards[1]).toHaveAccessibleName("Notes for meeting M010");
   });
 
   it("starts a new recurring meeting from the Add meeting form", async () => {

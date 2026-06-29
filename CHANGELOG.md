@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.12 - 2026-06-29
+
+### Added
+
+- Added a consolidated recurring-series notes view so all visible meeting notes in a series can be read together chronologically.
+
 ## 1.1.11 - 2026-06-26
 
 ### Added
