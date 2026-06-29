@@ -29,6 +29,7 @@ import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
+import { toApiDateTime, toDateTimeInputValue } from "./dateTime";
 
 type MeetingFormState = {
   publicId: string;
@@ -122,17 +123,6 @@ const meetingLinkTypes: Array<{ value: MeetingLinkType; label: string }> = [
   { value: "reference", label: "Reference" },
   { value: "other", label: "Other" },
 ];
-
-function toApiDateTime(value: string) {
-  const [datePart, timePart = "00:00"] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour = 0, minute = 0, second = 0] = timePart.split(":").map(Number);
-  return new Date(year, month - 1, day, hour, minute, second).toISOString();
-}
-
-function toDateTimeInputValue(value: string) {
-  return value ? value.slice(0, 16) : "";
-}
 
 function toggleValue(values: string[], value: string, checked: boolean) {
   if (checked) return [...new Set([...values, value])];

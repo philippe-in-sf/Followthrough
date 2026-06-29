@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { LogOut, UserMinus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/types";
 import { readStoredAppSkin, storeAppSkin } from "../appSkins";
@@ -18,6 +18,7 @@ export function AppShell({
   section,
   onSectionChange,
   onLogout,
+  onLeaveTeam,
   version,
   workCalendarUrl = loadClientConfig().workCalendarUrl,
   children,
@@ -26,6 +27,7 @@ export function AppShell({
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
   onLogout: () => void;
+  onLeaveTeam: () => void;
   version: string;
   workCalendarUrl?: string | null;
   children: ReactNode;
@@ -57,6 +59,15 @@ export function AppShell({
           <SkinSelector skin={skin} onSkinChange={setSkin} />
           <span className="team-name">{user.team.name}</span>
           <span className="user-name">{user.name}</span>
+          <button
+            className="icon-button leave-team-button"
+            onClick={onLeaveTeam}
+            aria-label="Leave team"
+            title="Leave team"
+            type="button"
+          >
+            <UserMinus size={18} />
+          </button>
           <button className="icon-button sign-out-button" onClick={onLogout} aria-label="Sign out" type="button">
             <LogOut size={18} />
           </button>

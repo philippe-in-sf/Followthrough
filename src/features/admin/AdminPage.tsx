@@ -36,7 +36,13 @@ function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : "Request failed";
 }
 
-export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => void }) {
+export function AdminPage({
+  currentUserId,
+  onTeamChange,
+}: {
+  currentUserId: number;
+  onTeamChange: (team: TeamDto) => void;
+}) {
   const [teamForm, setTeamForm] = useState<TeamFormState>({
     name: "",
     logoUrl: "",
@@ -50,6 +56,8 @@ export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => v
   const [userStatus, setUserStatus] = useState("");
   const [userError, setUserError] = useState("");
   const [roleError, setRoleError] = useState("");
+  const [removeStatus, setRemoveStatus] = useState("");
+  const [removeError, setRemoveError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -121,6 +129,23 @@ export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => v
     }
   }
 
+  async function removeUserFromTeam(user: TeamUserDto) {
+    const confirmed = window.confirm(
+      `Remove ${user.name} from this team? They will lose access to this team's tasks, meetings, decisions, and people records.`,
+    );
+    if (!confirmed) return;
+
+    setRemoveStatus("");
+    setRemoveError("");
+    try {
+      await api.admin.removeUserFromTeam(user.id);
+      setUsers((current) => current.filter((candidate) => candidate.id !== user.id));
+      setRemoveStatus(`${user.name} removed from team`);
+    } catch (error) {
+      setRemoveError(errorMessage(error));
+    }
+  }
+
   if (loading) return <main className="page admin-page">Loading admin settings...</main>;
 
   return (
@@ -186,6 +211,7 @@ export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => v
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,6 +229,17 @@ export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => v
                           <option value="admin">Admin</option>
                         </select>
                       </td>
+                      <td className="admin-user-actions">
+                        {user.id === currentUserId ? null : (
+                          <button
+                            className="danger-button"
+                            onClick={() => void removeUserFromTeam(user)}
+                            type="button"
+                          >
+                            Remove from team
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -210,6 +247,8 @@ export function AdminPage({ onTeamChange }: { onTeamChange: (team: TeamDto) => v
             </div>
           )}
           {roleError ? <p className="form-error">{roleError}</p> : null}
+          {removeError ? <p className="form-error">{removeError}</p> : null}
+          {removeStatus ? <p className="form-status">{removeStatus}</p> : null}
 
           <form className="admin-add-user-form" onSubmit={addUser}>
             <h3>Add user</h3>

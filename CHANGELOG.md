@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.15 - 2026-06-29
+
+### Added
+
+- Added self-service team leaving and admin user removal from a team.
+- Moved users who leave or are removed into a new personal team so prior team tasks, meetings, decisions, and people records remain protected.
+
+### Fixed
+
+- Fixed meeting edit datetime conversion so saved meeting times no longer drift by the local timezone offset.
+
 ## 1.1.14 - 2026-06-29
 
 ### Changed

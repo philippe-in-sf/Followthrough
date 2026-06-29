@@ -12,7 +12,7 @@ import {
   destroySession,
   getAuthUserById,
   getSessionUser,
-  type AuthUser,
+  authUserDto,
   type UserRole,
 } from "./sessions.js";
 import { getDefaultTeamId, insertUserWithPasswordHash } from "./userManagement.js";
@@ -36,21 +36,6 @@ const loginSchema = z.object({
     .transform((value) => value.toLowerCase()),
   password: z.string().min(1),
 });
-
-function userDto(row: AuthUser) {
-  return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    role: row.role,
-    team: {
-      id: row.teamId,
-      name: row.teamName,
-      logoUrl: row.teamLogoUrl,
-      workCalendarUrl: row.teamWorkCalendarUrl,
-    },
-  };
-}
 
 export function authRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
@@ -97,7 +82,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       });
 
       createSession(db, res, user.id, config);
-      res.status(201).json({ user: userDto(user) });
+      res.status(201).json({ user: authUserDto(user) });
     } catch (error) {
       next(error);
     }
@@ -119,7 +104,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       createSession(db, res, user.id, config);
       const authUser = getAuthUserById(db, user.id);
       if (!authUser) throw badRequest("Email or password is incorrect");
-      res.json({ user: userDto(authUser) });
+      res.json({ user: authUserDto(authUser) });
     } catch (error) {
       next(error);
     }
@@ -133,7 +118,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
 
   router.get("/me", (req, res) => {
     const user = getSessionUser(db, req.headers.cookie, config);
-    res.json({ user: user ? userDto(user) : null });
+    res.json({ user: user ? authUserDto(user) : null });
   });
 
   return router;

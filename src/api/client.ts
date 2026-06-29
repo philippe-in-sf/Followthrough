@@ -178,6 +178,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+  leaveTeam: () => request<{ user: User }>("/api/me/team/leave", { method: "POST" }),
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
   search: (query: string) =>
     request<{ results: SearchResult[] }>(`/api/search?${new URLSearchParams({ q: query })}`),
@@ -206,6 +207,10 @@ export const api = {
       request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/role`, {
         method: "PATCH",
         body: JSON.stringify({ role }),
+      }),
+    removeUserFromTeam: (userId: number) =>
+      request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/remove`, {
+        method: "POST",
       }),
   },
   people: {
