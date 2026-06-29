@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.13 - 2026-06-29
+
+### Fixed
+
+- Added visible saving, saved, and error feedback to the meeting notes editor so the Save notes action no longer appears inert.
+
 ## 1.1.12 - 2026-06-29
 
 ### Added

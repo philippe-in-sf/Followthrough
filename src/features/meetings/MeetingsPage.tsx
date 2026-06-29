@@ -346,6 +346,9 @@ export function MeetingsPage({
   const [blockersDraft, setBlockersDraft] = useState("");
   const [blockersClearedDraft, setBlockersClearedDraft] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSaveError, setNotesSaveError] = useState("");
+  const [notesSaveStatus, setNotesSaveStatus] = useState("");
   const [linkDrafts, setLinkDrafts] = useState<MeetingLinkFormState[]>([]);
   const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
   const meetingLoadRequestId = useRef(0);
@@ -777,6 +780,9 @@ export function MeetingsPage({
     setBlockersDraft(meeting.blockers);
     setBlockersClearedDraft(meeting.blockersClearedAt !== null);
     setNotesDraft(meeting.notes);
+    setNotesSaving(false);
+    setNotesSaveError("");
+    setNotesSaveStatus("");
     setLinkDrafts(meeting.links.map(toMeetingLinkForm));
     setNewLinkForm(emptyMeetingLinkForm);
   }
@@ -796,11 +802,15 @@ export function MeetingsPage({
     setBlockersDraft("");
     setBlockersClearedDraft(false);
     setNotesDraft("");
+    setNotesSaving(false);
+    setNotesSaveError("");
+    setNotesSaveStatus("");
     setLinkDrafts([]);
     setNewLinkForm(emptyMeetingLinkForm);
   }
 
   function updateLinkDraft(index: number, changes: Partial<MeetingLinkFormState>) {
+    setNotesSaveStatus("");
     setLinkDrafts((current) =>
       current.map((link, currentIndex) =>
         currentIndex === index ? { ...link, ...changes } : link,
@@ -809,36 +819,48 @@ export function MeetingsPage({
   }
 
   function removeLinkDraft(index: number) {
+    setNotesSaveStatus("");
     setLinkDrafts((current) => current.filter((_link, currentIndex) => currentIndex !== index));
   }
 
   function addLinkDraft() {
+    setNotesSaveStatus("");
     setLinkDrafts((current) => [...current, newLinkForm]);
     setNewLinkForm(emptyMeetingLinkForm);
   }
 
   async function submitMeetingNotes(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
     event.preventDefault();
+    setNotesSaving(true);
+    setNotesSaveError("");
+    setNotesSaveStatus("");
     const pendingLink =
       newLinkForm.label.trim() && newLinkForm.url.trim() ? [newLinkForm] : [];
     const links = [...linkDrafts, ...pendingLink];
-    await api.meetings.update(meeting.publicId, {
-      title: meeting.title,
-      startsAt: meeting.startsAt,
-      meetingType: meeting.meetingType,
-      seriesPublicId: meeting.seriesPublicId,
-      summary: meeting.summary,
-      blockers: blockersDraft,
-      blockersCleared: blockersClearedDraft,
-      notes: notesDraft,
-      links,
-      attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
-      taskPublicIds: meeting.tasks.map((task) => task.publicId),
-      private: meeting.private,
-    });
-    setLinkDrafts(links);
-    setNewLinkForm(emptyMeetingLinkForm);
-    await load();
+    try {
+      await api.meetings.update(meeting.publicId, {
+        title: meeting.title,
+        startsAt: meeting.startsAt,
+        meetingType: meeting.meetingType,
+        seriesPublicId: meeting.seriesPublicId,
+        summary: meeting.summary,
+        blockers: blockersDraft,
+        blockersCleared: blockersClearedDraft,
+        notes: notesDraft,
+        links,
+        attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
+        taskPublicIds: meeting.tasks.map((task) => task.publicId),
+        private: meeting.private,
+      });
+      setLinkDrafts(links);
+      setNewLinkForm(emptyMeetingLinkForm);
+      setNotesSaveStatus("Notes saved.");
+      await load();
+    } catch (error) {
+      setNotesSaveError(error instanceof Error ? error.message : "Notes could not be saved.");
+    } finally {
+      setNotesSaving(false);
+    }
   }
 
   if (activeSeriesNotes) {
@@ -947,11 +969,12 @@ export function MeetingsPage({
           </div>
           <button
             className="primary-button icon-text-button"
+            disabled={notesSaving}
             type="submit"
             form={`meeting-notes-form-${activeNotesMeeting.publicId}`}
           >
             <Save aria-hidden="true" size={17} />
-            Save notes
+            {notesSaving ? "Saving notes" : "Save notes"}
           </button>
         </header>
 
@@ -984,6 +1007,7 @@ export function MeetingsPage({
                 value={blockersDraft}
                 onChange={(event) => {
                   setBlockersDraft(event.target.value);
+                  setNotesSaveStatus("");
                   if (!event.target.value.trim()) setBlockersClearedDraft(false);
                 }}
               />
@@ -993,16 +1017,32 @@ export function MeetingsPage({
                 type="checkbox"
                 checked={blockersClearedDraft}
                 disabled={!blockersDraft.trim()}
-                onChange={(event) => setBlockersClearedDraft(event.target.checked)}
+                onChange={(event) => {
+                  setBlockersClearedDraft(event.target.checked);
+                  setNotesSaveStatus("");
+                }}
               />
               <span>Blocker cleared</span>
             </label>
+            {notesSaveError ? (
+              <p className="form-error" role="alert">
+                {notesSaveError}
+              </p>
+            ) : null}
+            {notesSaveStatus ? (
+              <p className="form-status" role="status">
+                {notesSaveStatus}
+              </p>
+            ) : null}
             <FormField label={`Notes for ${activeNotesMeeting.publicId}`}>
               <textarea
                 autoFocus
                 className="meeting-notes-textarea"
                 value={notesDraft}
-                onChange={(event) => setNotesDraft(event.target.value)}
+                onChange={(event) => {
+                  setNotesDraft(event.target.value);
+                  setNotesSaveStatus("");
+                }}
               />
             </FormField>
           </section>
@@ -1082,29 +1122,32 @@ export function MeetingsPage({
                 <FormField label="New link label">
                   <input
                     value={newLinkForm.label}
-                    onChange={(event) =>
-                      setNewLinkForm({ ...newLinkForm, label: event.target.value })
-                    }
+                    onChange={(event) => {
+                      setNewLinkForm({ ...newLinkForm, label: event.target.value });
+                      setNotesSaveStatus("");
+                    }}
                   />
                 </FormField>
                 <FormField label="New link URL">
                   <input
                     type="url"
                     value={newLinkForm.url}
-                    onChange={(event) =>
-                      setNewLinkForm({ ...newLinkForm, url: event.target.value })
-                    }
+                    onChange={(event) => {
+                      setNewLinkForm({ ...newLinkForm, url: event.target.value });
+                      setNotesSaveStatus("");
+                    }}
                   />
                 </FormField>
                 <FormField label="New link type">
                   <select
                     value={newLinkForm.linkType}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setNewLinkForm({
                         ...newLinkForm,
                         linkType: event.target.value as MeetingLinkType,
-                      })
-                    }
+                      });
+                      setNotesSaveStatus("");
+                    }}
                   >
                     {meetingLinkTypes.map((type) => (
                       <option key={type.value} value={type.value}>
