@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.14 - 2026-06-29
+
+### Changed
+
+- Replaced the Decisions form Meeting ID text field with a recent-meetings select.
+
 ## 1.1.13 - 2026-06-29
 
 ### Fixed

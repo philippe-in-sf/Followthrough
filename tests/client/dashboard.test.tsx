@@ -857,7 +857,17 @@ describe("dashboard and workspace flows", () => {
     await userEvent.type(await screen.findByLabelText("Decision"), "Adopt weekly review");
     await userEvent.type(screen.getByLabelText("Decision date"), "2026-06-10");
     await userEvent.type(screen.getByLabelText("Decision context"), "Recurring governance");
+    expect(screen.getByLabelText("Meeting ID")).toHaveTextContent("M010 - Leadership sync");
+    await userEvent.selectOptions(screen.getByLabelText("Meeting ID"), "M010");
     await userEvent.click(screen.getByRole("button", { name: "Add decision" }));
+    const decisionCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input).endsWith("/api/decisions") && init?.method === "POST");
+    expect(JSON.parse(String(decisionCreateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        meetingPublicId: "M010",
+      }),
+    );
     expect(await screen.findByText("Adopt weekly review")).toBeInTheDocument();
   });
 

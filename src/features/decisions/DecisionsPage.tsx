@@ -1,9 +1,9 @@
-import { type FormEvent, useEffect, useState } from "react";
-import type { DecisionDto } from "../../../shared/types";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import type { DecisionDto, MeetingDto } from "../../../shared/types";
 import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
@@ -30,15 +30,40 @@ export function DecisionsPage({
   onDecisionFocusHandled?: () => void;
 }) {
   const [decisions, setDecisions] = useState<DecisionDto[]>([]);
+  const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [form, setForm] = useState<DecisionFormState>(emptyDecisionForm);
 
   async function load() {
-    setDecisions((await api.decisions.list()).decisions);
+    const [decisionResult, meetingResult] = await Promise.all([
+      api.decisions.list(),
+      api.meetings.list(),
+    ]);
+    setDecisions(decisionResult.decisions);
+    setMeetings(meetingResult.meetings);
   }
 
   useEffect(() => {
     void load();
   }, []);
+
+  const recentMeetingOptions = useMemo(() => {
+    const recentMeetings = [...meetings]
+      .sort(
+        (left, right) =>
+          new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime(),
+      )
+      .slice(0, 25);
+    const selectedMeeting = meetings.find((meeting) => meeting.publicId === form.meetingPublicId);
+    const selectedIsVisible = recentMeetings.some(
+      (meeting) => meeting.publicId === form.meetingPublicId,
+    );
+
+    if (selectedMeeting && !selectedIsVisible) {
+      return [selectedMeeting, ...recentMeetings];
+    }
+
+    return recentMeetings;
+  }, [form.meetingPublicId, meetings]);
 
   async function submitDecision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,11 +129,24 @@ export function DecisionsPage({
           />
         </FormField>
         <FormField label="Meeting ID">
-          <input
+          <select
             value={form.meetingPublicId}
             onChange={(event) => setForm({ ...form, meetingPublicId: event.target.value })}
-            placeholder="M001"
-          />
+          >
+            <option value="">No meeting</option>
+            {form.meetingPublicId &&
+            !meetings.some((meeting) => meeting.publicId === form.meetingPublicId) ? (
+              <option value={form.meetingPublicId}>
+                {form.meetingPublicId} - linked meeting unavailable
+              </option>
+            ) : null}
+            {recentMeetingOptions.map((meeting) => (
+              <option key={meeting.publicId} value={meeting.publicId}>
+                {meeting.publicId} - {collapseLinks(meeting.title)} -{" "}
+                {new Date(meeting.startsAt).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
         </FormField>
         <div className="form-actions">
           <button className="primary-button" type="submit">
