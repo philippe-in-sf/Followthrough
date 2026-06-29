@@ -77,6 +77,31 @@ function mockLoggedInFetch() {
         }),
       } as Response);
     }
+    if (url.endsWith("/api/meetings")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          meetings: [
+            {
+              publicId: "M001",
+              title: "Planning",
+              startsAt: "2026-06-09T15:00:00.000Z",
+              meetingType: "single",
+              seriesPublicId: null,
+              summary: "Planning context",
+              blockers: "",
+              blockersClearedAt: null,
+              notes: "",
+              links: [],
+              attendees: [],
+              tasks: [],
+              private: false,
+              archived: false,
+            },
+          ],
+        }),
+      } as Response);
+    }
     if (url.endsWith("/api/decisions")) {
       return Promise.resolve({
         ok: true,
