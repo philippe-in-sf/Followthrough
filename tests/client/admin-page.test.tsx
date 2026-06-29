@@ -32,6 +32,7 @@ describe("admin page", () => {
       { id: 1, name: "Editor", email: "editor@example.com", role: "admin", teamId: 1 },
       { id: 2, name: "Member", email: "member@example.com", role: "member", teamId: 1 },
     ];
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input), "http://task-manager.test");
@@ -94,6 +95,13 @@ describe("admin page", () => {
         user.role = body.role;
         return json({ user });
       }
+      const removeMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/remove$/);
+      if (removeMatch && method === "POST") {
+        const userIndex = users.findIndex((candidate) => candidate.id === Number(removeMatch[1]));
+        if (userIndex < 0) return json({ error: "User not found" }, 404);
+        const [user] = users.splice(userIndex, 1);
+        return json({ user: { ...user, role: "admin", teamId: 2 } });
+      }
 
       return json({});
     }) as typeof fetch;
@@ -132,6 +140,11 @@ describe("admin page", () => {
     await waitFor(() =>
       expect(within(memberRow).getByLabelText("Role for Member")).toHaveValue("admin"),
     );
+
+    await userEvent.click(within(memberRow).getByRole("button", { name: "Remove from team" }));
+
+    await waitFor(() => expect(screen.queryByText("member@example.com")).not.toBeInTheDocument());
+    expect(screen.getByText("Member removed from team")).toBeInTheDocument();
   });
 
   it("shows the last-admin error from role changes", async () => {

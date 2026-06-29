@@ -44,6 +44,7 @@ function renderSection({
   onGoogleCalendarConnectionChange,
   user,
   onTeamChange,
+  currentUserId,
 }: {
   section: AppSection;
   focusedRecord: FocusTarget | null;
@@ -57,6 +58,7 @@ function renderSection({
   onGoogleCalendarConnectionChange: (connected: boolean, email: string | null) => void;
   user: User;
   onTeamChange: (team: TeamDto) => void;
+  currentUserId: number;
 }) {
   switch (section) {
     case "Dashboard":
@@ -91,7 +93,9 @@ function renderSection({
     case "People":
       return <PeoplePage />;
     case "Admin":
-      return user.role === "admin" ? <AdminPage onTeamChange={onTeamChange} /> : null;
+      return user.role === "admin" ? (
+        <AdminPage currentUserId={currentUserId} onTeamChange={onTeamChange} />
+      ) : null;
   }
 }
 
@@ -199,6 +203,7 @@ export function App() {
 
   if (user === undefined) return <main className="loading">Loading...</main>;
   if (!user) return <AuthPage onAuth={handleAuth} />;
+  const currentUser = user;
 
   async function logout() {
     await api.logout();
@@ -206,14 +211,28 @@ export function App() {
     setPreferences(fallbackPreferences);
   }
 
+  async function leaveTeam() {
+    const confirmed = window.confirm(
+      `Leave ${currentUser.team.name}? You will lose access to this team's tasks, meetings, decisions, and people records.`,
+    );
+    if (!confirmed) return;
+
+    const result = await api.leaveTeam();
+    setUser(result.user);
+    setSection("Dashboard");
+    setFocusedRecord(null);
+    void loadPreferences();
+  }
+
   const calendarShortcutUrl = user.team.workCalendarUrl ?? preferences.workCalendarUrl;
 
   return (
     <AppShell
-      user={user}
+      user={currentUser}
       section={section}
       onSectionChange={changeSection}
       onLogout={logout}
+      onLeaveTeam={leaveTeam}
       version={appVersion}
       workCalendarUrl={calendarShortcutUrl}
     >
@@ -228,8 +247,9 @@ export function App() {
         googleCalendarConnected: preferences.googleCalendarConnected,
         googleCalendarEmail: preferences.googleCalendarEmail,
         onGoogleCalendarConnectionChange: setGoogleCalendarConnection,
-        user,
+        user: currentUser,
         onTeamChange: setTeam,
+        currentUserId: currentUser.id,
       })}
     </AppShell>
   );

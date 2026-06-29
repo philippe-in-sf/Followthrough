@@ -5,6 +5,7 @@ import type { AppDatabase } from "../db/database.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { createUser } from "../auth/userManagement.js";
+import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
 
 type TeamRow = {
   id: number;
@@ -91,13 +92,6 @@ function getTeamUser(db: AppDatabase, teamId: number, userId: number) {
     .get(userId, teamId) as TeamUserRow | undefined;
   if (!row) throw notFound("User not found");
   return row;
-}
-
-function countTeamAdmins(db: AppDatabase, teamId: number) {
-  const row = db
-    .prepare("SELECT COUNT(*) AS count FROM users WHERE team_id = ? AND role = 'admin'")
-    .get(teamId) as { count: number };
-  return row.count;
 }
 
 export function adminRoutes(db: AppDatabase) {
@@ -187,6 +181,31 @@ export function adminRoutes(db: AppDatabase) {
       );
 
       res.json({ user: userDto(getTeamUser(db, teamId, userId)) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/users/:userId/remove", (req, res, next) => {
+    try {
+      const userId = Number(req.params.userId);
+      if (!Number.isInteger(userId) || userId < 1) throw notFound("User not found");
+      if (userId === req.user?.id) {
+        throw badRequest("Use leave team to remove yourself");
+      }
+
+      getTeamUser(db, req.user?.teamId ?? 0, userId);
+      const movedUser = moveUserToPersonalTeam(db, userId, { revokeSessions: true });
+
+      res.json({
+        user: {
+          id: movedUser.id,
+          name: movedUser.name,
+          email: movedUser.email,
+          role: movedUser.role,
+          teamId: movedUser.teamId,
+        },
+      });
     } catch (error) {
       next(error);
     }

@@ -32,6 +32,7 @@ function renderShell(
 ) {
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
+  const onLeaveTeam = vi.fn();
 
   const result = render(
     <AppShell
@@ -39,6 +40,7 @@ function renderShell(
       section={section}
       onSectionChange={onSectionChange}
       onLogout={onLogout}
+      onLeaveTeam={onLeaveTeam}
       version="1.0.1"
       workCalendarUrl={options.workCalendarUrl}
     >
@@ -48,7 +50,7 @@ function renderShell(
     </AppShell>,
   );
 
-  return { onSectionChange, onLogout, container: result.container };
+  return { onSectionChange, onLogout, onLeaveTeam, container: result.container };
 }
 
 describe("AppShell split context rail", () => {
@@ -122,6 +124,14 @@ describe("AppShell split context rail", () => {
     renderShell("Dashboard");
 
     expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("offers a leave-team action", async () => {
+    const { onLeaveTeam } = renderShell("Dashboard");
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave team" }));
+
+    expect(onLeaveTeam).toHaveBeenCalledTimes(1);
   });
 
   it("hides admin navigation for members", () => {

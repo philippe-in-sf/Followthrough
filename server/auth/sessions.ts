@@ -16,6 +16,21 @@ export type AuthUser = {
   teamWorkCalendarUrl: string | null;
 };
 
+export function authUserDto(row: AuthUser) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    team: {
+      id: row.teamId,
+      name: row.teamName,
+      logoUrl: row.teamLogoUrl,
+      workCalendarUrl: row.teamWorkCalendarUrl,
+    },
+  };
+}
+
 type SessionUserRow = AuthUser & {
   expiresAt: string;
 };

@@ -133,6 +133,126 @@ describe("admin API", () => {
     });
   });
 
+  it("lets admins remove users from the team and protects old team records", async () => {
+    const { app, adminCookie, memberCookie } = await setup();
+
+    const person = await request(app)
+      .post("/api/people")
+      .set("Cookie", adminCookie)
+      .send({ name: "Avery", email: "avery@example.com" });
+    await request(app).post("/api/tasks").set("Cookie", adminCookie).send({
+      description: "Shared team task",
+      assigneePublicId: person.body.person.publicId,
+      status: "Open",
+    });
+    await request(app).post("/api/meetings").set("Cookie", adminCookie).send({
+      title: "Shared team meeting",
+      startsAt: "2026-06-29T17:00:00.000Z",
+      meetingType: "single",
+      attendeePublicIds: [person.body.person.publicId],
+      taskPublicIds: [],
+    });
+    await request(app).post("/api/decisions").set("Cookie", adminCookie).send({
+      decisionText: "Keep records team-scoped",
+      decisionDate: "2026-06-29",
+      context: "Offboarding",
+    });
+
+    const users = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
+    const member = users.body.users.find(
+      (user: { email: string }) => user.email === "member@example.com",
+    );
+
+    const removed = await request(app)
+      .post(`/api/admin/users/${member.id}/remove`)
+      .set("Cookie", adminCookie);
+
+    expect(removed.status).toBe(200);
+    expect(removed.body.user).toMatchObject({
+      id: member.id,
+      email: "member@example.com",
+      role: "admin",
+    });
+    expect(removed.body.user.teamId).not.toBe(1);
+
+    const oldSession = await request(app).get("/api/tasks").set("Cookie", memberCookie);
+    expect(oldSession.status).toBe(401);
+
+    const memberLogin = await request(app).post("/api/auth/login").send({
+      email: "member@example.com",
+      password: "long-enough-password",
+    });
+    expect(memberLogin.status).toBe(200);
+    expect(memberLogin.body.user.team.id).toBe(removed.body.user.teamId);
+
+    const memberTasks = await request(app)
+      .get("/api/tasks")
+      .set("Cookie", memberLogin.headers["set-cookie"]);
+    const memberMeetings = await request(app)
+      .get("/api/meetings")
+      .set("Cookie", memberLogin.headers["set-cookie"]);
+    const memberDecisions = await request(app)
+      .get("/api/decisions")
+      .set("Cookie", memberLogin.headers["set-cookie"]);
+
+    expect(memberTasks.body.tasks).toEqual([]);
+    expect(memberMeetings.body.meetings).toEqual([]);
+    expect(memberDecisions.body.decisions).toEqual([]);
+
+    const adminTasks = await request(app).get("/api/tasks").set("Cookie", adminCookie);
+    const adminMeetings = await request(app).get("/api/meetings").set("Cookie", adminCookie);
+    const adminDecisions = await request(app).get("/api/decisions").set("Cookie", adminCookie);
+
+    expect(adminTasks.body.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
+      "T001",
+    ]);
+    expect(adminMeetings.body.meetings.map((meeting: { publicId: string }) => meeting.publicId)).toEqual([
+      "M001",
+    ]);
+    expect(
+      adminDecisions.body.decisions.map((decision: { publicId: string }) => decision.publicId),
+    ).toEqual(["D001"]);
+  });
+
+  it("lets members leave a team without carrying team records with them", async () => {
+    const { app, adminCookie, memberCookie } = await setup();
+
+    await request(app).post("/api/people").set("Cookie", adminCookie).send({ name: "Avery" });
+    await request(app).post("/api/tasks").set("Cookie", adminCookie).send({
+      description: "Old team task",
+      status: "Open",
+    });
+    await request(app).post("/api/meetings").set("Cookie", adminCookie).send({
+      title: "Old team meeting",
+      startsAt: "2026-06-29T17:00:00.000Z",
+      meetingType: "single",
+      attendeePublicIds: [],
+      taskPublicIds: [],
+    });
+    await request(app).post("/api/decisions").set("Cookie", adminCookie).send({
+      decisionText: "Old team decision",
+      decisionDate: "2026-06-29",
+      context: "Offboarding",
+    });
+
+    const left = await request(app).post("/api/me/team/leave").set("Cookie", memberCookie);
+
+    expect(left.status).toBe(200);
+    expect(left.body.user).toMatchObject({
+      email: "member@example.com",
+      role: "admin",
+    });
+    expect(left.body.user.team.id).not.toBe(1);
+
+    const tasks = await request(app).get("/api/tasks").set("Cookie", memberCookie);
+    const meetings = await request(app).get("/api/meetings").set("Cookie", memberCookie);
+    const decisions = await request(app).get("/api/decisions").set("Cookie", memberCookie);
+
+    expect(tasks.body.tasks).toEqual([]);
+    expect(meetings.body.meetings).toEqual([]);
+    expect(decisions.body.decisions).toEqual([]);
+  });
+
   it("prevents demoting the last admin in a team", async () => {
     const db = createTestDatabase();
     dbs.push(db);
@@ -154,6 +274,31 @@ describe("admin API", () => {
       .patch("/api/admin/users/1/role")
       .set("Cookie", login.headers["set-cookie"])
       .send({ role: "member" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("At least one admin is required");
+  });
+
+  it("prevents the last admin from leaving the team", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    const app = createApp({ db });
+
+    await createUser(db, {
+      name: "Only Admin",
+      email: "only@example.com",
+      password: "long-enough-password",
+      role: "admin",
+    });
+    const login = await request(app).post("/api/auth/login").send({
+      email: "only@example.com",
+      password: "long-enough-password",
+    });
+
+    const response = await request(app)
+      .post("/api/me/team/leave")
+      .set("Cookie", login.headers["set-cookie"]);
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("At least one admin is required");
