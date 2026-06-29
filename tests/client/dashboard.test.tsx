@@ -1150,6 +1150,7 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByDisplayValue("Customer deck")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
+    expect(await screen.findByText("Notes saved.")).toBeInTheDocument();
 
     const patchCall = vi
       .mocked(globalThis.fetch)
