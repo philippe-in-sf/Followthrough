@@ -21,6 +21,7 @@ import type {
   PersonDto,
   TaskDto,
 } from "../../../shared/types";
+import { parsePersonNameList, personNameKey } from "../../../shared/personName";
 import { api } from "../../api/client";
 import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
@@ -158,13 +159,6 @@ const meetingLinkTypes: Array<{ value: MeetingLinkType; label: string }> = [
 function toggleValue(values: string[], value: string, checked: boolean) {
   if (checked) return [...new Set([...values, value])];
   return values.filter((item) => item !== value);
-}
-
-function parseAttendeeNames(value: string) {
-  return value
-    .split(/[\n,;]+/)
-    .map((name) => name.trim())
-    .filter(Boolean);
 }
 
 function countLabel(count: number, singular: string) {
@@ -559,18 +553,21 @@ export function MeetingsPage({
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
     const attendeeIds = new Set(selectedIds);
     const personIdByName = new Map(
-      people.map((person) => [person.name.trim().toLowerCase(), person.publicId]),
+      people.map((person) => [
+        personNameKey(person.firstName || person.name, person.lastName),
+        person.publicId,
+      ]),
     );
 
-    for (const name of parseAttendeeNames(attendeeNames)) {
-      const key = name.toLowerCase();
+    for (const name of parsePersonNameList(attendeeNames)) {
+      const key = personNameKey(name.firstName, name.lastName);
       const existingPublicId = personIdByName.get(key);
       if (existingPublicId) {
         attendeeIds.add(existingPublicId);
         continue;
       }
 
-      const result = await api.people.create({ name });
+      const result = await api.people.create(name);
       personIdByName.set(key, result.person.publicId);
       attendeeIds.add(result.person.publicId);
     }
@@ -579,7 +576,7 @@ export function MeetingsPage({
   }
 
   function selectedAttendeeCount(form: MeetingFormState) {
-    return form.attendeePublicIds.length + parseAttendeeNames(form.attendeeNames).length;
+    return form.attendeePublicIds.length + parsePersonNameList(form.attendeeNames).length;
   }
 
   function wizardStepSummary(step: MeetingWizardStep) {
@@ -1676,7 +1673,6 @@ export function MeetingsPage({
             ) : null}
           </section>
         ) : null}
-
         {meetingWizardStep === "people" ? (
           <section className="meeting-wizard-panel" aria-label="Meeting people and work">
             <CheckboxGroup
@@ -1687,7 +1683,7 @@ export function MeetingsPage({
                 updateMeetingForm({ attendeePublicIds })
               }
             />
-            <FormField label="Add attendees while building this meeting">
+            <FormField label="Quick-add attendees">
               <input
                 value={meetingForm.attendeeNames}
                 onChange={(event) => updateMeetingForm({ attendeeNames: event.target.value })}
@@ -2083,7 +2079,7 @@ export function MeetingsPage({
                                   setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
                                 }
                               />
-                              <FormField label={`New attendee names for ${meeting.publicId}`}>
+                              <FormField label={`Quick-add attendees for ${meeting.publicId}`}>
                                 <input
                                   value={meetingEditForm.attendeeNames}
                                   onChange={(event) =>
@@ -2092,7 +2088,7 @@ export function MeetingsPage({
                                       attendeeNames: event.target.value,
                                     })
                                   }
-                                  placeholder="Morgan, Taylor"
+                                  placeholder="Morgan Lee, Taylor Park"
                                 />
                               </FormField>
                               <CheckboxGroup

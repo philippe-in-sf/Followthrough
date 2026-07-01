@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.20 - 2026-07-01
+
+### Changed
+
+- Standardized people records on separate first and last name fields.
+- Updated meeting attendee quick-add to accept full names while preserving fast meeting capture.
+
+### Fixed
+
+- Kept local test runs out of temporary worktrees so old copied tests do not pollute active development.
+
 ## 1.1.19 - 2026-07-01
 
 ### Fixed

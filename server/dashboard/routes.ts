@@ -12,6 +12,8 @@ type DashboardTaskRow = {
   due_date: string | null;
   private: number;
   assignee_public_id: string | null;
+  assignee_first_name: string | null;
+  assignee_last_name: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
 };
@@ -36,6 +38,8 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
                 tasks.status, tasks.due_date,
                 tasks.private,
                 people.public_id AS assignee_public_id,
+                people.first_name AS assignee_first_name,
+                people.last_name AS assignee_last_name,
                 people.name AS assignee_name,
                 people.email AS assignee_email
          FROM tasks
@@ -59,6 +63,8 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
       assignee: row.assignee_public_id
         ? {
             publicId: row.assignee_public_id,
+            firstName: row.assignee_first_name ?? "",
+            lastName: row.assignee_last_name ?? "",
             name: row.assignee_name ?? "",
             email: row.assignee_email,
             archived: false,

@@ -157,6 +157,12 @@ type DecisionInput = {
   meetingPublicId?: string | null;
 };
 
+type PersonInput = {
+  firstName: string;
+  lastName?: string;
+  email?: string;
+};
+
 export const api = {
   me: () => request<{ user: User | null }>("/api/auth/me"),
   login: (body: { email: string; password: string }) =>
@@ -234,12 +240,12 @@ export const api = {
   },
   people: {
     list: () => request<{ people: PersonDto[] }>("/api/people"),
-    create: (body: { name: string; email?: string }) =>
+    create: (body: PersonInput) =>
       request<{ person: PersonDto }>("/api/people", {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    update: (publicId: string, body: { name: string; email?: string }) =>
+    update: (publicId: string, body: PersonInput) =>
       request<{ person: PersonDto }>(`/api/people/${publicId}`, {
         method: "PATCH",
         body: JSON.stringify(body),

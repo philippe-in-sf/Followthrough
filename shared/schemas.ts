@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatPersonName, parsePersonName } from "./personName.js";
 
 export const taskStatusSchema = z.enum(["Open", "In Progress", "Blocked", "Done"]);
 export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
@@ -6,10 +7,41 @@ export const meetingLinkTypeSchema = z.enum(["agenda", "work", "reference", "oth
 
 export const publicIdSchema = z.string().regex(/^[A-Z][0-9]{3,}$/);
 
-export const personInputSchema = z.object({
-  name: z.string().trim().min(1),
-  email: z.string().trim().email().optional().or(z.literal("")),
-});
+export const personInputSchema = z
+  .object({
+    name: z.string().trim().optional(),
+    firstName: z.string().trim().optional(),
+    lastName: z.string().trim().default(""),
+    email: z.string().trim().email().optional().or(z.literal("")),
+  })
+  .transform((input, context) => {
+    let firstName = input.firstName ?? "";
+    let lastName = input.lastName;
+
+    if (!firstName && input.name) {
+      const parsed = parsePersonName(input.name);
+      if (parsed) {
+        firstName = parsed.firstName;
+        if (!lastName) lastName = parsed.lastName;
+      }
+    }
+
+    if (!firstName) {
+      context.addIssue({
+        code: "custom",
+        message: "First name is required",
+        path: ["firstName"],
+      });
+      return z.NEVER;
+    }
+
+    return {
+      firstName,
+      lastName,
+      name: formatPersonName(firstName, lastName),
+      email: input.email ?? "",
+    };
+  });
 
 export const personMergeInputSchema = z.object({
   targetPublicId: publicIdSchema,

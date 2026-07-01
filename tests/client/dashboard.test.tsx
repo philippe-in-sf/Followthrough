@@ -17,6 +17,8 @@ const originalFetch = globalThis.fetch;
 
 const avery: PersonDto = {
   publicId: "P001",
+  firstName: "Avery",
+  lastName: "",
   name: "Avery",
   email: "avery@example.com",
   archived: false,
@@ -339,9 +341,17 @@ function setupAppFetch(
     if (url.pathname === "/api/people" && method === "GET") return json({ people });
 
     if (url.pathname === "/api/people" && method === "POST") {
+      expect(body).toEqual(
+        expect.objectContaining({
+          firstName: expect.any(String),
+          lastName: expect.any(String),
+        }),
+      );
       const person: PersonDto = {
         publicId: `P${String(people.length + 1).padStart(3, "0")}`,
-        name: body.name,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        name: `${body.firstName} ${body.lastName}`.trim(),
         email: body.email || null,
         archived: false,
       };
@@ -1242,7 +1252,7 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
 
     await userEvent.click(screen.getByLabelText("Avery"));
-    await userEvent.type(screen.getByLabelText("Add attendees while building this meeting"), "Morgan Lee");
+    await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee");
     await userEvent.click(screen.getByLabelText(/T004 Do the All Hands deck/i));
     await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
@@ -1283,7 +1293,7 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
     expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
 
-    const attendeeInput = screen.getByLabelText("Add attendees while building this meeting");
+    const attendeeInput = screen.getByLabelText("Quick-add attendees");
     await userEvent.type(attendeeInput, "Morgan Lee");
     const addMeetingForm = attendeeInput.closest("form");
     expect(addMeetingForm).not.toBeNull();
@@ -1319,7 +1329,7 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByText("Imported from Google Calendar")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    expect(screen.getByLabelText("Add attendees while building this meeting")).toHaveValue(
+    expect(screen.getByLabelText("Quick-add attendees")).toHaveValue(
       "Jordan Case",
     );
     await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
@@ -1467,8 +1477,8 @@ describe("dashboard and workspace flows", () => {
       "Updated summary",
     );
     await userEvent.type(
-      within(refreshedMeetingCard).getByLabelText("New attendee names for M010"),
-      "Morgan, Taylor",
+      within(refreshedMeetingCard).getByLabelText("Quick-add attendees for M010"),
+      "Morgan Lee, Taylor Park",
     );
     await userEvent.click(
       within(refreshedMeetingCard).getByRole("button", { name: "Save meeting M010" }),
@@ -1476,7 +1486,7 @@ describe("dashboard and workspace flows", () => {
 
     expect(await screen.findByText("Updated leadership sync")).toBeInTheDocument();
     expect(screen.getAllByText("Updated summary").length).toBeGreaterThan(0);
-    expect(screen.getByText("Avery, Morgan, Taylor")).toBeInTheDocument();
+    expect(screen.getByText("Avery, Morgan Lee, Taylor Park")).toBeInTheDocument();
     expect(await screen.findByText("Updated meeting details")).toBeInTheDocument();
   });
 });

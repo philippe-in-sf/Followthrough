@@ -26,6 +26,8 @@ export type TaskRow = {
   created_by_user_id: number | null;
   archived_at: string | null;
   assignee_public_id: string | null;
+  assignee_first_name: string | null;
+  assignee_last_name: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
   assignee_archived_at: string | null;
@@ -52,6 +54,8 @@ const taskSelect = `
          tasks.created_by_user_id,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
+         people.first_name AS assignee_first_name,
+         people.last_name AS assignee_last_name,
          people.name AS assignee_name,
          people.email AS assignee_email,
          people.archived_at AS assignee_archived_at,
@@ -73,6 +77,8 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     assignee: row.assignee_public_id
       ? {
           publicId: row.assignee_public_id,
+          firstName: row.assignee_first_name ?? "",
+          lastName: row.assignee_last_name ?? "",
           name: row.assignee_name ?? "",
           email: row.assignee_email,
           archived: row.assignee_archived_at !== null,

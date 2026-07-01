@@ -18,6 +18,25 @@ const currentUser = {
   },
 };
 
+type TestPerson = {
+  publicId: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email: string | null;
+  archived: boolean;
+};
+
+function testPerson(
+  publicId: string,
+  firstName: string,
+  lastName = "",
+  email: string | null = null,
+): TestPerson {
+  const name = [firstName, lastName].filter(Boolean).join(" ");
+  return { publicId, firstName, lastName, name, email, archived: false };
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
@@ -51,7 +70,7 @@ function mockLoggedInFetch() {
       return Promise.resolve({
         ok: true,
         json: async () => ({
-          people: [{ publicId: "P001", name: "Avery", email: null, archived: false }],
+          people: [testPerson("P001", "Avery")],
         }),
       } as Response);
     }
@@ -65,7 +84,7 @@ function mockLoggedInFetch() {
               description: "Send notes",
               blockers: "",
               blockersClearedAt: null,
-              assignee: { publicId: "P001", name: "Avery", email: null, archived: false },
+              assignee: testPerson("P001", "Avery"),
               status: "Open",
               dueDate: "2026-06-12",
               alert: "dueSoon",
@@ -142,8 +161,7 @@ describe("record pages", () => {
   });
 
   it("adds people from the shared people form", async () => {
-    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> =
-      [];
+    const people: TestPerson[] = [];
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -174,9 +192,15 @@ describe("record pages", () => {
       }
       if (url.endsWith("/api/people") && method === "POST") {
         const body = JSON.parse(String(init?.body));
+        expect(body).toMatchObject({
+          firstName: "Morgan",
+          lastName: "Lee",
+        });
         people.push({
           publicId: "P001",
-          name: body.name,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          name: `${body.firstName} ${body.lastName}`.trim(),
           email: body.email || null,
           archived: false,
         });
@@ -192,17 +216,16 @@ describe("record pages", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "People" }));
-    await userEvent.type(await screen.findByLabelText("Name"), "Morgan");
+    await userEvent.type(await screen.findByLabelText("First name"), "Morgan");
+    await userEvent.type(screen.getByLabelText("Last name"), "Lee");
     await userEvent.type(screen.getByLabelText("Email"), "morgan@example.com");
     await userEvent.click(screen.getByRole("button", { name: "Add person" }));
 
-    expect(await screen.findByText("Morgan")).toBeInTheDocument();
+    expect(await screen.findByText("Morgan Lee")).toBeInTheDocument();
   });
 
   it("edits people from the people display screen", async () => {
-    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
-      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
-    ];
+    const people: TestPerson[] = [testPerson("P001", "Avery", "", "avery@example.com")];
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -252,9 +275,15 @@ describe("record pages", () => {
       }
       if (url.endsWith("/api/people/P001") && method === "PATCH") {
         const body = JSON.parse(String(init?.body));
+        expect(body).toMatchObject({
+          firstName: "Avery",
+          lastName: "Stone",
+        });
         people[0] = {
           ...people[0],
-          name: body.name,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          name: `${body.firstName} ${body.lastName}`.trim(),
           email: body.email || null,
         };
         return Promise.resolve({
@@ -273,8 +302,10 @@ describe("record pages", () => {
     const editForm = screen.getByRole("form", { name: "Edit P001" });
     expect(within(editForm).getByText("Audit history")).toBeInTheDocument();
     expect(within(editForm).getByText("Created person")).toBeInTheDocument();
-    await userEvent.clear(within(editForm).getByLabelText("Name"));
-    await userEvent.type(within(editForm).getByLabelText("Name"), "Avery Stone");
+    await userEvent.clear(within(editForm).getByLabelText("First name"));
+    await userEvent.type(within(editForm).getByLabelText("First name"), "Avery");
+    await userEvent.clear(within(editForm).getByLabelText("Last name"));
+    await userEvent.type(within(editForm).getByLabelText("Last name"), "Stone");
     await userEvent.clear(within(editForm).getByLabelText("Email"));
     await userEvent.type(within(editForm).getByLabelText("Email"), "avery.stone@example.com");
     await userEvent.click(within(editForm).getByRole("button", { name: "Save person" }));
@@ -284,9 +315,9 @@ describe("record pages", () => {
   });
 
   it("archives a person from a single admin control", async () => {
-    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
-      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
-      { publicId: "P002", name: "Morgan", email: "morgan@example.com", archived: false },
+    const people: TestPerson[] = [
+      testPerson("P001", "Avery", "", "avery@example.com"),
+      testPerson("P002", "Morgan", "", "morgan@example.com"),
     ];
     vi.spyOn(window, "confirm").mockReturnValue(true);
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -343,9 +374,9 @@ describe("record pages", () => {
   });
 
   it("merges one person record into another from the people display screen", async () => {
-    const people: Array<{ publicId: string; name: string; email: string | null; archived: boolean }> = [
-      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
-      { publicId: "P002", name: "Avery Duplicate", email: "avery.dup@example.com", archived: false },
+    const people: TestPerson[] = [
+      testPerson("P001", "Avery", "", "avery@example.com"),
+      testPerson("P002", "Avery", "Duplicate", "avery.dup@example.com"),
     ];
     let mergeBody: unknown = null;
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -414,9 +445,7 @@ describe("record pages", () => {
   });
 
   it("shows related records when a person record is selected", async () => {
-    const people = [
-      { publicId: "P001", name: "Avery", email: "avery@example.com", archived: false },
-    ];
+    const people = [testPerson("P001", "Avery", "", "avery@example.com")];
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";

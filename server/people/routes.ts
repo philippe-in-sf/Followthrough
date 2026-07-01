@@ -16,6 +16,8 @@ import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 
 type PersonRow = {
   public_id: string;
+  first_name: string;
+  last_name: string;
   name: string;
   email: string | null;
   archived_at: string | null;
@@ -57,6 +59,8 @@ type RelatedDecisionRow = {
 function toPerson(row: PersonRow) {
   return {
     publicId: row.public_id,
+    firstName: row.first_name,
+    lastName: row.last_name,
     name: row.name,
     email: row.email,
     archived: row.archived_at !== null,
@@ -112,7 +116,7 @@ export function peopleRoutes(db: AppDatabase) {
   router.get("/", (req, res) => {
     const rows = db
       .prepare(
-        `SELECT public_id, name, email, archived_at
+        `SELECT public_id, first_name, last_name, name, email, archived_at
          FROM people
          WHERE team_id = ?
          AND archived_at IS NULL
@@ -128,8 +132,12 @@ export function peopleRoutes(db: AppDatabase) {
       const input = parseBody(req, personInputSchema);
       const person = withTransaction(db, () => {
         const publicId = nextPublicId(db, "P");
-        db.prepare("INSERT INTO people (public_id, name, email, team_id) VALUES (?, ?, ?, ?)").run(
+        db.prepare(
+          "INSERT INTO people (public_id, first_name, last_name, name, email, team_id) VALUES (?, ?, ?, ?, ?, ?)",
+        ).run(
           publicId,
+          input.firstName,
+          input.lastName,
           input.name,
           input.email || null,
           req.user?.teamId ?? 0,
@@ -137,6 +145,8 @@ export function peopleRoutes(db: AppDatabase) {
 
         const created = {
           public_id: publicId,
+          first_name: input.firstName,
+          last_name: input.lastName,
           name: input.name,
           email: input.email || null,
           archived_at: null,
@@ -181,7 +191,7 @@ export function peopleRoutes(db: AppDatabase) {
       const userId = req.user?.id ?? 0;
       const person = db
         .prepare(
-          `SELECT public_id, name, email, archived_at
+          `SELECT public_id, first_name, last_name, name, email, archived_at
            FROM people
            WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
         )
@@ -275,7 +285,7 @@ export function peopleRoutes(db: AppDatabase) {
     try {
       const row = db
         .prepare(
-          "SELECT public_id, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
+          "SELECT public_id, first_name, last_name, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
         )
         .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow | undefined;
 
@@ -292,7 +302,7 @@ export function peopleRoutes(db: AppDatabase) {
       const row = withTransaction(db, () => {
         const beforeRow = db
           .prepare(
-            `SELECT public_id, name, email, archived_at
+            `SELECT public_id, first_name, last_name, name, email, archived_at
              FROM people
              WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
@@ -302,13 +312,24 @@ export function peopleRoutes(db: AppDatabase) {
 
         db.prepare(
           `UPDATE people
-           SET name = ?, email = ?, updated_at = CURRENT_TIMESTAMP
+           SET first_name = ?,
+               last_name = ?,
+               name = ?,
+               email = ?,
+               updated_at = CURRENT_TIMESTAMP
            WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
-        ).run(input.name, input.email || null, req.params.publicId, req.user?.teamId ?? 0);
+        ).run(
+          input.firstName,
+          input.lastName,
+          input.name,
+          input.email || null,
+          req.params.publicId,
+          req.user?.teamId ?? 0,
+        );
 
         const updatedRow = db
           .prepare(
-            "SELECT public_id, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
+            "SELECT public_id, first_name, last_name, name, email, archived_at FROM people WHERE public_id = ? AND team_id = ?",
           )
           .get(req.params.publicId, req.user?.teamId ?? 0) as PersonRow;
 
@@ -340,14 +361,14 @@ export function peopleRoutes(db: AppDatabase) {
       const result = withTransaction(db, () => {
         const source = db
           .prepare(
-            `SELECT id, public_id, name, email, archived_at
+            `SELECT id, public_id, first_name, last_name, name, email, archived_at
              FROM people
              WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
           .get(req.params.publicId, req.user?.teamId ?? 0) as PersonWithIdRow | undefined;
         const target = db
           .prepare(
-            `SELECT id, public_id, name, email, archived_at
+            `SELECT id, public_id, first_name, last_name, name, email, archived_at
              FROM people
              WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
@@ -398,10 +419,14 @@ export function peopleRoutes(db: AppDatabase) {
         ).run(targetId);
 
         const archivedSource = db
-          .prepare("SELECT public_id, name, email, archived_at FROM people WHERE id = ?")
+          .prepare(
+            "SELECT public_id, first_name, last_name, name, email, archived_at FROM people WHERE id = ?",
+          )
           .get(sourceId) as PersonRow;
         const updatedTarget = db
-          .prepare("SELECT public_id, name, email, archived_at FROM people WHERE id = ?")
+          .prepare(
+            "SELECT public_id, first_name, last_name, name, email, archived_at FROM people WHERE id = ?",
+          )
           .get(targetId) as PersonRow;
         const movedTasks = Number(taskResult.changes);
         const movedMeetingAttendances = Number(meetingMoveCount.count);
@@ -449,7 +474,7 @@ export function peopleRoutes(db: AppDatabase) {
       withTransaction(db, () => {
         const beforeRow = db
           .prepare(
-            `SELECT public_id, name, email, archived_at
+            `SELECT public_id, first_name, last_name, name, email, archived_at
              FROM people
              WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )

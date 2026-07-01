@@ -169,6 +169,49 @@ describe("database migrations", () => {
       expect(row.team_id).toBe(1);
     }
   });
+
+  it("backfills structured first and last names for existing people", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    applyMigrationsBefore(db, "015_people_name_fields.sql");
+
+    db.prepare("INSERT INTO people (id, public_id, name) VALUES (?, ?, ?)").run(
+      1,
+      "P001",
+      "Jordan Lee",
+    );
+    db.prepare("INSERT INTO people (id, public_id, name) VALUES (?, ?, ?)").run(
+      2,
+      "P002",
+      "Avery",
+    );
+
+    migrateDatabase(db);
+
+    const rows = db
+      .prepare("SELECT public_id, first_name, last_name, name FROM people ORDER BY public_id")
+      .all() as Array<{
+      public_id: string;
+      first_name: string;
+      last_name: string;
+      name: string;
+    }>;
+
+    expect(rows).toEqual([
+      {
+        public_id: "P001",
+        first_name: "Jordan",
+        last_name: "Lee",
+        name: "Jordan Lee",
+      },
+      {
+        public_id: "P002",
+        first_name: "Avery",
+        last_name: "",
+        name: "Avery",
+      },
+    ]);
+  });
 });
 
 describe("public IDs", () => {

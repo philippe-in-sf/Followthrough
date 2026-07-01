@@ -46,6 +46,8 @@ export type AdminInviteCodeDto = {
 
 export type PersonDto = {
   publicId: string;
+  firstName: string;
+  lastName: string;
   name: string;
   email: string | null;
   archived: boolean;

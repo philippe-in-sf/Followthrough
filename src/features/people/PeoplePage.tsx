@@ -53,7 +53,8 @@ export function PeoplePage() {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     await api.people.create({
-      name: String(form.get("name")),
+      firstName: String(form.get("firstName")),
+      lastName: String(form.get("lastName")),
       email: String(form.get("email")),
     });
     formElement.reset();
@@ -155,7 +156,8 @@ export function PeoplePage() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     await api.people.update(publicId, {
-      name: String(form.get("name")),
+      firstName: String(form.get("firstName")),
+      lastName: String(form.get("lastName")),
       email: String(form.get("email")),
     });
     setEditingPersonPublicId(null);
@@ -168,8 +170,11 @@ export function PeoplePage() {
         <h2>People</h2>
       </header>
       <form className="inline-form" onSubmit={createPerson}>
-        <FormField label="Name">
-          <input name="name" required />
+        <FormField label="First name">
+          <input name="firstName" placeholder="Morgan" required />
+        </FormField>
+        <FormField label="Last name">
+          <input name="lastName" placeholder="Lee" />
         </FormField>
         <FormField label="Email">
           <input name="email" type="email" />
@@ -277,8 +282,16 @@ export function PeoplePage() {
                   className="person-edit-form"
                   onSubmit={(event) => updatePerson(event, person.publicId)}
                 >
-                  <FormField label="Name">
-                    <input name="name" required defaultValue={person.name} />
+                  <FormField label="First name">
+                    <input
+                      name="firstName"
+                      placeholder="Morgan"
+                      required
+                      defaultValue={person.firstName}
+                    />
+                  </FormField>
+                  <FormField label="Last name">
+                    <input name="lastName" placeholder="Lee" defaultValue={person.lastName} />
                   </FormField>
                   <FormField label="Email">
                     <input name="email" type="email" defaultValue={person.email ?? ""} />

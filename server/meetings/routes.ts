@@ -57,6 +57,8 @@ type MeetingLinkRow = {
 
 type PersonRow = {
   public_id: string;
+  first_name: string;
+  last_name: string;
   name: string;
   email: string | null;
   archived_at: string | null;
@@ -88,6 +90,8 @@ const taskSelectForMeeting = `
          tasks.created_by_user_id,
          tasks.archived_at,
          people.public_id AS assignee_public_id,
+         people.first_name AS assignee_first_name,
+         people.last_name AS assignee_last_name,
          people.name AS assignee_name,
          people.email AS assignee_email,
          people.archived_at AS assignee_archived_at,
@@ -125,6 +129,8 @@ function toSeries(row: SeriesRow): MeetingSeriesDto {
 function toPerson(row: PersonRow): PersonDto {
   return {
     publicId: row.public_id,
+    firstName: row.first_name,
+    lastName: row.last_name,
     name: row.name,
     email: row.email,
     archived: row.archived_at !== null,
@@ -194,7 +200,8 @@ function getMeetingRow(
 function getAttendees(db: AppDatabase, meetingId: number) {
   const rows = db
     .prepare(
-      `SELECT people.public_id, people.name, people.email, people.archived_at
+      `SELECT people.public_id, people.first_name, people.last_name,
+              people.name, people.email, people.archived_at
        FROM meeting_attendees
        JOIN people ON people.id = meeting_attendees.person_id
        WHERE meeting_attendees.meeting_id = ?

@@ -33,20 +33,36 @@ describe("people", () => {
     const created = await request(app)
       .post("/api/people")
       .set("Cookie", cookie)
-      .send({ name: "Jordan Lee", email: "jordan@example.com" });
+      .send({ firstName: "Jordan", lastName: "Lee", email: "jordan@example.com" });
 
     expect(created.status).toBe(201);
     expect(created.body.person.publicId).toBe("P001");
+    expect(created.body.person).toMatchObject({
+      firstName: "Jordan",
+      lastName: "Lee",
+      name: "Jordan Lee",
+    });
 
     const list = await request(app).get("/api/people").set("Cookie", cookie);
-    expect(list.body.people).toHaveLength(1);
+    expect(list.body.people).toEqual([
+      expect.objectContaining({
+        firstName: "Jordan",
+        lastName: "Lee",
+        name: "Jordan Lee",
+      }),
+    ]);
 
     const edited = await request(app)
       .patch(`/api/people/${created.body.person.publicId}`)
       .set("Cookie", cookie)
-      .send({ name: "Jordan L.", email: "" });
+      .send({ firstName: "Jordan", lastName: "L.", email: "" });
 
     expect(edited.body.person.email).toBeNull();
+    expect(edited.body.person).toMatchObject({
+      firstName: "Jordan",
+      lastName: "L.",
+      name: "Jordan L.",
+    });
 
     const archived = await request(app)
       .post(`/api/people/${created.body.person.publicId}/archive`)
