@@ -50,6 +50,21 @@ type MeetingFormState = {
 
 type RecurrenceMode = "single" | "existing" | "new";
 
+type MeetingWizardStep = "basics" | "people" | "details";
+
+type QuickMeetingFormState = {
+  title: string;
+  startsAt: string;
+  attendeeNames: string;
+};
+
+type MeetingCreateOptions = {
+  calendarDetails?: CalendarImportDetails | null;
+  forceSingle?: boolean;
+  includeDetails?: boolean;
+  includeTasks?: boolean;
+};
+
 type MeetingTaskFormState = {
   description: string;
   blockers: string;
@@ -99,6 +114,22 @@ const emptyMeetingForm: MeetingFormState = {
   taskPublicIds: [],
   private: false,
 };
+
+const emptyQuickMeetingForm: QuickMeetingFormState = {
+  title: "",
+  startsAt: "",
+  attendeeNames: "",
+};
+
+const meetingWizardSteps: Array<{ key: MeetingWizardStep; label: string }> = [
+  { key: "basics", label: "Basics" },
+  { key: "people", label: "People & Work" },
+  { key: "details", label: "Details" },
+];
+
+function meetingWizardStepNumber(step: MeetingWizardStep) {
+  return meetingWizardSteps.findIndex((item) => item.key === step) + 1;
+}
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
   description: "",
@@ -308,6 +339,11 @@ export function MeetingsPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [quickMeetingForm, setQuickMeetingForm] =
+    useState<QuickMeetingFormState>(emptyQuickMeetingForm);
+  const [quickMeetingError, setQuickMeetingError] = useState("");
+  const [meetingFormError, setMeetingFormError] = useState("");
+  const [meetingWizardStep, setMeetingWizardStep] = useState<MeetingWizardStep>("basics");
   const [calendarImportOpen, setCalendarImportOpen] = useState(false);
   const [calendarImportQuery, setCalendarImportQuery] = useState("");
   const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
@@ -532,52 +568,163 @@ export function MeetingsPage({
     return [...attendeeIds];
   }
 
-  async function submitMeeting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function selectedAttendeeCount(form: MeetingFormState) {
+    return form.attendeePublicIds.length + parseAttendeeNames(form.attendeeNames).length;
+  }
+
+  function wizardStepSummary(step: MeetingWizardStep) {
+    if (step === "basics") {
+      return meetingForm.recurrenceMode === "single"
+        ? "One-time"
+        : meetingForm.recurrenceMode === "existing"
+          ? "Existing recurring"
+          : "New recurring";
+    }
+    if (step === "people") {
+      return `${countLabel(selectedAttendeeCount(meetingForm), "attendee")}, ${countLabel(
+        meetingForm.taskPublicIds.length,
+        "task",
+      )}`;
+    }
+    return meetingForm.private ? "Private details" : "Optional details";
+  }
+
+  function validateMeetingBasics() {
+    if (!meetingForm.title.trim()) return "Enter a meeting title before continuing.";
+    if (!meetingForm.startsAt.trim()) return "Enter a meeting start before continuing.";
+    if (meetingForm.recurrenceMode === "existing" && !meetingForm.existingSeriesPublicId) {
+      return "Choose a recurring meeting before continuing.";
+    }
+    if (meetingForm.recurrenceMode === "new" && !meetingForm.newSeriesTitle.trim()) {
+      return "Enter a recurring meeting name before continuing.";
+    }
+    return "";
+  }
+
+  function goToMeetingWizardStep(step: MeetingWizardStep) {
+    if (step !== "basics") {
+      const basicsError = validateMeetingBasics();
+      if (basicsError) {
+        setMeetingFormError(basicsError);
+        setMeetingWizardStep("basics");
+        return;
+      }
+    }
+    setMeetingFormError("");
+    setMeetingWizardStep(step);
+  }
+
+  function goToNextMeetingWizardStep() {
+    if (meetingWizardStep === "basics") {
+      goToMeetingWizardStep("people");
+      return;
+    }
+    if (meetingWizardStep === "people") {
+      goToMeetingWizardStep("details");
+    }
+  }
+
+  function goToPreviousMeetingWizardStep() {
+    setMeetingFormError("");
+    if (meetingWizardStep === "details") setMeetingWizardStep("people");
+    if (meetingWizardStep === "people") setMeetingWizardStep("basics");
+  }
+
+  async function createMeetingFromForm(
+    form: MeetingFormState,
+    {
+      calendarDetails = null,
+      forceSingle = false,
+      includeDetails = true,
+      includeTasks = true,
+    }: MeetingCreateOptions = {},
+  ) {
     const attendeePublicIds = await resolveAttendeePublicIds(
-      meetingForm.attendeePublicIds,
-      meetingForm.attendeeNames,
+      form.attendeePublicIds,
+      form.attendeeNames,
     );
     const sharedMeetingFields = {
-      title: meetingForm.title,
-      startsAt: toApiDateTime(meetingForm.startsAt),
-      summary: meetingForm.summary,
-      blockers: meetingForm.blockers,
-      blockersCleared: meetingForm.blockersCleared,
-      notes: calendarImportDetails?.notes ?? "",
-      links: calendarImportDetails?.links ?? [],
+      title: form.title,
+      startsAt: toApiDateTime(form.startsAt),
+      summary: includeDetails ? form.summary : "",
+      blockers: includeDetails ? form.blockers : "",
+      blockersCleared: includeDetails ? form.blockersCleared : false,
+      notes: includeDetails ? calendarDetails?.notes ?? "" : "",
+      links: includeDetails ? calendarDetails?.links ?? [] : [],
       attendeePublicIds,
-      taskPublicIds: meetingForm.taskPublicIds,
-      private: meetingForm.private,
+      taskPublicIds: includeTasks ? form.taskPublicIds : [],
+      private: includeDetails ? form.private : false,
     };
 
-    if (meetingForm.recurrenceMode === "existing") {
-      await api.series.createOccurrence(
-        meetingForm.existingSeriesPublicId,
-        sharedMeetingFields,
-      );
-    } else {
-      const seriesPublicId =
-        meetingForm.recurrenceMode === "new"
-          ? (
-              await api.series.create({
-                title: meetingForm.newSeriesTitle,
-                cadenceLabel: meetingForm.newSeriesCadenceLabel,
-                active: true,
-              })
-            ).series.publicId
-          : null;
-
-      await api.meetings.create({
-        ...sharedMeetingFields,
-        meetingType: seriesPublicId ? "recurring" : "single",
-        seriesPublicId,
-      });
+    if (!forceSingle && form.recurrenceMode === "existing") {
+      await api.series.createOccurrence(form.existingSeriesPublicId, sharedMeetingFields);
+      return;
     }
 
-    setMeetingForm(emptyMeetingForm);
-    setCalendarImportDetails(null);
-    await load();
+    const seriesPublicId =
+      !forceSingle && form.recurrenceMode === "new"
+        ? (
+            await api.series.create({
+              title: form.newSeriesTitle,
+              cadenceLabel: form.newSeriesCadenceLabel,
+              active: true,
+            })
+          ).series.publicId
+        : null;
+
+    await api.meetings.create({
+      ...sharedMeetingFields,
+      meetingType: seriesPublicId ? "recurring" : "single",
+      seriesPublicId,
+    });
+  }
+
+  async function submitMeeting(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMeetingFormError("");
+    const basicsError = validateMeetingBasics();
+    if (basicsError) {
+      setMeetingFormError(basicsError);
+      setMeetingWizardStep("basics");
+      return;
+    }
+    if (meetingWizardStep !== "details") {
+      goToNextMeetingWizardStep();
+      return;
+    }
+    try {
+      await createMeetingFromForm(meetingForm, { calendarDetails: calendarImportDetails });
+      setMeetingForm(emptyMeetingForm);
+      setCalendarImportDetails(null);
+      setMeetingWizardStep("basics");
+      await load();
+    } catch (error) {
+      setMeetingFormError(error instanceof Error ? error.message : "Meeting could not be created.");
+    }
+  }
+
+  async function submitQuickMeeting(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setQuickMeetingError("");
+    try {
+      await createMeetingFromForm(
+        {
+          ...emptyMeetingForm,
+          title: quickMeetingForm.title,
+          startsAt: quickMeetingForm.startsAt,
+          attendeeNames: quickMeetingForm.attendeeNames,
+        },
+        {
+          forceSingle: true,
+          includeDetails: false,
+          includeTasks: false,
+        },
+      );
+      setQuickMeetingForm(emptyQuickMeetingForm);
+      await load();
+    } catch (error) {
+      setQuickMeetingError(error instanceof Error ? error.message : "Quick Add meeting failed.");
+    }
   }
 
   async function searchGoogleCalendarEvents() {
@@ -623,6 +770,8 @@ export function MeetingsPage({
     });
     setCalendarImportOpen(false);
     setCalendarImportError("");
+    setMeetingWizardStep("basics");
+    setMeetingFormError("");
   }
 
   function editMeeting(meeting: MeetingDto) {
@@ -1302,6 +1451,52 @@ export function MeetingsPage({
           </p>
         ) : null}
       </form>
+      <form
+        className="quick-meeting-form"
+        aria-label="Quick add one-time meeting"
+        onSubmit={submitQuickMeeting}
+      >
+        <div className="quick-meeting-heading">
+          <h3>Quick add one-time meeting</h3>
+          <span>Title, time, attendees</span>
+        </div>
+        <FormField label="Quick add meeting title">
+          <input
+            value={quickMeetingForm.title}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, title: event.target.value })
+            }
+            required
+          />
+        </FormField>
+        <FormField label="Quick add meeting start">
+          <input
+            type="datetime-local"
+            value={quickMeetingForm.startsAt}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, startsAt: event.target.value })
+            }
+            required
+          />
+        </FormField>
+        <FormField label="Quick add attendees">
+          <input
+            value={quickMeetingForm.attendeeNames}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, attendeeNames: event.target.value })
+            }
+            placeholder="Morgan Lee, Taylor Park"
+          />
+        </FormField>
+        <button className="primary-button" type="submit">
+          Quick add meeting
+        </button>
+        {quickMeetingError ? (
+          <p className="form-error" role="alert">
+            {quickMeetingError}
+          </p>
+        ) : null}
+      </form>
       <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <div className="editor-form-title-row">
           <h3>Add meeting</h3>
@@ -1362,141 +1557,213 @@ export function MeetingsPage({
             <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
           </section>
         ) : null}
-        <FormField label="Meeting title">
-          <input
-            value={meetingForm.title}
-            onChange={(event) => setMeetingForm({ ...meetingForm, title: event.target.value })}
-            required
-          />
-        </FormField>
-        <FormField label="Meeting start">
-          <input
-            type="datetime-local"
-            value={meetingForm.startsAt}
-            onChange={(event) => setMeetingForm({ ...meetingForm, startsAt: event.target.value })}
-            required
-          />
-        </FormField>
-        <FormField label="Recurrence">
-          <select
-            value={meetingForm.recurrenceMode}
-            onChange={(event) =>
-              setMeetingForm({
-                ...meetingForm,
-                recurrenceMode: event.target.value as RecurrenceMode,
-                existingSeriesPublicId:
-                  event.target.value === "existing" ? meetingForm.existingSeriesPublicId : "",
-                newSeriesTitle:
-                  event.target.value === "new" ? meetingForm.newSeriesTitle : "",
-                newSeriesCadenceLabel:
-                  event.target.value === "new" ? meetingForm.newSeriesCadenceLabel : "",
-              })
-            }
-          >
-            <option value="single">One-time meeting</option>
-            <option value="existing">Use existing recurring meeting</option>
-            <option value="new">Start new recurring meeting</option>
-          </select>
-        </FormField>
-        {meetingForm.recurrenceMode === "existing" ? (
-          <FormField label="Existing recurring meeting">
-            <select
-              value={meetingForm.existingSeriesPublicId}
-              onChange={(event) =>
-                setMeetingForm({ ...meetingForm, existingSeriesPublicId: event.target.value })
-              }
-              required
+        <div className="meeting-wizard-stepper" role="group" aria-label="Add meeting steps">
+          {meetingWizardSteps.map((step, index) => (
+            <button
+              aria-current={meetingWizardStep === step.key ? "step" : undefined}
+              aria-label={`${index + 1} ${step.label} ${wizardStepSummary(step.key)}`}
+              className={meetingWizardStep === step.key ? "active" : ""}
+              key={step.key}
+              type="button"
+              onClick={() => goToMeetingWizardStep(step.key)}
             >
-              <option value="">Choose recurring meeting</option>
-              {series.map((item) => (
-                <option key={item.publicId} value={item.publicId}>
-                  {collapseLinks(item.title)}
-                </option>
-              ))}
-            </select>
-          </FormField>
-        ) : null}
-        {meetingForm.recurrenceMode === "new" ? (
-          <>
-            <FormField label="New recurring meeting name">
+              <span>{index + 1}</span>
+              <strong>{step.label}</strong>
+              <small>{wizardStepSummary(step.key)}</small>
+            </button>
+          ))}
+        </div>
+        <div className="meeting-wizard-progress">
+          Step {meetingWizardStepNumber(meetingWizardStep)} of {meetingWizardSteps.length}
+        </div>
+
+        {meetingWizardStep === "basics" ? (
+          <section className="meeting-wizard-panel" aria-label="Meeting basics">
+            <FormField label="Meeting title">
               <input
-                value={meetingForm.newSeriesTitle}
+                value={meetingForm.title}
+                onChange={(event) => setMeetingForm({ ...meetingForm, title: event.target.value })}
+                required
+              />
+            </FormField>
+            <FormField label="Meeting start">
+              <input
+                type="datetime-local"
+                value={meetingForm.startsAt}
                 onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, newSeriesTitle: event.target.value })
+                  setMeetingForm({ ...meetingForm, startsAt: event.target.value })
                 }
                 required
               />
             </FormField>
-            <FormField label="Cadence">
-              <input
-                value={meetingForm.newSeriesCadenceLabel}
+            <FormField label="Recurrence">
+              <select
+                value={meetingForm.recurrenceMode}
                 onChange={(event) =>
                   setMeetingForm({
                     ...meetingForm,
-                    newSeriesCadenceLabel: event.target.value,
+                    recurrenceMode: event.target.value as RecurrenceMode,
+                    existingSeriesPublicId:
+                      event.target.value === "existing" ? meetingForm.existingSeriesPublicId : "",
+                    newSeriesTitle:
+                      event.target.value === "new" ? meetingForm.newSeriesTitle : "",
+                    newSeriesCadenceLabel:
+                      event.target.value === "new" ? meetingForm.newSeriesCadenceLabel : "",
                   })
                 }
-                placeholder="Weekly"
-              />
+              >
+                <option value="single">One-time meeting</option>
+                <option value="existing">Use existing recurring meeting</option>
+                <option value="new">Start new recurring meeting</option>
+              </select>
             </FormField>
-          </>
+            {meetingForm.recurrenceMode === "existing" ? (
+              <FormField label="Existing recurring meeting">
+                <select
+                  value={meetingForm.existingSeriesPublicId}
+                  onChange={(event) =>
+                    setMeetingForm({ ...meetingForm, existingSeriesPublicId: event.target.value })
+                  }
+                  required
+                >
+                  <option value="">Choose recurring meeting</option>
+                  {series.map((item) => (
+                    <option key={item.publicId} value={item.publicId}>
+                      {collapseLinks(item.title)}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            ) : null}
+            {meetingForm.recurrenceMode === "new" ? (
+              <>
+                <FormField label="New recurring meeting name">
+                  <input
+                    value={meetingForm.newSeriesTitle}
+                    onChange={(event) =>
+                      setMeetingForm({ ...meetingForm, newSeriesTitle: event.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField label="Cadence">
+                  <input
+                    value={meetingForm.newSeriesCadenceLabel}
+                    onChange={(event) =>
+                      setMeetingForm({
+                        ...meetingForm,
+                        newSeriesCadenceLabel: event.target.value,
+                      })
+                    }
+                    placeholder="Weekly"
+                  />
+                </FormField>
+              </>
+            ) : null}
+          </section>
         ) : null}
-        <FormField label="Meeting summary">
-          <textarea
-            value={meetingForm.summary}
-            onChange={(event) => setMeetingForm({ ...meetingForm, summary: event.target.value })}
-          />
-        </FormField>
-        <FormField label="Meeting blockers">
-          <textarea
-            value={meetingForm.blockers}
-            onChange={(event) =>
-              setMeetingForm({
-                ...meetingForm,
-                blockers: event.target.value,
-                blockersCleared: event.target.value.trim() ? meetingForm.blockersCleared : false,
-              })
-            }
-          />
-        </FormField>
-        <CheckboxGroup
-          legend="Existing attendees"
-          options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
-          selected={meetingForm.attendeePublicIds}
-          onChange={(attendeePublicIds) =>
-            setMeetingForm({ ...meetingForm, attendeePublicIds })
-          }
-        />
-        <FormField label="New attendee names">
-          <input
-            value={meetingForm.attendeeNames}
-            onChange={(event) => setMeetingForm({ ...meetingForm, attendeeNames: event.target.value })}
-            placeholder="Morgan, Taylor"
-          />
-        </FormField>
-        <CheckboxGroup
-          legend="Meeting tasks"
-          options={tasks.map((task) => ({
-            publicId: task.publicId,
-            label: taskOptionLabel(task),
-          }))}
-          selected={meetingForm.taskPublicIds}
-          onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
-        />
-        <div className="form-actions">
-          <label className="checkbox-line">
-            <input
-              type="checkbox"
-              checked={meetingForm.private}
-              onChange={(event) =>
-                setMeetingForm({ ...meetingForm, private: event.target.checked })
+
+        {meetingWizardStep === "people" ? (
+          <section className="meeting-wizard-panel" aria-label="Meeting people and work">
+            <CheckboxGroup
+              legend="Existing attendees"
+              options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
+              selected={meetingForm.attendeePublicIds}
+              onChange={(attendeePublicIds) =>
+                setMeetingForm({ ...meetingForm, attendeePublicIds })
               }
             />
-            <span>Private</span>
-          </label>
-          <button className="primary-button" type="submit">
-            Add meeting
+            <FormField label="Add attendees while building this meeting">
+              <input
+                value={meetingForm.attendeeNames}
+                onChange={(event) =>
+                  setMeetingForm({ ...meetingForm, attendeeNames: event.target.value })
+                }
+                placeholder="Morgan Lee, Taylor Park"
+              />
+            </FormField>
+            <CheckboxGroup
+              legend="Meeting tasks"
+              options={tasks.map((task) => ({
+                publicId: task.publicId,
+                label: taskOptionLabel(task),
+              }))}
+              selected={meetingForm.taskPublicIds}
+              onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
+            />
+          </section>
+        ) : null}
+
+        {meetingWizardStep === "details" ? (
+          <section className="meeting-wizard-panel" aria-label="Meeting details">
+            <FormField label="Meeting summary">
+              <textarea
+                value={meetingForm.summary}
+                onChange={(event) =>
+                  setMeetingForm({ ...meetingForm, summary: event.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Meeting blockers">
+              <textarea
+                value={meetingForm.blockers}
+                onChange={(event) =>
+                  setMeetingForm({
+                    ...meetingForm,
+                    blockers: event.target.value,
+                    blockersCleared: event.target.value.trim()
+                      ? meetingForm.blockersCleared
+                      : false,
+                  })
+                }
+              />
+            </FormField>
+            <label className="checkbox-line">
+              <input
+                type="checkbox"
+                checked={meetingForm.blockersCleared}
+                disabled={!meetingForm.blockers.trim()}
+                onChange={(event) =>
+                  setMeetingForm({ ...meetingForm, blockersCleared: event.target.checked })
+                }
+              />
+              <span>Blocker cleared</span>
+            </label>
+            <label className="checkbox-line">
+              <input
+                type="checkbox"
+                checked={meetingForm.private}
+                onChange={(event) =>
+                  setMeetingForm({ ...meetingForm, private: event.target.checked })
+                }
+              />
+              <span>Private</span>
+            </label>
+          </section>
+        ) : null}
+        {meetingFormError ? (
+          <p className="form-error" role="alert">
+            {meetingFormError}
+          </p>
+        ) : null}
+        <div className="meeting-wizard-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={goToPreviousMeetingWizardStep}
+            disabled={meetingWizardStep === "basics"}
+          >
+            Back
           </button>
+          {meetingWizardStep === "details" ? (
+            <button className="primary-button" type="submit">
+              Add meeting
+            </button>
+          ) : (
+            <button className="primary-button" type="button" onClick={goToNextMeetingWizardStep}>
+              {meetingWizardStep === "basics" ? "Next: People & Work" : "Next: Details"}
+            </button>
+          )}
         </div>
       </form>
       </>

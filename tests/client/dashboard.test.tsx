@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,7 @@ import type {
   TaskDto,
 } from "../../shared/types";
 import { App } from "../../src/App";
+import { toApiDateTime, toDateTimeInputValue } from "../../src/features/meetings/dateTime";
 
 const originalFetch = globalThis.fetch;
 
@@ -263,6 +264,28 @@ function setupAppFetch(
       googleCalendarConnected = false;
       googleCalendarEmail = null;
       return json(null, 204);
+    }
+
+    if (url.pathname === "/api/google-calendar/events" && method === "GET") {
+      return json({
+        events: [
+          {
+            id: "gcal-1",
+            title: "Imported planning sync",
+            startsAt: "2099-08-03T15:00:00.000Z",
+            summary: "Imported agenda",
+            notes: "Imported private notes",
+            links: [
+              {
+                label: "Planning deck",
+                url: "https://example.com/planning",
+                linkType: "agenda",
+              },
+            ],
+            attendeeNames: "Jordan Case",
+          },
+        ],
+      });
     }
 
     if (url.pathname === "/api/dashboard") {
@@ -1020,6 +1043,75 @@ describe("dashboard and workspace flows", () => {
     ).toBe(true);
   });
 
+  it("creates a one-time meeting from Quick Add without advanced fields", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "Quick customer check-in");
+    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2099-08-01T11:30");
+    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee, Taylor Park");
+    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+
+    expect(await screen.findByText("Quick customer check-in")).toBeInTheDocument();
+    const quickMeetingCard = await expandMeetingCard("M100");
+    expect(within(quickMeetingCard).getByText("Morgan Lee, Taylor Park")).toBeInTheDocument();
+
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        title: "Quick customer check-in",
+        startsAt: toApiDateTime("2099-08-01T11:30"),
+        meetingType: "single",
+        seriesPublicId: null,
+        summary: "",
+        blockers: "",
+        blockersCleared: false,
+        notes: "",
+        links: [],
+        taskPublicIds: [],
+        private: false,
+      }),
+    );
+    expect(body.attendeePublicIds).toEqual(["P002", "P003"]);
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/meeting-series" && init?.method === "POST",
+        ),
+    ).toBe(false);
+  });
+
+  it("shows meeting wizard progress and validates Basics before moving forward", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+
+    expect(screen.getByRole("button", { name: /1 Basics/i })).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Meeting tasks" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Choose a recurring meeting before continuing.",
+    );
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+  });
+
   it("shows meetings and creates a recurring occurrence with carried tasks", async () => {
     setupAppFetch();
     render(<App />);
@@ -1043,6 +1135,13 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add series" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create occurrence" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
+    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
     expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
     expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
@@ -1050,11 +1149,8 @@ describe("dashboard and workspace flows", () => {
       "href",
       deckUrl,
     );
-
-    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
-    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
-    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
@@ -1124,6 +1220,8 @@ describe("dashboard and workspace flows", () => {
     await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "new");
     await userEvent.type(screen.getByLabelText("New recurring meeting name"), "Customer standup");
     await userEvent.type(screen.getByLabelText("Cadence"), "Weekly");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Customer standup kickoff")).toBeInTheDocument();
@@ -1132,6 +1230,97 @@ describe("dashboard and workspace flows", () => {
         "Customer standup",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("preserves attendee quick add and linked tasks in the wizard", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Launch work session");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+
+    await userEvent.click(screen.getByLabelText("Avery"));
+    await userEvent.type(screen.getByLabelText("Add attendees while building this meeting"), "Morgan Lee");
+    await userEvent.click(screen.getByLabelText(/T004 Do the All Hands deck/i));
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    expect(await screen.findByText("Launch work session")).toBeInTheDocument();
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+    expect(body.attendeePublicIds).toEqual(["P001", "P002"]);
+    expect(body.taskPublicIds).toEqual(["T004"]);
+  });
+
+  it("does not submit the meeting wizard before the Details step", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Early submit check");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+
+    const attendeeInput = screen.getByLabelText("Add attendees while building this meeting");
+    await userEvent.type(attendeeInput, "Morgan Lee");
+    const addMeetingForm = attendeeInput.closest("form");
+    expect(addMeetingForm).not.toBeNull();
+    fireEvent.submit(addMeetingForm as HTMLFormElement);
+
+    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("imports a Google Calendar event into the meeting wizard", async () => {
+    setupAppFetch({ googleCalendarConnected: true, googleCalendarEmail: "editor@gmail.com" });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Temporary meeting");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-03T09:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Import from Google Calendar" }));
+    await userEvent.type(screen.getByLabelText("Which Google Calendar meeting?"), "planning");
+    await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Imported planning sync/i }));
+
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Meeting title")).toHaveValue("Imported planning sync");
+    expect(screen.getByLabelText("Meeting start")).toHaveValue(
+      toDateTimeInputValue("2099-08-03T15:00:00.000Z"),
+    );
+    expect(screen.getByText("Imported from Google Calendar")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByLabelText("Add attendees while building this meeting")).toHaveValue(
+      "Jordan Case",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    expect(screen.getByLabelText("Meeting summary")).toHaveValue("Imported agenda");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+    expect(body.notes).toBe("Imported private notes");
+    expect(body.links).toEqual([
+      {
+        label: "Planning deck",
+        url: "https://example.com/planning",
+        linkType: "agenda",
+      },
+    ]);
   });
 
   it("edits meeting notes and structured links", async () => {
