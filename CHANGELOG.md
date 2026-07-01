@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.16 - 2026-06-30
+
+### Added
+
+- Added an admin waitlist queue for recent public beta signups.
+- Added admin actions to create one-use invite codes or direct users from waitlist signups and mark each signup handled.
+
 ## 1.1.15 - 2026-06-29
 
 ### Added

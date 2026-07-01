@@ -1344,6 +1344,94 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.admin-waitlist-panel {
+  grid-column: 1 / -1;
+}
+
+.waitlist-signup-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.waitlist-signup {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e5e9f0;
+  padding: 14px 0;
+}
+
+.waitlist-signup:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.waitlist-signup-summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.waitlist-signup-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.waitlist-signup-summary strong,
+.waitlist-signup-summary span {
+  overflow-wrap: anywhere;
+}
+
+.waitlist-signup-summary span {
+  color: #5b6475;
+  font-size: 0.9rem;
+}
+
+.waitlist-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.waitlist-action-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.waitlist-action-form h3,
+.waitlist-action-form button {
+  grid-column: 1 / -1;
+}
+
+.waitlist-action-form h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.waitlist-handled-status {
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .admin-layout,
+  .admin-add-user-form,
+  .waitlist-actions,
+  .waitlist-action-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-waitlist-panel {
+    grid-column: auto;
+  }
+}
+
 .filter-bar select {
   min-width: 180px;
   border: 1px solid #c8d0dc;
@@ -3475,6 +3563,14 @@ button:disabled {
 .app-shell[data-skin] .admin-user-table th,
 .app-shell[data-skin] .admin-user-table td {
   border-bottom-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .waitlist-signup {
+  border-top-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .waitlist-signup-summary span {
+  color: var(--skin-muted);
 }
 
 .app-shell[data-skin] .meeting-summary-button,

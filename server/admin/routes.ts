@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { TeamDto, TeamUserDto } from "../../shared/types.js";
+import type { AdminInviteCodeDto, TeamDto, TeamUserDto, WaitlistSignupDto } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
+import { withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
-import { createUser } from "../auth/userManagement.js";
+import { hashPassword } from "../auth/password.js";
+import { createUser, insertUserWithPasswordHash } from "../auth/userManagement.js";
 import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
 
 type TeamRow = {
@@ -20,6 +22,27 @@ type TeamUserRow = {
   email: string;
   role: "admin" | "member";
   team_id: number;
+};
+
+type WaitlistSignupRow = {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+  handled_at: string | null;
+  handled_by_user_id: number | null;
+  handled_by_name: string | null;
+  handled_action: "invite_code" | "direct_user" | null;
+  invite_code: string | null;
+  handled_user_id: number | null;
+};
+
+type InviteCodeRow = {
+  id: number;
+  code: string;
+  usage_limit: number | null;
+  default_role: "admin" | "member";
 };
 
 const teamInputSchema = z.object({
@@ -41,6 +64,16 @@ const userInputSchema = z.object({
 
 const roleInputSchema = z.object({
   role: z.enum(["admin", "member"]),
+});
+
+const waitlistInviteCodeInputSchema = z.object({
+  code: z.string().trim().min(1).max(80),
+  role: z.enum(["admin", "member"]).default("member"),
+});
+
+const waitlistDirectUserInputSchema = z.object({
+  password: z.string().min(12),
+  role: z.enum(["admin", "member"]).default("member"),
 });
 
 function parseOptionalWebUrl(value: string | null, field: "logo" | "calendar") {
@@ -78,6 +111,31 @@ function userDto(row: TeamUserRow): TeamUserDto {
   };
 }
 
+function waitlistSignupDto(row: WaitlistSignupRow): WaitlistSignupDto {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    handledAt: row.handled_at,
+    handledByUserId: row.handled_by_user_id,
+    handledByName: row.handled_by_name,
+    handledAction: row.handled_action,
+    inviteCode: row.invite_code,
+    createdUserId: row.handled_user_id,
+  };
+}
+
+function inviteCodeDto(row: InviteCodeRow): AdminInviteCodeDto {
+  return {
+    id: row.id,
+    code: row.code,
+    usageLimit: row.usage_limit,
+    defaultRole: row.default_role,
+  };
+}
+
 function getTeam(db: AppDatabase, teamId: number) {
   const row = db
     .prepare("SELECT id, name, logo_url, work_calendar_url FROM teams WHERE id = ?")
@@ -92,6 +150,55 @@ function getTeamUser(db: AppDatabase, teamId: number, userId: number) {
     .get(userId, teamId) as TeamUserRow | undefined;
   if (!row) throw notFound("User not found");
   return row;
+}
+
+function parseSignupId(value: string | undefined) {
+  const signupId = Number(value);
+  if (!Number.isInteger(signupId) || signupId < 1) throw notFound("Waitlist signup not found");
+  return signupId;
+}
+
+function getWaitlistSignup(db: AppDatabase, signupId: number) {
+  const row = db
+    .prepare(
+      `SELECT waitlist_signups.id,
+              waitlist_signups.name,
+              waitlist_signups.email,
+              waitlist_signups.created_at,
+              waitlist_signups.updated_at,
+              waitlist_signups.handled_at,
+              waitlist_signups.handled_by_user_id,
+              handled_by.name AS handled_by_name,
+              waitlist_signups.handled_action,
+              invite_codes.code AS invite_code,
+              waitlist_signups.handled_user_id
+       FROM waitlist_signups
+       LEFT JOIN users AS handled_by ON handled_by.id = waitlist_signups.handled_by_user_id
+       LEFT JOIN invite_codes ON invite_codes.id = waitlist_signups.handled_invite_code_id
+       WHERE waitlist_signups.id = ?`,
+    )
+    .get(signupId) as WaitlistSignupRow | undefined;
+  if (!row) throw notFound("Waitlist signup not found");
+  return row;
+}
+
+function getInviteCode(db: AppDatabase, inviteCodeId: number) {
+  const row = db
+    .prepare("SELECT id, code, usage_limit, default_role FROM invite_codes WHERE id = ?")
+    .get(inviteCodeId) as InviteCodeRow | undefined;
+  if (!row) throw notFound("Invite code not found");
+  return row;
+}
+
+function assertSignupUnhandled(signup: WaitlistSignupRow) {
+  if (signup.handled_at) throw badRequest("Waitlist signup is already handled");
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase().includes("unique constraint failed")
+  );
 }
 
 export function adminRoutes(db: AppDatabase) {
@@ -138,6 +245,139 @@ export function adminRoutes(db: AppDatabase) {
       .all(req.user?.teamId ?? 0) as TeamUserRow[];
 
     res.json({ users: rows.map(userDto) });
+  });
+
+  router.get("/waitlist", (_req, res) => {
+    const rows = db
+      .prepare(
+        `SELECT waitlist_signups.id,
+                waitlist_signups.name,
+                waitlist_signups.email,
+                waitlist_signups.created_at,
+                waitlist_signups.updated_at,
+                waitlist_signups.handled_at,
+                waitlist_signups.handled_by_user_id,
+                handled_by.name AS handled_by_name,
+                waitlist_signups.handled_action,
+                invite_codes.code AS invite_code,
+                waitlist_signups.handled_user_id
+         FROM waitlist_signups
+         LEFT JOIN users AS handled_by ON handled_by.id = waitlist_signups.handled_by_user_id
+         LEFT JOIN invite_codes ON invite_codes.id = waitlist_signups.handled_invite_code_id
+         ORDER BY waitlist_signups.created_at DESC, waitlist_signups.id DESC
+         LIMIT 50`,
+      )
+      .all() as WaitlistSignupRow[];
+
+    res.json({ signups: rows.map(waitlistSignupDto) });
+  });
+
+  router.post("/waitlist/:signupId/invite-code", (req, res, next) => {
+    try {
+      const input = parseBody(req, waitlistInviteCodeInputSchema);
+      const signupId = parseSignupId(req.params.signupId);
+      const teamId = req.user?.teamId ?? 0;
+      const adminId = req.user?.id ?? 0;
+
+      const result = withTransaction(db, () => {
+        const signup = getWaitlistSignup(db, signupId);
+        assertSignupUnhandled(signup);
+
+        const inviteResult = db
+          .prepare(
+            `INSERT INTO invite_codes (code, label, usage_limit, team_id, default_role)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .run(
+            input.code,
+            `Waitlist: ${signup.name} <${signup.email}>`,
+            1,
+            teamId,
+            input.role,
+          );
+        const inviteCodeId = Number(inviteResult.lastInsertRowid);
+
+        db.prepare(
+          `UPDATE waitlist_signups
+           SET handled_at = CURRENT_TIMESTAMP,
+               handled_by_user_id = ?,
+               handled_action = 'invite_code',
+               handled_invite_code_id = ?,
+               handled_user_id = NULL,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+        ).run(adminId, inviteCodeId, signup.id);
+
+        return {
+          inviteCode: getInviteCode(db, inviteCodeId),
+          signup: getWaitlistSignup(db, signup.id),
+        };
+      });
+
+      res.status(201).json({
+        inviteCode: inviteCodeDto(result.inviteCode),
+        signup: waitlistSignupDto(result.signup),
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        next(badRequest("Invite code already exists"));
+        return;
+      }
+
+      next(error);
+    }
+  });
+
+  router.post("/waitlist/:signupId/direct-user", async (req, res, next) => {
+    try {
+      const input = parseBody(req, waitlistDirectUserInputSchema);
+      const signupId = parseSignupId(req.params.signupId);
+      const teamId = req.user?.teamId ?? 0;
+      const adminId = req.user?.id ?? 0;
+      const passwordHash = await hashPassword(input.password);
+
+      const result = withTransaction(db, () => {
+        const signup = getWaitlistSignup(db, signupId);
+        assertSignupUnhandled(signup);
+
+        const user = insertUserWithPasswordHash(db, {
+          name: signup.name,
+          email: signup.email,
+          passwordHash,
+          teamId,
+          role: input.role,
+        });
+
+        db.prepare(
+          `UPDATE waitlist_signups
+           SET handled_at = CURRENT_TIMESTAMP,
+               handled_by_user_id = ?,
+               handled_action = 'direct_user',
+               handled_invite_code_id = NULL,
+               handled_user_id = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+        ).run(adminId, user.id, signup.id);
+
+        return {
+          user,
+          signup: getWaitlistSignup(db, signup.id),
+        };
+      });
+
+      res.status(201).json({
+        user: userDto({
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role,
+          team_id: result.user.teamId,
+        }),
+        signup: waitlistSignupDto(result.signup),
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post("/users", async (req, res, next) => {

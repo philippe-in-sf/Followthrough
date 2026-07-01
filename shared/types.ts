@@ -21,6 +21,29 @@ export type TeamUserDto = {
   teamId: number;
 };
 
+export type WaitlistHandledAction = "invite_code" | "direct_user";
+
+export type WaitlistSignupDto = {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
+  updatedAt: string;
+  handledAt: string | null;
+  handledByUserId: number | null;
+  handledByName: string | null;
+  handledAction: WaitlistHandledAction | null;
+  inviteCode: string | null;
+  createdUserId: number | null;
+};
+
+export type AdminInviteCodeDto = {
+  id: number;
+  code: string;
+  usageLimit: number | null;
+  defaultRole: UserRole;
+};
+
 export type PersonDto = {
   publicId: string;
   name: string;

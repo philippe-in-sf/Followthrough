@@ -1,5 +1,6 @@
 import type {
   AlertState,
+  AdminInviteCodeDto,
   AuditLogDto,
   DecisionDto,
   GoogleCalendarImportEventDto,
@@ -17,6 +18,7 @@ import type {
   TeamUserDto,
   UserPreferencesDto,
   UserRole,
+  WaitlistSignupDto,
 } from "../../shared/types";
 import type { User } from "./types";
 
@@ -198,6 +200,23 @@ export const api = {
         body: JSON.stringify(body),
       }),
     users: () => request<{ users: TeamUserDto[] }>("/api/admin/users"),
+    waitlist: () => request<{ signups: WaitlistSignupDto[] }>("/api/admin/waitlist"),
+    createWaitlistInviteCode: (signupId: number, body: { code: string; role: UserRole }) =>
+      request<{ inviteCode: AdminInviteCodeDto; signup: WaitlistSignupDto }>(
+        `/api/admin/waitlist/${signupId}/invite-code`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
+    createWaitlistUser: (signupId: number, body: { password: string; role: UserRole }) =>
+      request<{ user: TeamUserDto; signup: WaitlistSignupDto }>(
+        `/api/admin/waitlist/${signupId}/direct-user`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
     createUser: (body: { name: string; email: string; password: string; role: UserRole }) =>
       request<{ user: TeamUserDto }>("/api/admin/users", {
         method: "POST",

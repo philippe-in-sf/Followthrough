@@ -83,6 +83,170 @@ describe("admin API", () => {
     expect(response.body.error).toBe("Admin access required");
   });
 
+  it("lets admins list recent waitlist signups", async () => {
+    const { app, db, adminCookie } = await setup();
+    db.prepare(
+      "INSERT INTO waitlist_signups (name, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      "Older Signup",
+      "older@example.com",
+      "2026-06-28T10:00:00.000Z",
+      "2026-06-28T10:00:00.000Z",
+    );
+    db.prepare(
+      "INSERT INTO waitlist_signups (name, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      "Newest Signup",
+      "newest@example.com",
+      "2026-06-29T10:00:00.000Z",
+      "2026-06-29T10:00:00.000Z",
+    );
+
+    const response = await request(app).get("/api/admin/waitlist").set("Cookie", adminCookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.signups).toEqual([
+      {
+        id: 2,
+        name: "Newest Signup",
+        email: "newest@example.com",
+        createdAt: "2026-06-29T10:00:00.000Z",
+        updatedAt: "2026-06-29T10:00:00.000Z",
+        handledAt: null,
+        handledByUserId: null,
+        handledByName: null,
+        handledAction: null,
+        inviteCode: null,
+        createdUserId: null,
+      },
+      {
+        id: 1,
+        name: "Older Signup",
+        email: "older@example.com",
+        createdAt: "2026-06-28T10:00:00.000Z",
+        updatedAt: "2026-06-28T10:00:00.000Z",
+        handledAt: null,
+        handledByUserId: null,
+        handledByName: null,
+        handledAction: null,
+        inviteCode: null,
+        createdUserId: null,
+      },
+    ]);
+  });
+
+  it("lets admins create an invite code from a waitlist signup and mark it handled", async () => {
+    const { app, db, adminCookie } = await setup();
+    const signup = db
+      .prepare("INSERT INTO waitlist_signups (name, email) VALUES (?, ?)")
+      .run("Morgan Lee", "morgan@example.com");
+    const signupId = Number(signup.lastInsertRowid);
+
+    const response = await request(app)
+      .post(`/api/admin/waitlist/${signupId}/invite-code`)
+      .set("Cookie", adminCookie)
+      .send({ code: "morgan-invite", role: "member" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.inviteCode).toEqual({
+      id: 2,
+      code: "morgan-invite",
+      usageLimit: 1,
+      defaultRole: "member",
+    });
+    expect(response.body.signup).toMatchObject({
+      id: signupId,
+      name: "Morgan Lee",
+      email: "morgan@example.com",
+      handledByUserId: 1,
+      handledByName: "Admin",
+      handledAction: "invite_code",
+      inviteCode: "morgan-invite",
+      createdUserId: null,
+    });
+    expect(response.body.signup.handledAt).toEqual(expect.any(String));
+
+    const savedInvite = db
+      .prepare(
+        "SELECT code, label, usage_limit, usage_count, team_id, default_role FROM invite_codes WHERE code = ?",
+      )
+      .get("morgan-invite") as {
+      code: string;
+      label: string;
+      usage_limit: number;
+      usage_count: number;
+      team_id: number;
+      default_role: string;
+    };
+    expect(savedInvite).toEqual({
+      code: "morgan-invite",
+      label: "Waitlist: Morgan Lee <morgan@example.com>",
+      usage_limit: 1,
+      usage_count: 0,
+      team_id: 1,
+      default_role: "member",
+    });
+  });
+
+  it("lets admins create a direct user from a waitlist signup and mark it handled", async () => {
+    const { app, db, adminCookie } = await setup();
+    const signup = db
+      .prepare("INSERT INTO waitlist_signups (name, email) VALUES (?, ?)")
+      .run("Riley Chen", "riley@example.com");
+    const signupId = Number(signup.lastInsertRowid);
+
+    const response = await request(app)
+      .post(`/api/admin/waitlist/${signupId}/direct-user`)
+      .set("Cookie", adminCookie)
+      .send({ password: "long-enough-password", role: "admin" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.user).toMatchObject({
+      name: "Riley Chen",
+      email: "riley@example.com",
+      role: "admin",
+      teamId: 1,
+    });
+    expect(response.body.signup).toMatchObject({
+      id: signupId,
+      handledByUserId: 1,
+      handledByName: "Admin",
+      handledAction: "direct_user",
+      inviteCode: null,
+      createdUserId: response.body.user.id,
+    });
+    expect(response.body.signup.handledAt).toEqual(expect.any(String));
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: "riley@example.com",
+      password: "long-enough-password",
+    });
+    expect(login.status).toBe(200);
+    expect(login.body.user.role).toBe("admin");
+  });
+
+  it("rejects handling a waitlist signup twice", async () => {
+    const { app, db, adminCookie } = await setup();
+    const signup = db
+      .prepare("INSERT INTO waitlist_signups (name, email) VALUES (?, ?)")
+      .run("Casey Park", "casey@example.com");
+    const signupId = Number(signup.lastInsertRowid);
+
+    const first = await request(app)
+      .post(`/api/admin/waitlist/${signupId}/invite-code`)
+      .set("Cookie", adminCookie)
+      .send({ code: "casey-invite", role: "member" });
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post(`/api/admin/waitlist/${signupId}/direct-user`)
+      .set("Cookie", adminCookie)
+      .send({ password: "long-enough-password", role: "member" });
+
+    expect(second.status).toBe(400);
+    expect(second.body.error).toBe("Waitlist signup is already handled");
+  });
+
   it("lets admins add team users with a selected role", async () => {
     const { app, adminCookie } = await setup();
 
