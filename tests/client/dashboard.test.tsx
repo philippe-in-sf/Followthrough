@@ -11,7 +11,7 @@ import type {
   TaskDto,
 } from "../../shared/types";
 import { App } from "../../src/App";
-import { toApiDateTime } from "../../src/features/meetings/dateTime";
+import { toApiDateTime, toDateTimeInputValue } from "../../src/features/meetings/dateTime";
 
 const originalFetch = globalThis.fetch;
 
@@ -264,6 +264,28 @@ function setupAppFetch(
       googleCalendarConnected = false;
       googleCalendarEmail = null;
       return json(null, 204);
+    }
+
+    if (url.pathname === "/api/google-calendar/events" && method === "GET") {
+      return json({
+        events: [
+          {
+            id: "gcal-1",
+            title: "Imported planning sync",
+            startsAt: "2099-08-03T15:00:00.000Z",
+            summary: "Imported agenda",
+            notes: "Imported private notes",
+            links: [
+              {
+                label: "Planning deck",
+                url: "https://example.com/planning",
+                linkType: "agenda",
+              },
+            ],
+            attendeeNames: "Jordan Case",
+          },
+        ],
+      });
     }
 
     if (url.pathname === "/api/dashboard") {
@@ -1232,6 +1254,49 @@ describe("dashboard and workspace flows", () => {
     const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
     expect(body.attendeePublicIds).toEqual(["P001", "P002"]);
     expect(body.taskPublicIds).toEqual(["T004"]);
+  });
+
+  it("imports a Google Calendar event into the meeting wizard", async () => {
+    setupAppFetch({ googleCalendarConnected: true, googleCalendarEmail: "editor@gmail.com" });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Temporary meeting");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-03T09:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Import from Google Calendar" }));
+    await userEvent.type(screen.getByLabelText("Which Google Calendar meeting?"), "planning");
+    await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Imported planning sync/i }));
+
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Meeting title")).toHaveValue("Imported planning sync");
+    expect(screen.getByLabelText("Meeting start")).toHaveValue(
+      toDateTimeInputValue("2099-08-03T15:00:00.000Z"),
+    );
+    expect(screen.getByText("Imported from Google Calendar")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByLabelText("Add attendees while building this meeting")).toHaveValue(
+      "Jordan Case",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    expect(screen.getByLabelText("Meeting summary")).toHaveValue("Imported agenda");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+    expect(body.notes).toBe("Imported private notes");
+    expect(body.links).toEqual([
+      {
+        label: "Planning deck",
+        url: "https://example.com/planning",
+        linkType: "agenda",
+      },
+    ]);
   });
 
   it("edits meeting notes and structured links", async () => {

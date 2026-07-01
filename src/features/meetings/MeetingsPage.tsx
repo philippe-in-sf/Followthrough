@@ -766,6 +766,8 @@ export function MeetingsPage({
     });
     setCalendarImportOpen(false);
     setCalendarImportError("");
+    setMeetingWizardStep("basics");
+    setMeetingFormError("");
   }
 
   function editMeeting(meeting: MeetingDto) {
