@@ -1066,6 +1066,28 @@ describe("dashboard and workspace flows", () => {
     ).toBe(false);
   });
 
+  it("shows meeting wizard progress and validates Basics before moving forward", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+
+    expect(screen.getByRole("button", { name: /1 Basics/i })).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Meeting tasks")).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Choose a recurring meeting before continuing.",
+    );
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+  });
+
   it("shows meetings and creates a recurring occurrence with carried tasks", async () => {
     setupAppFetch();
     render(<App />);
@@ -1089,6 +1111,13 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add series" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create occurrence" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
+    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
+    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
     expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
     expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
@@ -1096,11 +1125,8 @@ describe("dashboard and workspace flows", () => {
       "href",
       deckUrl,
     );
-
-    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
-    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
-    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
@@ -1170,6 +1196,8 @@ describe("dashboard and workspace flows", () => {
     await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "new");
     await userEvent.type(screen.getByLabelText("New recurring meeting name"), "Customer standup");
     await userEvent.type(screen.getByLabelText("Cadence"), "Weekly");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Customer standup kickoff")).toBeInTheDocument();
@@ -1178,6 +1206,30 @@ describe("dashboard and workspace flows", () => {
         "Customer standup",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("preserves attendee quick add and linked tasks in the wizard", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Launch work session");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+
+    await userEvent.click(screen.getByLabelText("Avery"));
+    await userEvent.type(screen.getByLabelText("Add attendees while building this meeting"), "Morgan Lee");
+    await userEvent.click(screen.getByLabelText(/T004 Do the All Hands deck/i));
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    expect(await screen.findByText("Launch work session")).toBeInTheDocument();
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+    expect(body.attendeePublicIds).toEqual(["P001", "P002"]);
+    expect(body.taskPublicIds).toEqual(["T004"]);
   });
 
   it("edits meeting notes and structured links", async () => {
