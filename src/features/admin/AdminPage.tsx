@@ -1,8 +1,9 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { TeamDto, TeamUserDto, UserRole } from "../../../shared/types";
+import type { TeamDto, TeamUserDto, UserRole, WaitlistSignupDto } from "../../../shared/types";
 import { api, ApiError } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { StatusBadge } from "../../components/StatusBadge";
 
 type TeamFormState = {
   name: string;
@@ -13,6 +14,16 @@ type TeamFormState = {
 type NewUserFormState = {
   name: string;
   email: string;
+  password: string;
+  role: UserRole;
+};
+
+type WaitlistInviteFormState = {
+  code: string;
+  role: UserRole;
+};
+
+type WaitlistDirectUserFormState = {
   password: string;
   role: UserRole;
 };
@@ -32,6 +43,43 @@ function toTeamForm(team: TeamDto): TeamFormState {
   };
 }
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 36);
+}
+
+function defaultInviteCode(signup: WaitlistSignupDto) {
+  const emailName = signup.email.split("@")[0] ?? "";
+  return `${slugify(emailName || signup.name) || "waitlist"}-${signup.id}`;
+}
+
+function initialInviteForms(signups: WaitlistSignupDto[]) {
+  return Object.fromEntries(
+    signups.map((signup) => [
+      signup.id,
+      {
+        code: defaultInviteCode(signup),
+        role: "member" as UserRole,
+      },
+    ]),
+  ) as Record<number, WaitlistInviteFormState>;
+}
+
+function initialDirectUserForms(signups: WaitlistSignupDto[]) {
+  return Object.fromEntries(
+    signups.map((signup) => [
+      signup.id,
+      {
+        password: "",
+        role: "member" as UserRole,
+      },
+    ]),
+  ) as Record<number, WaitlistDirectUserFormState>;
+}
+
 function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : "Request failed";
 }
@@ -49,6 +97,11 @@ export function AdminPage({
     workCalendarUrl: "",
   });
   const [users, setUsers] = useState<TeamUserDto[]>([]);
+  const [waitlistSignups, setWaitlistSignups] = useState<WaitlistSignupDto[]>([]);
+  const [inviteForms, setInviteForms] = useState<Record<number, WaitlistInviteFormState>>({});
+  const [directUserForms, setDirectUserForms] = useState<
+    Record<number, WaitlistDirectUserFormState>
+  >({});
   const [newUser, setNewUser] = useState<NewUserFormState>(emptyNewUserForm);
   const [loading, setLoading] = useState(true);
   const [teamStatus, setTeamStatus] = useState("");
@@ -58,6 +111,9 @@ export function AdminPage({
   const [roleError, setRoleError] = useState("");
   const [removeStatus, setRemoveStatus] = useState("");
   const [removeError, setRemoveError] = useState("");
+  const [waitlistStatus, setWaitlistStatus] = useState("");
+  const [waitlistError, setWaitlistError] = useState("");
+  const [handlingSignupId, setHandlingSignupId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -65,13 +121,17 @@ export function AdminPage({
     async function loadAdminData() {
       setLoading(true);
       try {
-        const [teamResult, usersResult] = await Promise.all([
+        const [teamResult, usersResult, waitlistResult] = await Promise.all([
           api.admin.team(),
           api.admin.users(),
+          api.admin.waitlist(),
         ]);
         if (!active) return;
         setTeamForm(toTeamForm(teamResult.team));
         setUsers(usersResult.users);
+        setWaitlistSignups(waitlistResult.signups);
+        setInviteForms(initialInviteForms(waitlistResult.signups));
+        setDirectUserForms(initialDirectUserForms(waitlistResult.signups));
       } catch (error) {
         if (active) setUserError(errorMessage(error));
       } finally {
@@ -115,6 +175,76 @@ export function AdminPage({
     } catch (error) {
       setUserError(errorMessage(error));
     }
+  }
+
+  function updateWaitlistSignup(signup: WaitlistSignupDto) {
+    setWaitlistSignups((current) =>
+      current.map((candidate) => (candidate.id === signup.id ? signup : candidate)),
+    );
+  }
+
+  async function createInviteForSignup(
+    event: FormEvent<HTMLFormElement>,
+    signup: WaitlistSignupDto,
+  ) {
+    event.preventDefault();
+    const form = inviteForms[signup.id] ?? { code: defaultInviteCode(signup), role: "member" };
+    setWaitlistStatus("");
+    setWaitlistError("");
+    setHandlingSignupId(signup.id);
+
+    try {
+      const result = await api.admin.createWaitlistInviteCode(signup.id, form);
+      updateWaitlistSignup(result.signup);
+      setWaitlistStatus(`Invite ${result.inviteCode.code} created for ${signup.name}`);
+    } catch (error) {
+      setWaitlistError(errorMessage(error));
+    } finally {
+      setHandlingSignupId(null);
+    }
+  }
+
+  async function createDirectUserForSignup(
+    event: FormEvent<HTMLFormElement>,
+    signup: WaitlistSignupDto,
+  ) {
+    event.preventDefault();
+    const form = directUserForms[signup.id] ?? { password: "", role: "member" };
+    setWaitlistStatus("");
+    setWaitlistError("");
+    setHandlingSignupId(signup.id);
+
+    try {
+      const result = await api.admin.createWaitlistUser(signup.id, form);
+      updateWaitlistSignup(result.signup);
+      setUsers((current) => {
+        const existing = current.some((user) => user.id === result.user.id);
+        const next = existing
+          ? current.map((user) => (user.id === result.user.id ? result.user : user))
+          : [...current, result.user];
+        return next.sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setDirectUserForms((current) => ({
+        ...current,
+        [signup.id]: { ...(current[signup.id] ?? { role: "member" as UserRole }), password: "" },
+      }));
+      setWaitlistStatus(`User ${result.user.email} created`);
+    } catch (error) {
+      setWaitlistError(errorMessage(error));
+    } finally {
+      setHandlingSignupId(null);
+    }
+  }
+
+  function waitlistHandledText(signup: WaitlistSignupDto) {
+    const handler = signup.handledByName ?? "admin";
+    if (signup.handledAction === "invite_code" && signup.inviteCode) {
+      return `Handled with invite ${signup.inviteCode} by ${handler}`;
+    }
+    if (signup.handledAction === "direct_user") {
+      return `Direct user created by ${handler}`;
+    }
+    return "";
   }
 
   async function updateRole(user: TeamUserDto, role: UserRole) {
@@ -300,6 +430,147 @@ export function AdminPage({
               Add user
             </button>
           </form>
+        </section>
+
+        <section className="admin-panel admin-waitlist-panel">
+          <div className="panel-heading">
+            <h2>Waitlist</h2>
+          </div>
+          {waitlistSignups.length === 0 ? (
+            <EmptyState title="No waitlist signups" detail="New public waitlist requests appear here." />
+          ) : (
+            <ul className="waitlist-signup-list">
+              {waitlistSignups.map((signup) => {
+                const inviteForm = inviteForms[signup.id] ?? {
+                  code: defaultInviteCode(signup),
+                  role: "member" as UserRole,
+                };
+                const directUserForm = directUserForms[signup.id] ?? {
+                  password: "",
+                  role: "member" as UserRole,
+                };
+                const handledText = waitlistHandledText(signup);
+                const handled = Boolean(signup.handledAt);
+                const busy = handlingSignupId === signup.id;
+
+                return (
+                  <li
+                    aria-label={`${signup.name} ${signup.email}`}
+                    className="waitlist-signup"
+                    key={signup.id}
+                  >
+                    <div className="waitlist-signup-summary">
+                      <div>
+                        <strong>{signup.name}</strong>
+                        <span>{signup.email}</span>
+                      </div>
+                      <StatusBadge
+                        label={handled ? "Handled" : "Pending"}
+                        tone={handled ? "good" : "warn"}
+                      />
+                    </div>
+
+                    {handled ? (
+                      <p className="form-status waitlist-handled-status">{handledText}</p>
+                    ) : (
+                      <div className="waitlist-actions">
+                        <form
+                          className="waitlist-action-form"
+                          onSubmit={(event) => void createInviteForSignup(event, signup)}
+                        >
+                          <h3>Invite code</h3>
+                          <FormField label={`Invite code for ${signup.name}`}>
+                            <input
+                              name={`inviteCode-${signup.id}`}
+                              onChange={(event) =>
+                                setInviteForms((current) => ({
+                                  ...current,
+                                  [signup.id]: {
+                                    ...inviteForm,
+                                    code: event.target.value,
+                                  },
+                                }))
+                              }
+                              required
+                              value={inviteForm.code}
+                            />
+                          </FormField>
+                          <FormField label={`Invite role for ${signup.name}`}>
+                            <select
+                              name={`inviteRole-${signup.id}`}
+                              onChange={(event) =>
+                                setInviteForms((current) => ({
+                                  ...current,
+                                  [signup.id]: {
+                                    ...inviteForm,
+                                    role: event.target.value as UserRole,
+                                  },
+                                }))
+                              }
+                              value={inviteForm.role}
+                            >
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </FormField>
+                          <button className="secondary-button" disabled={busy} type="submit">
+                            Create invite for {signup.name}
+                          </button>
+                        </form>
+
+                        <form
+                          className="waitlist-action-form"
+                          onSubmit={(event) => void createDirectUserForSignup(event, signup)}
+                        >
+                          <h3>Direct user</h3>
+                          <FormField label={`Temporary password for ${signup.name}`}>
+                            <input
+                              name={`directUserPassword-${signup.id}`}
+                              onChange={(event) =>
+                                setDirectUserForms((current) => ({
+                                  ...current,
+                                  [signup.id]: {
+                                    ...directUserForm,
+                                    password: event.target.value,
+                                  },
+                                }))
+                              }
+                              required
+                              type="password"
+                              value={directUserForm.password}
+                            />
+                          </FormField>
+                          <FormField label={`Direct user role for ${signup.name}`}>
+                            <select
+                              name={`directUserRole-${signup.id}`}
+                              onChange={(event) =>
+                                setDirectUserForms((current) => ({
+                                  ...current,
+                                  [signup.id]: {
+                                    ...directUserForm,
+                                    role: event.target.value as UserRole,
+                                  },
+                                }))
+                              }
+                              value={directUserForm.role}
+                            >
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </FormField>
+                          <button className="primary-button" disabled={busy} type="submit">
+                            Create user for {signup.name}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {waitlistError ? <p className="form-error">{waitlistError}</p> : null}
+          {waitlistStatus ? <p className="form-status">{waitlistStatus}</p> : null}
         </section>
       </section>
     </main>
