@@ -2801,6 +2801,17 @@ button:disabled {
   border: 0;
 }
 
+@media (max-width: 1200px) {
+  .quick-meeting-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-meeting-heading,
+  .quick-meeting-form .form-error {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 1080px) {
   .marketing-proof-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2853,15 +2864,6 @@ button:disabled {
 
   .app-shell {
     grid-template-columns: 72px minmax(0, 1fr);
-  }
-
-  .quick-meeting-form {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .quick-meeting-heading,
-  .quick-meeting-form .form-error {
-    grid-column: 1 / -1;
   }
 
   .context-rail {

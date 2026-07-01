@@ -41,17 +41,24 @@ describe("skin contrast styles", () => {
     expect(css).toContain(".app-shell[data-skin] .meeting-wizard-progress");
   });
 
-  it("keeps quick add and meeting wizard layout narrow before mobile collapse", () => {
+  it("keeps quick add and meeting wizard layout narrow with rails before mobile collapse", () => {
     const css = styles();
+    const desktopRailMedia = css.slice(
+      css.indexOf("@media (max-width: 1200px) {"),
+      css.indexOf("@media (max-width: 1080px) {"),
+    );
     const tabletMedia = css.slice(
       css.indexOf("@media (max-width: 900px) {"),
       css.indexOf("@media (max-width: 700px) {"),
     );
 
-    expect(tabletMedia).toContain("  .quick-meeting-form {\n    grid-template-columns: 1fr 1fr;\n  }");
-    expect(tabletMedia).toContain(
+    expect(css).toContain("@media (max-width: 1200px) {");
+
+    expect(desktopRailMedia).toContain("  .quick-meeting-form {\n    grid-template-columns: 1fr 1fr;\n  }");
+    expect(desktopRailMedia).toContain(
       "  .quick-meeting-heading,\n  .quick-meeting-form .form-error {\n    grid-column: 1 / -1;\n  }",
     );
+    expect(tabletMedia).not.toContain(".quick-meeting-form {");
   });
 
   it("keeps meeting checkbox option rows dark and readable inside skins", () => {
