@@ -1256,6 +1256,23 @@ describe("dashboard and workspace flows", () => {
     expect(body.taskPublicIds).toEqual(["T004"]);
   });
 
+  it("explains the reset after the meeting wizard creates a meeting", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Reset clarity check");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Meeting M100 added. Ready for the next meeting.",
+    );
+    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+  });
+
   it("does not submit the meeting wizard before the Details step", async () => {
     setupAppFetch();
     render(<App />);

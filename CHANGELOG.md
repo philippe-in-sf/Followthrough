@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.18 - 2026-07-01
+
+### Fixed
+
+- Added a clear Add meeting confirmation so the wizard reset after saving no longer looks like a broken loop.
+- Hardened Add meeting wizard field updates so People & Work changes cannot overwrite earlier Basics values.
+
 ## 1.1.17 - 2026-07-01
 
 ### Added

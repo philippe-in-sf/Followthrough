@@ -343,6 +343,7 @@ export function MeetingsPage({
     useState<QuickMeetingFormState>(emptyQuickMeetingForm);
   const [quickMeetingError, setQuickMeetingError] = useState("");
   const [meetingFormError, setMeetingFormError] = useState("");
+  const [meetingFormStatus, setMeetingFormStatus] = useState("");
   const [meetingWizardStep, setMeetingWizardStep] = useState<MeetingWizardStep>("basics");
   const [calendarImportOpen, setCalendarImportOpen] = useState(false);
   const [calendarImportQuery, setCalendarImportQuery] = useState("");
@@ -378,6 +379,15 @@ export function MeetingsPage({
   const [linkDrafts, setLinkDrafts] = useState<MeetingLinkFormState[]>([]);
   const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
   const meetingLoadRequestId = useRef(0);
+
+  function updateMeetingForm(
+    update: Partial<MeetingFormState> | ((current: MeetingFormState) => MeetingFormState),
+  ) {
+    setMeetingFormStatus("");
+    setMeetingForm((current) =>
+      typeof update === "function" ? update(current) : { ...current, ...update },
+    );
+  }
 
   const meetingQuery = useMemo(
     () => (meetingArchiveView === "archived" ? "?archived=true" : ""),
@@ -657,8 +667,11 @@ export function MeetingsPage({
     };
 
     if (!forceSingle && form.recurrenceMode === "existing") {
-      await api.series.createOccurrence(form.existingSeriesPublicId, sharedMeetingFields);
-      return;
+      const result = await api.series.createOccurrence(
+        form.existingSeriesPublicId,
+        sharedMeetingFields,
+      );
+      return result.meeting;
     }
 
     const seriesPublicId =
@@ -672,16 +685,18 @@ export function MeetingsPage({
           ).series.publicId
         : null;
 
-    await api.meetings.create({
+    const result = await api.meetings.create({
       ...sharedMeetingFields,
       meetingType: seriesPublicId ? "recurring" : "single",
       seriesPublicId,
     });
+    return result.meeting;
   }
 
   async function submitMeeting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMeetingFormError("");
+    setMeetingFormStatus("");
     const basicsError = validateMeetingBasics();
     if (basicsError) {
       setMeetingFormError(basicsError);
@@ -693,10 +708,13 @@ export function MeetingsPage({
       return;
     }
     try {
-      await createMeetingFromForm(meetingForm, { calendarDetails: calendarImportDetails });
+      const meeting = await createMeetingFromForm(meetingForm, {
+        calendarDetails: calendarImportDetails,
+      });
       setMeetingForm(emptyMeetingForm);
       setCalendarImportDetails(null);
       setMeetingWizardStep("basics");
+      setMeetingFormStatus(`Meeting ${meeting.publicId} added. Ready for the next meeting.`);
       await load();
     } catch (error) {
       setMeetingFormError(error instanceof Error ? error.message : "Meeting could not be created.");
@@ -752,8 +770,8 @@ export function MeetingsPage({
       .filter(Boolean)
       .join(", ");
 
-    setMeetingForm({
-      ...meetingForm,
+    updateMeetingForm((current) => ({
+      ...current,
       title: event.title,
       startsAt: toDateTimeInputValue(event.startsAt),
       recurrenceMode: "single",
@@ -762,7 +780,7 @@ export function MeetingsPage({
       newSeriesCadenceLabel: "",
       summary: event.summary,
       attendeeNames,
-    });
+    }));
     setCalendarImportDetails({
       sourceTitle: event.title,
       notes: event.notes,
@@ -1582,7 +1600,7 @@ export function MeetingsPage({
             <FormField label="Meeting title">
               <input
                 value={meetingForm.title}
-                onChange={(event) => setMeetingForm({ ...meetingForm, title: event.target.value })}
+                onChange={(event) => updateMeetingForm({ title: event.target.value })}
                 required
               />
             </FormField>
@@ -1590,27 +1608,26 @@ export function MeetingsPage({
               <input
                 type="datetime-local"
                 value={meetingForm.startsAt}
-                onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, startsAt: event.target.value })
-                }
+                onChange={(event) => updateMeetingForm({ startsAt: event.target.value })}
                 required
               />
             </FormField>
             <FormField label="Recurrence">
               <select
                 value={meetingForm.recurrenceMode}
-                onChange={(event) =>
-                  setMeetingForm({
-                    ...meetingForm,
-                    recurrenceMode: event.target.value as RecurrenceMode,
+                onChange={(event) => {
+                  const recurrenceMode = event.target.value as RecurrenceMode;
+                  updateMeetingForm((current) => ({
+                    ...current,
+                    recurrenceMode,
                     existingSeriesPublicId:
-                      event.target.value === "existing" ? meetingForm.existingSeriesPublicId : "",
+                      recurrenceMode === "existing" ? current.existingSeriesPublicId : "",
                     newSeriesTitle:
-                      event.target.value === "new" ? meetingForm.newSeriesTitle : "",
+                      recurrenceMode === "new" ? current.newSeriesTitle : "",
                     newSeriesCadenceLabel:
-                      event.target.value === "new" ? meetingForm.newSeriesCadenceLabel : "",
-                  })
-                }
+                      recurrenceMode === "new" ? current.newSeriesCadenceLabel : "",
+                  }));
+                }}
               >
                 <option value="single">One-time meeting</option>
                 <option value="existing">Use existing recurring meeting</option>
@@ -1622,7 +1639,7 @@ export function MeetingsPage({
                 <select
                   value={meetingForm.existingSeriesPublicId}
                   onChange={(event) =>
-                    setMeetingForm({ ...meetingForm, existingSeriesPublicId: event.target.value })
+                    updateMeetingForm({ existingSeriesPublicId: event.target.value })
                   }
                   required
                 >
@@ -1641,7 +1658,7 @@ export function MeetingsPage({
                   <input
                     value={meetingForm.newSeriesTitle}
                     onChange={(event) =>
-                      setMeetingForm({ ...meetingForm, newSeriesTitle: event.target.value })
+                      updateMeetingForm({ newSeriesTitle: event.target.value })
                     }
                     required
                   />
@@ -1650,10 +1667,7 @@ export function MeetingsPage({
                   <input
                     value={meetingForm.newSeriesCadenceLabel}
                     onChange={(event) =>
-                      setMeetingForm({
-                        ...meetingForm,
-                        newSeriesCadenceLabel: event.target.value,
-                      })
+                      updateMeetingForm({ newSeriesCadenceLabel: event.target.value })
                     }
                     placeholder="Weekly"
                   />
@@ -1670,15 +1684,13 @@ export function MeetingsPage({
               options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
               selected={meetingForm.attendeePublicIds}
               onChange={(attendeePublicIds) =>
-                setMeetingForm({ ...meetingForm, attendeePublicIds })
+                updateMeetingForm({ attendeePublicIds })
               }
             />
             <FormField label="Add attendees while building this meeting">
               <input
                 value={meetingForm.attendeeNames}
-                onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, attendeeNames: event.target.value })
-                }
+                onChange={(event) => updateMeetingForm({ attendeeNames: event.target.value })}
                 placeholder="Morgan Lee, Taylor Park"
               />
             </FormField>
@@ -1689,7 +1701,7 @@ export function MeetingsPage({
                 label: taskOptionLabel(task),
               }))}
               selected={meetingForm.taskPublicIds}
-              onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
+              onChange={(taskPublicIds) => updateMeetingForm({ taskPublicIds })}
             />
           </section>
         ) : null}
@@ -1699,22 +1711,20 @@ export function MeetingsPage({
             <FormField label="Meeting summary">
               <textarea
                 value={meetingForm.summary}
-                onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, summary: event.target.value })
-                }
+                onChange={(event) => updateMeetingForm({ summary: event.target.value })}
               />
             </FormField>
             <FormField label="Meeting blockers">
               <textarea
                 value={meetingForm.blockers}
                 onChange={(event) =>
-                  setMeetingForm({
-                    ...meetingForm,
+                  updateMeetingForm((current) => ({
+                    ...current,
                     blockers: event.target.value,
                     blockersCleared: event.target.value.trim()
-                      ? meetingForm.blockersCleared
+                      ? current.blockersCleared
                       : false,
-                  })
+                  }))
                 }
               />
             </FormField>
@@ -1724,7 +1734,7 @@ export function MeetingsPage({
                 checked={meetingForm.blockersCleared}
                 disabled={!meetingForm.blockers.trim()}
                 onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, blockersCleared: event.target.checked })
+                  updateMeetingForm({ blockersCleared: event.target.checked })
                 }
               />
               <span>Blocker cleared</span>
@@ -1734,7 +1744,7 @@ export function MeetingsPage({
                 type="checkbox"
                 checked={meetingForm.private}
                 onChange={(event) =>
-                  setMeetingForm({ ...meetingForm, private: event.target.checked })
+                  updateMeetingForm({ private: event.target.checked })
                 }
               />
               <span>Private</span>
@@ -1744,6 +1754,11 @@ export function MeetingsPage({
         {meetingFormError ? (
           <p className="form-error" role="alert">
             {meetingFormError}
+          </p>
+        ) : null}
+        {meetingFormStatus ? (
+          <p className="form-status" role="status">
+            {meetingFormStatus}
           </p>
         ) : null}
         <div className="meeting-wizard-actions">
