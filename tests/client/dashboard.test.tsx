@@ -11,6 +11,7 @@ import type {
   TaskDto,
 } from "../../shared/types";
 import { App } from "../../src/App";
+import { toApiDateTime } from "../../src/features/meetings/dateTime";
 
 const originalFetch = globalThis.fetch;
 
@@ -1042,6 +1043,7 @@ describe("dashboard and workspace flows", () => {
     expect(body).toEqual(
       expect.objectContaining({
         title: "Quick customer check-in",
+        startsAt: toApiDateTime("2099-08-01T11:30"),
         meetingType: "single",
         seriesPublicId: null,
         summary: "",
