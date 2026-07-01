@@ -688,6 +688,10 @@ export function MeetingsPage({
       setMeetingWizardStep("basics");
       return;
     }
+    if (meetingWizardStep !== "details") {
+      goToNextMeetingWizardStep();
+      return;
+    }
     try {
       await createMeetingFromForm(meetingForm, { calendarDetails: calendarImportDetails });
       setMeetingForm(emptyMeetingForm);

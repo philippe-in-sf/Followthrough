@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -1254,6 +1254,30 @@ describe("dashboard and workspace flows", () => {
     const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
     expect(body.attendeePublicIds).toEqual(["P001", "P002"]);
     expect(body.taskPublicIds).toEqual(["T004"]);
+  });
+
+  it("does not submit the meeting wizard before the Details step", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Early submit check");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
+    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+
+    const attendeeInput = screen.getByLabelText("Add attendees while building this meeting");
+    await userEvent.type(attendeeInput, "Morgan Lee");
+    const addMeetingForm = attendeeInput.closest("form");
+    expect(addMeetingForm).not.toBeNull();
+    fireEvent.submit(addMeetingForm as HTMLFormElement);
+
+    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST"),
+    ).toBe(false);
   });
 
   it("imports a Google Calendar event into the meeting wizard", async () => {
