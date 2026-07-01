@@ -1020,6 +1020,50 @@ describe("dashboard and workspace flows", () => {
     ).toBe(true);
   });
 
+  it("creates a one-time meeting from Quick Add without advanced fields", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "Quick customer check-in");
+    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2099-08-01T11:30");
+    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee, Taylor Park");
+    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+
+    expect(await screen.findByText("Quick customer check-in")).toBeInTheDocument();
+    const quickMeetingCard = await expandMeetingCard("M100");
+    expect(within(quickMeetingCard).getByText("Morgan Lee, Taylor Park")).toBeInTheDocument();
+
+    const meetingCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST");
+    const body = JSON.parse(String(meetingCreateCall?.[1]?.body));
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        title: "Quick customer check-in",
+        meetingType: "single",
+        seriesPublicId: null,
+        summary: "",
+        blockers: "",
+        blockersCleared: false,
+        notes: "",
+        links: [],
+        taskPublicIds: [],
+        private: false,
+      }),
+    );
+    expect(body.attendeePublicIds).toEqual(["P002", "P003"]);
+    expect(
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.some(
+          ([input, init]) =>
+            String(input) === "/api/meeting-series" && init?.method === "POST",
+        ),
+    ).toBe(false);
+  });
+
   it("shows meetings and creates a recurring occurrence with carried tasks", async () => {
     setupAppFetch();
     render(<App />);
