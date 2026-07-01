@@ -30,6 +30,17 @@ describe("skin contrast styles", () => {
     expect(css).toContain("border-bottom-color: var(--skin-border)");
   });
 
+  it("keeps quick add and meeting wizard surfaces dark and readable inside skins", () => {
+    const css = styles();
+
+    expect(css).toContain(
+      ".app-shell[data-skin] .quick-meeting-form,\n.app-shell[data-skin] .meeting-wizard-panel,\n.app-shell[data-skin] .meeting-wizard-stepper button",
+    );
+    expect(css).toContain(".app-shell[data-skin] .meeting-wizard-stepper button.active");
+    expect(css).toContain(".app-shell[data-skin] .quick-meeting-heading span");
+    expect(css).toContain(".app-shell[data-skin] .meeting-wizard-progress");
+  });
+
   it("keeps meeting checkbox option rows dark and readable inside skins", () => {
     const css = styles();
 
