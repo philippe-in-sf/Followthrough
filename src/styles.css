@@ -2855,6 +2855,15 @@ button:disabled {
     grid-template-columns: 72px minmax(0, 1fr);
   }
 
+  .quick-meeting-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-meeting-heading,
+  .quick-meeting-form .form-error {
+    grid-column: 1 / -1;
+  }
+
   .context-rail {
     display: none;
   }

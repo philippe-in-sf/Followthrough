@@ -41,6 +41,19 @@ describe("skin contrast styles", () => {
     expect(css).toContain(".app-shell[data-skin] .meeting-wizard-progress");
   });
 
+  it("keeps quick add and meeting wizard layout narrow before mobile collapse", () => {
+    const css = styles();
+    const tabletMedia = css.slice(
+      css.indexOf("@media (max-width: 900px) {"),
+      css.indexOf("@media (max-width: 700px) {"),
+    );
+
+    expect(tabletMedia).toContain("  .quick-meeting-form {\n    grid-template-columns: 1fr 1fr;\n  }");
+    expect(tabletMedia).toContain(
+      "  .quick-meeting-heading,\n  .quick-meeting-form .form-error {\n    grid-column: 1 / -1;\n  }",
+    );
+  });
+
   it("keeps meeting checkbox option rows dark and readable inside skins", () => {
     const css = styles();
 
