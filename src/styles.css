@@ -2645,6 +2645,16 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.meeting-task-form.notes-task-form {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 10px;
+  border: 0;
+  border-top: 1px solid #d9dee7;
+  background: transparent;
+  padding: 12px 0 0;
+}
+
 .meeting-edit-form .audit-log,
 .person-edit-form .audit-log,
 .task-edit-form .audit-log {
