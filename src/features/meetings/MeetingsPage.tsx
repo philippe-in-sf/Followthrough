@@ -50,6 +50,21 @@ type MeetingFormState = {
 
 type RecurrenceMode = "single" | "existing" | "new";
 
+type MeetingWizardStep = "basics" | "people" | "details";
+
+type QuickMeetingFormState = {
+  title: string;
+  startsAt: string;
+  attendeeNames: string;
+};
+
+type MeetingCreateOptions = {
+  calendarDetails?: CalendarImportDetails | null;
+  forceSingle?: boolean;
+  includeDetails?: boolean;
+  includeTasks?: boolean;
+};
+
 type MeetingTaskFormState = {
   description: string;
   blockers: string;
@@ -98,6 +113,12 @@ const emptyMeetingForm: MeetingFormState = {
   attendeeNames: "",
   taskPublicIds: [],
   private: false,
+};
+
+const emptyQuickMeetingForm: QuickMeetingFormState = {
+  title: "",
+  startsAt: "",
+  attendeeNames: "",
 };
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
@@ -308,6 +329,11 @@ export function MeetingsPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
+  const [quickMeetingForm, setQuickMeetingForm] =
+    useState<QuickMeetingFormState>(emptyQuickMeetingForm);
+  const [quickMeetingError, setQuickMeetingError] = useState("");
+  const [meetingFormError, setMeetingFormError] = useState("");
+  const [meetingWizardStep, setMeetingWizardStep] = useState<MeetingWizardStep>("basics");
   const [calendarImportOpen, setCalendarImportOpen] = useState(false);
   const [calendarImportQuery, setCalendarImportQuery] = useState("");
   const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
@@ -532,52 +558,91 @@ export function MeetingsPage({
     return [...attendeeIds];
   }
 
-  async function submitMeeting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function createMeetingFromForm(
+    form: MeetingFormState,
+    {
+      calendarDetails = null,
+      forceSingle = false,
+      includeDetails = true,
+      includeTasks = true,
+    }: MeetingCreateOptions = {},
+  ) {
     const attendeePublicIds = await resolveAttendeePublicIds(
-      meetingForm.attendeePublicIds,
-      meetingForm.attendeeNames,
+      form.attendeePublicIds,
+      form.attendeeNames,
     );
     const sharedMeetingFields = {
-      title: meetingForm.title,
-      startsAt: toApiDateTime(meetingForm.startsAt),
-      summary: meetingForm.summary,
-      blockers: meetingForm.blockers,
-      blockersCleared: meetingForm.blockersCleared,
-      notes: calendarImportDetails?.notes ?? "",
-      links: calendarImportDetails?.links ?? [],
+      title: form.title,
+      startsAt: toApiDateTime(form.startsAt),
+      summary: includeDetails ? form.summary : "",
+      blockers: includeDetails ? form.blockers : "",
+      blockersCleared: includeDetails ? form.blockersCleared : false,
+      notes: includeDetails ? calendarDetails?.notes ?? "" : "",
+      links: includeDetails ? calendarDetails?.links ?? [] : [],
       attendeePublicIds,
-      taskPublicIds: meetingForm.taskPublicIds,
-      private: meetingForm.private,
+      taskPublicIds: includeTasks ? form.taskPublicIds : [],
+      private: includeDetails ? form.private : false,
     };
 
-    if (meetingForm.recurrenceMode === "existing") {
-      await api.series.createOccurrence(
-        meetingForm.existingSeriesPublicId,
-        sharedMeetingFields,
-      );
-    } else {
-      const seriesPublicId =
-        meetingForm.recurrenceMode === "new"
-          ? (
-              await api.series.create({
-                title: meetingForm.newSeriesTitle,
-                cadenceLabel: meetingForm.newSeriesCadenceLabel,
-                active: true,
-              })
-            ).series.publicId
-          : null;
-
-      await api.meetings.create({
-        ...sharedMeetingFields,
-        meetingType: seriesPublicId ? "recurring" : "single",
-        seriesPublicId,
-      });
+    if (!forceSingle && form.recurrenceMode === "existing") {
+      await api.series.createOccurrence(form.existingSeriesPublicId, sharedMeetingFields);
+      return;
     }
 
-    setMeetingForm(emptyMeetingForm);
-    setCalendarImportDetails(null);
-    await load();
+    const seriesPublicId =
+      !forceSingle && form.recurrenceMode === "new"
+        ? (
+            await api.series.create({
+              title: form.newSeriesTitle,
+              cadenceLabel: form.newSeriesCadenceLabel,
+              active: true,
+            })
+          ).series.publicId
+        : null;
+
+    await api.meetings.create({
+      ...sharedMeetingFields,
+      meetingType: seriesPublicId ? "recurring" : "single",
+      seriesPublicId,
+    });
+  }
+
+  async function submitMeeting(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMeetingFormError("");
+    try {
+      await createMeetingFromForm(meetingForm, { calendarDetails: calendarImportDetails });
+      setMeetingForm(emptyMeetingForm);
+      setCalendarImportDetails(null);
+      setMeetingWizardStep("basics");
+      await load();
+    } catch (error) {
+      setMeetingFormError(error instanceof Error ? error.message : "Meeting could not be created.");
+    }
+  }
+
+  async function submitQuickMeeting(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setQuickMeetingError("");
+    try {
+      await createMeetingFromForm(
+        {
+          ...emptyMeetingForm,
+          title: quickMeetingForm.title,
+          startsAt: quickMeetingForm.startsAt,
+          attendeeNames: quickMeetingForm.attendeeNames,
+        },
+        {
+          forceSingle: true,
+          includeDetails: false,
+          includeTasks: false,
+        },
+      );
+      setQuickMeetingForm(emptyQuickMeetingForm);
+      await load();
+    } catch (error) {
+      setQuickMeetingError(error instanceof Error ? error.message : "Quick Add meeting failed.");
+    }
   }
 
   async function searchGoogleCalendarEvents() {
@@ -1302,6 +1367,52 @@ export function MeetingsPage({
           </p>
         ) : null}
       </form>
+      <form
+        className="quick-meeting-form"
+        aria-label="Quick add one-time meeting"
+        onSubmit={submitQuickMeeting}
+      >
+        <div className="quick-meeting-heading">
+          <h3>Quick add one-time meeting</h3>
+          <span>Title, time, attendees</span>
+        </div>
+        <FormField label="Quick add meeting title">
+          <input
+            value={quickMeetingForm.title}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, title: event.target.value })
+            }
+            required
+          />
+        </FormField>
+        <FormField label="Quick add meeting start">
+          <input
+            type="datetime-local"
+            value={quickMeetingForm.startsAt}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, startsAt: event.target.value })
+            }
+            required
+          />
+        </FormField>
+        <FormField label="Quick add attendees">
+          <input
+            value={quickMeetingForm.attendeeNames}
+            onChange={(event) =>
+              setQuickMeetingForm({ ...quickMeetingForm, attendeeNames: event.target.value })
+            }
+            placeholder="Morgan Lee, Taylor Park"
+          />
+        </FormField>
+        <button className="primary-button" type="submit">
+          Quick add meeting
+        </button>
+        {quickMeetingError ? (
+          <p className="form-error" role="alert">
+            {quickMeetingError}
+          </p>
+        ) : null}
+      </form>
       <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <div className="editor-form-title-row">
           <h3>Add meeting</h3>
@@ -1483,6 +1594,11 @@ export function MeetingsPage({
           selected={meetingForm.taskPublicIds}
           onChange={(taskPublicIds) => setMeetingForm({ ...meetingForm, taskPublicIds })}
         />
+        {meetingFormError ? (
+          <p className="form-error" role="alert">
+            {meetingFormError}
+          </p>
+        ) : null}
         <div className="form-actions">
           <label className="checkbox-line">
             <input
