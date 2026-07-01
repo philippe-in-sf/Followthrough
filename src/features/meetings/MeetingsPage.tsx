@@ -184,6 +184,13 @@ function taskOptionLabel(task: TaskDto) {
   );
 }
 
+function compareTaskNumber(left: TaskDto, right: TaskDto) {
+  return left.publicId.localeCompare(right.publicId, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 function toMeetingLinkForm(link: MeetingLinkDto): MeetingLinkFormState {
   return {
     label: link.label,
@@ -305,6 +312,126 @@ function CheckboxGroup({
         </div>
       )}
     </fieldset>
+  );
+}
+
+function MeetingTaskCreateForm({
+  meeting,
+  people,
+  form,
+  heading,
+  submitLabel,
+  className = "",
+  onChange,
+  onSubmit,
+}: {
+  meeting: MeetingDto;
+  people: PersonDto[];
+  form: MeetingTaskFormState;
+  heading?: string;
+  submitLabel?: string;
+  className?: string;
+  onChange: (changes: Partial<MeetingTaskFormState>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const classes = ["meeting-task-form", className].filter(Boolean).join(" ");
+  const buttonLabel = submitLabel ?? `Add task to ${meeting.publicId}`;
+
+  return (
+    <form className={classes} onSubmit={onSubmit}>
+      <h3>{heading ?? `Add task to ${meeting.publicId}`}</h3>
+      <FormField label={`New task description for ${meeting.publicId}`}>
+        <input
+          value={form.description}
+          onChange={(event) =>
+            onChange({
+              description: event.target.value,
+            })
+          }
+          required
+        />
+      </FormField>
+      <FormField label={`New task blockers for ${meeting.publicId}`}>
+        <textarea
+          value={form.blockers}
+          onChange={(event) =>
+            onChange({
+              blockers: event.target.value,
+              blockersCleared: event.target.value.trim() ? form.blockersCleared : false,
+            })
+          }
+        />
+      </FormField>
+      <FormField label={`New task notes for ${meeting.publicId}`}>
+        <textarea
+          value={form.notes}
+          onChange={(event) =>
+            onChange({
+              notes: event.target.value,
+            })
+          }
+        />
+      </FormField>
+      <FormField label={`New task assignee for ${meeting.publicId}`}>
+        <select
+          value={form.assigneePublicId}
+          onChange={(event) =>
+            onChange({
+              assigneePublicId: event.target.value,
+            })
+          }
+        >
+          <option value="">Unassigned</option>
+          {people.map((person) => (
+            <option key={person.publicId} value={person.publicId}>
+              {person.name}
+            </option>
+          ))}
+        </select>
+      </FormField>
+      <FormField label={`New task status for ${meeting.publicId}`}>
+        <select
+          value={form.status}
+          onChange={(event) =>
+            onChange({
+              status: event.target.value as TaskDto["status"],
+            })
+          }
+        >
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Blocked">Blocked</option>
+          <option value="Done">Done</option>
+        </select>
+      </FormField>
+      <FormField label={`New task due date for ${meeting.publicId}`}>
+        <input
+          type="date"
+          value={form.dueDate}
+          onChange={(event) =>
+            onChange({
+              dueDate: event.target.value,
+            })
+          }
+        />
+      </FormField>
+      <label className="checkbox-line">
+        <input
+          type="checkbox"
+          checked={form.private}
+          onChange={(event) =>
+            onChange({
+              private: event.target.checked,
+            })
+          }
+        />
+        <span>Private</span>
+      </label>
+      <button className="primary-button icon-text-button" type="submit">
+        <Plus aria-hidden="true" size={16} />
+        {buttonLabel}
+      </button>
+    </form>
   );
 }
 
@@ -465,6 +592,8 @@ export function MeetingsPage({
       noteCount: seriesMeetings.filter((meeting) => meeting.notes.trim()).length,
     };
   }, [activeSeriesNotesPublicId, meetings, series]);
+
+  const taskPicklistOptions = useMemo(() => [...tasks].sort(compareTaskNumber), [tasks]);
 
   async function load() {
     const requestId = meetingLoadRequestId.current + 1;
@@ -1101,6 +1230,8 @@ export function MeetingsPage({
   }
 
   if (activeNotesMeeting) {
+    const notesFormId = `meeting-notes-form-${activeNotesMeeting.publicId}`;
+
     return (
       <main className="page meeting-notes-page">
         <header className="page-header meeting-notes-header">
@@ -1125,19 +1256,22 @@ export function MeetingsPage({
             className="primary-button icon-text-button"
             disabled={notesSaving}
             type="submit"
-            form={`meeting-notes-form-${activeNotesMeeting.publicId}`}
+            form={notesFormId}
           >
             <Save aria-hidden="true" size={17} />
             {notesSaving ? "Saving notes" : "Save notes"}
           </button>
         </header>
 
-        <form
+        <div
           className="meeting-notes-layout"
-          id={`meeting-notes-form-${activeNotesMeeting.publicId}`}
-          onSubmit={(event) => submitMeetingNotes(event, activeNotesMeeting)}
         >
-          <section className="meeting-notes-editor" aria-label="Meeting note entry">
+          <form
+            className="meeting-notes-editor"
+            id={notesFormId}
+            aria-label="Meeting note entry"
+            onSubmit={(event) => submitMeetingNotes(event, activeNotesMeeting)}
+          >
             <div className="meeting-notes-meta">
               <StatusBadge label={activeNotesMeeting.meetingType} />
               {activeNotesMeeting.seriesPublicId ? (
@@ -1199,7 +1333,7 @@ export function MeetingsPage({
                 }}
               />
             </FormField>
-          </section>
+          </form>
 
           <aside className="meeting-notes-sidepanel">
             <section className="notes-panel" aria-label="Structured meeting links">
@@ -1215,6 +1349,7 @@ export function MeetingsPage({
                     <div className="structured-link-row" key={`${link.url}-${index}`}>
                       <FormField label={`Link label ${index + 1}`}>
                         <input
+                          form={notesFormId}
                           value={link.label}
                           onChange={(event) =>
                             updateLinkDraft(index, { label: event.target.value })
@@ -1224,6 +1359,7 @@ export function MeetingsPage({
                       </FormField>
                       <FormField label={`Link URL ${index + 1}`}>
                         <input
+                          form={notesFormId}
                           type="url"
                           value={link.url}
                           onChange={(event) =>
@@ -1234,6 +1370,7 @@ export function MeetingsPage({
                       </FormField>
                       <FormField label={`Link type ${index + 1}`}>
                         <select
+                          form={notesFormId}
                           value={link.linkType}
                           onChange={(event) =>
                             updateLinkDraft(index, {
@@ -1275,6 +1412,7 @@ export function MeetingsPage({
               <div className="link-add-grid">
                 <FormField label="New link label">
                   <input
+                    form={notesFormId}
                     value={newLinkForm.label}
                     onChange={(event) => {
                       setNewLinkForm({ ...newLinkForm, label: event.target.value });
@@ -1284,6 +1422,7 @@ export function MeetingsPage({
                 </FormField>
                 <FormField label="New link URL">
                   <input
+                    form={notesFormId}
                     type="url"
                     value={newLinkForm.url}
                     onChange={(event) => {
@@ -1294,6 +1433,7 @@ export function MeetingsPage({
                 </FormField>
                 <FormField label="New link type">
                   <select
+                    form={notesFormId}
                     value={newLinkForm.linkType}
                     onChange={(event) => {
                       setNewLinkForm({
@@ -1352,9 +1492,21 @@ export function MeetingsPage({
                   ))}
                 </div>
               )}
+              <MeetingTaskCreateForm
+                className="notes-task-form"
+                form={getMeetingTaskForm(activeNotesMeeting.publicId)}
+                heading="Create task"
+                meeting={activeNotesMeeting}
+                people={people}
+                submitLabel={`Create task for ${activeNotesMeeting.publicId}`}
+                onChange={(changes) =>
+                  updateMeetingTaskForm(activeNotesMeeting.publicId, changes)
+                }
+                onSubmit={(event) => submitMeetingTask(event, activeNotesMeeting)}
+              />
             </section>
           </aside>
-        </form>
+        </div>
       </main>
     );
   }
@@ -1692,7 +1844,7 @@ export function MeetingsPage({
             </FormField>
             <CheckboxGroup
               legend="Meeting tasks"
-              options={tasks.map((task) => ({
+              options={taskPicklistOptions.map((task) => ({
                 publicId: task.publicId,
                 label: taskOptionLabel(task),
               }))}
@@ -2093,7 +2245,7 @@ export function MeetingsPage({
                               </FormField>
                               <CheckboxGroup
                                 legend={`Meeting tasks for ${meeting.publicId}`}
-                                options={tasks.map((task) => ({
+                                options={taskPicklistOptions.map((task) => ({
                                   publicId: task.publicId,
                                   label: taskOptionLabel(task),
                                 }))}
@@ -2155,106 +2307,15 @@ export function MeetingsPage({
                             </form>
                           ) : null}
                           {!meeting.archived ? (
-                            <form
-                              className="meeting-task-form"
+                            <MeetingTaskCreateForm
+                              form={getMeetingTaskForm(meeting.publicId)}
+                              meeting={meeting}
+                              people={people}
+                              onChange={(changes) =>
+                                updateMeetingTaskForm(meeting.publicId, changes)
+                              }
                               onSubmit={(event) => submitMeetingTask(event, meeting)}
-                            >
-                              <h3>Add task to {meeting.publicId}</h3>
-                              <FormField
-                                label={`New task description for ${meeting.publicId}`}
-                              >
-                                <input
-                                  value={getMeetingTaskForm(meeting.publicId).description}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      description: event.target.value,
-                                    })
-                                  }
-                                  required
-                                />
-                              </FormField>
-                              <FormField label={`New task blockers for ${meeting.publicId}`}>
-                                <textarea
-                                  value={getMeetingTaskForm(meeting.publicId).blockers}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      blockers: event.target.value,
-                                      blockersCleared: event.target.value.trim()
-                                        ? getMeetingTaskForm(meeting.publicId).blockersCleared
-                                        : false,
-                                    })
-                                  }
-                                />
-                              </FormField>
-                              <FormField label={`New task notes for ${meeting.publicId}`}>
-                                <textarea
-                                  value={getMeetingTaskForm(meeting.publicId).notes}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      notes: event.target.value,
-                                    })
-                                  }
-                                />
-                              </FormField>
-                              <FormField label={`New task assignee for ${meeting.publicId}`}>
-                                <select
-                                  value={getMeetingTaskForm(meeting.publicId).assigneePublicId}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      assigneePublicId: event.target.value,
-                                    })
-                                  }
-                                >
-                                  <option value="">Unassigned</option>
-                                  {people.map((person) => (
-                                    <option key={person.publicId} value={person.publicId}>
-                                      {person.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </FormField>
-                              <FormField label={`New task status for ${meeting.publicId}`}>
-                                <select
-                                  value={getMeetingTaskForm(meeting.publicId).status}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      status: event.target.value as TaskDto["status"],
-                                    })
-                                  }
-                                >
-                                  <option value="Open">Open</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Blocked">Blocked</option>
-                                  <option value="Done">Done</option>
-                                </select>
-                              </FormField>
-                              <FormField label={`New task due date for ${meeting.publicId}`}>
-                                <input
-                                  type="date"
-                                  value={getMeetingTaskForm(meeting.publicId).dueDate}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      dueDate: event.target.value,
-                                    })
-                                  }
-                                />
-                              </FormField>
-                              <label className="checkbox-line">
-                                <input
-                                  type="checkbox"
-                                  checked={getMeetingTaskForm(meeting.publicId).private}
-                                  onChange={(event) =>
-                                    updateMeetingTaskForm(meeting.publicId, {
-                                      private: event.target.checked,
-                                    })
-                                  }
-                                />
-                                <span>Private</span>
-                              </label>
-                              <button className="primary-button" type="submit">
-                                Add task to {meeting.publicId}
-                              </button>
-                            </form>
+                            />
                           ) : null}
                           <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
                         </div>

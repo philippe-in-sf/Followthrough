@@ -1153,6 +1153,14 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
     expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
+    const meetingTaskLabels = within(meetingTaskOptions)
+      .getAllByRole("checkbox")
+      .map((checkbox) => checkbox.closest("label")?.textContent?.replace(/\s+/g, " ").trim());
+    expect(meetingTaskLabels.map((label) => label?.slice(0, 4))).toEqual([
+      "T004",
+      "T010",
+      "T099",
+    ]);
     expect(meetingTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
     expect(meetingTaskOptions).not.toHaveTextContent("https://docs.google.com");
     expect(within(meetingTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(
@@ -1375,6 +1383,29 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add link" }));
     expect(await screen.findByDisplayValue("Customer deck")).toBeInTheDocument();
 
+    await userEvent.type(screen.getByLabelText("New task description for M010"), "Send recap");
+    await userEvent.type(
+      screen.getByLabelText("New task notes for M010"),
+      "Created while the notes are still fresh.",
+    );
+    await userEvent.selectOptions(screen.getByLabelText("New task assignee for M010"), "P001");
+    await userEvent.type(screen.getByLabelText("New task due date for M010"), "2026-06-22");
+    await userEvent.click(screen.getByRole("button", { name: "Create task for M010" }));
+
+    const notesTaskCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
+      .reverse()
+      .find(([input, init]) => String(input).endsWith("/api/tasks") && init?.method === "POST");
+    expect(JSON.parse(String(notesTaskCreateCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        description: "Send recap",
+        notes: "Created while the notes are still fresh.",
+        dueDate: "2026-06-22",
+        originMeetingPublicId: "M010",
+        seriesPublicId: "S001",
+      }),
+    );
+    expect(await screen.findByText("Send recap")).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
     expect(await screen.findByText("Notes saved.")).toBeInTheDocument();
 
@@ -1459,6 +1490,15 @@ describe("dashboard and workspace flows", () => {
     const meetingEditTaskOptions = within(refreshedMeetingCard).getByRole("group", {
       name: "Meeting tasks for M010",
     });
+    const meetingEditTaskLabels = within(meetingEditTaskOptions)
+      .getAllByRole("checkbox")
+      .map((checkbox) => checkbox.closest("label")?.textContent?.replace(/\s+/g, " ").trim());
+    expect(meetingEditTaskLabels.map((label) => label?.slice(0, 4))).toEqual([
+      "T004",
+      "T010",
+      "T099",
+      "T100",
+    ]);
     expect(meetingEditTaskOptions).toHaveTextContent("T004 Do the All Hands deck (Link)");
     expect(meetingEditTaskOptions).not.toHaveTextContent("https://docs.google.com");
     expect(within(meetingEditTaskOptions).getByRole("link", { name: "Link" })).toHaveAttribute(

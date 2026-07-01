@@ -10,6 +10,16 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.21 - 2026-07-01
+
+### Added
+
+- Added quick task creation directly from the meeting notes Work panel.
+
+### Changed
+
+- Sorted meeting task picklists by task number in meeting creation and edit flows.
+
 ## 1.1.20 - 2026-07-01
 
 ### Changed
