@@ -1551,7 +1551,7 @@ export function MeetingsPage({
             <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
           </section>
         ) : null}
-        <div className="meeting-wizard-stepper" role="list" aria-label="Add meeting steps">
+        <div className="meeting-wizard-stepper" role="group" aria-label="Add meeting steps">
           {meetingWizardSteps.map((step, index) => (
             <button
               aria-current={meetingWizardStep === step.key ? "step" : undefined}
