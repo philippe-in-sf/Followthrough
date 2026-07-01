@@ -1,11 +1,30 @@
 import type { AuditLogDto } from "../../shared/types";
 import { LinkedText } from "./LinkedText";
 
-function formatAuditTime(value: string) {
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized);
+type AuditTimeFormatOptions = {
+  locale?: string;
+  timeZone?: string;
+};
+
+function normalizeAuditTimestamp(value: string) {
+  const normalized = value.trim().replace(" ", "T");
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  const looksLikeDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(normalized);
+  return looksLikeDateTime && !hasExplicitZone ? `${normalized}Z` : normalized;
+}
+
+export function formatAuditTime(value: string, options: AuditTimeFormatOptions = {}) {
+  const date = new Date(normalizeAuditTimestamp(value));
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  return new Intl.DateTimeFormat(options.locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+    ...(options.timeZone ? { timeZone: options.timeZone } : {}),
+  }).format(date);
 }
 
 export function AuditLog({ events }: { events: AuditLogDto[] }) {
