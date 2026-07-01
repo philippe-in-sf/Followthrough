@@ -1596,9 +1596,9 @@ button:disabled {
 }
 
 .calendar-settings-panel {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 10px;
   margin-bottom: 18px;
   border: 1px solid #c8d0dc;
@@ -1611,7 +1611,16 @@ button:disabled {
 .google-calendar-connection,
 .calendar-settings-panel .form-error,
 .calendar-settings-panel .form-status {
-  grid-column: 1 / -1;
+  flex: 1 0 100%;
+}
+
+.calendar-settings-panel > .form-field {
+  flex: 1 1 260px;
+  min-width: min(100%, 260px);
+}
+
+.calendar-settings-panel > .form-field input {
+  min-width: 0;
 }
 
 .calendar-settings-panel h3 {
@@ -1620,6 +1629,7 @@ button:disabled {
 
 .google-calendar-connection {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1640,8 +1650,16 @@ button:disabled {
 
 .calendar-settings-actions {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+
+.google-calendar-connection .icon-text-button,
+.calendar-settings-actions .icon-text-button {
+  max-width: 100%;
+  white-space: normal;
 }
 
 .calendar-import-panel {
@@ -1697,9 +1715,9 @@ button:disabled {
 }
 
 .quick-meeting-form {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) repeat(3, minmax(150px, 1fr)) auto;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 10px;
   margin-bottom: 18px;
   border: 1px solid #c8d0dc;
@@ -1710,7 +1728,9 @@ button:disabled {
 
 .quick-meeting-heading {
   display: grid;
+  flex: 1 1 180px;
   gap: 3px;
+  min-width: min(100%, 180px);
 }
 
 .quick-meeting-heading h3 {
@@ -1723,8 +1743,22 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+.quick-meeting-form > .form-field {
+  flex: 1 1 220px;
+  min-width: min(100%, 220px);
+}
+
+.quick-meeting-form > .form-field input {
+  min-width: 0;
+}
+
+.quick-meeting-form > .primary-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .quick-meeting-form .form-error {
-  grid-column: 1 / -1;
+  flex: 1 0 100%;
 }
 
 .meeting-wizard-stepper,
@@ -2899,17 +2933,6 @@ button:disabled {
   border: 0;
 }
 
-@media (max-width: 1200px) {
-  .quick-meeting-form {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .quick-meeting-heading,
-  .quick-meeting-form .form-error {
-    grid-column: 1 / -1;
-  }
-}
-
 @media (max-width: 1080px) {
   .marketing-proof-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3065,9 +3088,14 @@ button:disabled {
     display: block;
   }
 
-  .quick-meeting-form,
   .meeting-wizard-stepper {
     grid-template-columns: 1fr;
+  }
+
+  .quick-meeting-form > .primary-button,
+  .calendar-settings-actions,
+  .calendar-settings-actions .icon-text-button {
+    width: 100%;
   }
 
   .meeting-wizard-actions {

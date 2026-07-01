@@ -41,22 +41,27 @@ describe("skin contrast styles", () => {
     expect(css).toContain(".app-shell[data-skin] .meeting-wizard-progress");
   });
 
-  it("keeps quick add and meeting wizard layout narrow with rails before mobile collapse", () => {
+  it("lets meeting setup controls wrap without overlapping when rails are present", () => {
     const css = styles();
-    const desktopRailMedia = css.slice(
-      css.indexOf("@media (max-width: 1200px) {"),
-      css.indexOf("@media (max-width: 1080px) {"),
-    );
     const tabletMedia = css.slice(
       css.indexOf("@media (max-width: 900px) {"),
       css.indexOf("@media (max-width: 700px) {"),
     );
 
-    expect(css).toContain("@media (max-width: 1200px) {");
-
-    expect(desktopRailMedia).toContain("  .quick-meeting-form {\n    grid-template-columns: 1fr 1fr;\n  }");
-    expect(desktopRailMedia).toContain(
-      "  .quick-meeting-heading,\n  .quick-meeting-form .form-error {\n    grid-column: 1 / -1;\n  }",
+    expect(css).toContain(
+      ".calendar-settings-panel {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: flex-end;",
+    );
+    expect(css).toContain(
+      ".calendar-settings-panel > .form-field {\n  flex: 1 1 260px;\n  min-width: min(100%, 260px);\n}",
+    );
+    expect(css).toContain(
+      ".quick-meeting-form {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: flex-end;",
+    );
+    expect(css).toContain(
+      ".quick-meeting-form > .form-field {\n  flex: 1 1 220px;\n  min-width: min(100%, 220px);\n}",
+    );
+    expect(css).toContain(
+      ".quick-meeting-form > .form-field input {\n  min-width: 0;\n}",
     );
     expect(tabletMedia).not.toContain(".quick-meeting-form {");
   });
