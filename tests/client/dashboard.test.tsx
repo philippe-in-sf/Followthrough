@@ -1079,6 +1079,8 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
     expect(screen.queryByLabelText("Meeting tasks")).not.toBeInTheDocument();
 
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
     await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
     await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
 
