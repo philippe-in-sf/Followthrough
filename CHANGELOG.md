@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.23 - 2026-07-02
+
+### Added
+
+- Added task dependencies so work can be marked as waiting on completion of other tasks.
+
 ## 1.1.22 - 2026-07-01
 
 ### Fixed

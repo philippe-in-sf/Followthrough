@@ -79,6 +79,7 @@ function setupAppFetch(
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "overdue",
+      dependencies: [],
       private: false,
       archived: false,
     },
@@ -96,6 +97,7 @@ function setupAppFetch(
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: "dueSoon",
+      dependencies: [],
       private: false,
       archived: false,
     },
@@ -113,6 +115,7 @@ function setupAppFetch(
       reminderMode: "automatic",
       lastReminderSentAt: null,
       alert: null,
+      dependencies: [],
       private: false,
       archived: false,
     },
@@ -385,6 +388,17 @@ function setupAppFetch(
         reminderMode: body.reminderMode ?? "automatic",
         lastReminderSentAt: null,
         alert: null,
+        dependencies: (body.dependencyPublicIds ?? [])
+          .map((publicId: string) => tasks.find((item) => item.publicId === publicId))
+          .filter((dependency: TaskDto | undefined): dependency is TaskDto =>
+            Boolean(dependency),
+          )
+          .map((dependency: TaskDto) => ({
+            publicId: dependency.publicId,
+            description: dependency.description,
+            status: dependency.status,
+            archived: dependency.archived,
+          })),
         private: body.private ?? false,
         archived: false,
       };

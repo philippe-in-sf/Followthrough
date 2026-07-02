@@ -14,7 +14,7 @@ import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
-import { mapTaskRow, type TaskRow } from "../tasks/routes.js";
+import { mapTaskRows, type TaskRow } from "../tasks/routes.js";
 import { parseBody } from "../validation.js";
 import {
   getLatestSeriesMeetingContext,
@@ -78,7 +78,8 @@ const occurrenceSchema = z.object({
 });
 
 const taskSelectForMeeting = `
-  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
+  SELECT tasks.id AS task_id,
+         tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
          tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (
@@ -219,7 +220,7 @@ function getMeetingTasks(
   userId: number,
 ) {
   const rows = db.prepare(taskSelectForMeeting).all(meetingId, userId) as TaskRow[];
-  return rows.map((row) => mapTaskRow(row, config));
+  return mapTaskRows(db, config, rows, userId);
 }
 
 function getMeetingLinks(db: AppDatabase, meetingId: number): MeetingLinkDto[] {

@@ -97,6 +97,7 @@ type TaskInput = {
   originMeetingPublicId?: string | null;
   seriesPublicId?: string | null;
   reminderMode?: TaskReminderMode;
+  dependencyPublicIds?: string[];
   private?: boolean;
 };
 

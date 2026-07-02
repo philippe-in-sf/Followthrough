@@ -53,6 +53,13 @@ export type PersonDto = {
   archived: boolean;
 };
 
+export type TaskDependencyDto = {
+  publicId: string;
+  description: string;
+  status: TaskStatus;
+  archived: boolean;
+};
+
 export type TaskDto = {
   publicId: string;
   description: string;
@@ -67,6 +74,7 @@ export type TaskDto = {
   reminderMode: TaskReminderMode;
   lastReminderSentAt: string | null;
   alert: AlertState | null;
+  dependencies: TaskDependencyDto[];
   private: boolean;
   archived: boolean;
 };
