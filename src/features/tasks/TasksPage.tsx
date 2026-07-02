@@ -3,6 +3,7 @@ import { Archive, ChevronDown, Mail, RotateCcw, SlidersHorizontal, X } from "luc
 import type {
   AuditLogDto,
   PersonDto,
+  TaskDependencyDto,
   TaskDto,
   TaskStatus,
 } from "../../../shared/types";
@@ -37,6 +38,7 @@ type TaskFormState = {
   dueDate: string;
   originMeetingPublicId: string | null;
   seriesPublicId: string | null;
+  dependencyPublicIds: string[];
   private: boolean;
 };
 
@@ -50,6 +52,7 @@ const emptyTaskForm: TaskFormState = {
   dueDate: "",
   originMeetingPublicId: null,
   seriesPublicId: null,
+  dependencyPublicIds: [],
   private: false,
 };
 
@@ -60,6 +63,64 @@ function countLabel(count: number, singular: string) {
 function singleLineText(value: string, fallback: string) {
   const compact = value.trim().replace(/\s+/g, " ");
   return compact ? collapseLinks(compact) : fallback;
+}
+
+function dependencyOptionLabel(task: TaskDependencyDto) {
+  const status = task.archived ? "Archived" : task.status;
+  return `${task.publicId} - ${singleLineText(task.description, "Untitled task")} (${status})`;
+}
+
+function taskHasOpenDependencies(task: TaskDto) {
+  return (task.dependencies ?? []).some(
+    (dependency) => dependency.status !== "Done" && !dependency.archived,
+  );
+}
+
+function buildDependencyOptions(
+  tasks: TaskDto[],
+  selectedDependencies: TaskDependencyDto[] = [],
+  currentTaskPublicId?: string,
+) {
+  const options = new Map<string, TaskDependencyDto>();
+
+  for (const task of tasks) {
+    if (task.publicId === currentTaskPublicId || task.archived) continue;
+    options.set(task.publicId, {
+      publicId: task.publicId,
+      description: task.description,
+      status: task.status,
+      archived: task.archived,
+    });
+  }
+
+  for (const dependency of selectedDependencies) {
+    if (dependency.publicId === currentTaskPublicId) continue;
+    options.set(dependency.publicId, dependency);
+  }
+
+  return Array.from(options.values());
+}
+
+function selectedDependencyOptions(publicIds: string[], options: TaskDependencyDto[]) {
+  const optionsByPublicId = new Map(options.map((option) => [option.publicId, option]));
+  return publicIds.map(
+    (publicId) =>
+      optionsByPublicId.get(publicId) ?? {
+        publicId,
+        description: "Selected task",
+        status: "Open" as TaskStatus,
+        archived: false,
+      },
+  );
+}
+
+function addDependency(publicIds: string[], publicId: string) {
+  if (!publicId || publicIds.includes(publicId)) return publicIds;
+  return [...publicIds, publicId];
+}
+
+function removeDependency(publicIds: string[], publicId: string) {
+  return publicIds.filter((item) => item !== publicId);
 }
 
 function taskCardTone(task: TaskDto) {
@@ -182,6 +243,11 @@ export function TasksPage({
       alertLabel ? `Due date: ${alertLabel}` : null,
     ].filter((label): label is string => Boolean(label));
   }, [alert, assigneePublicId, people, status]);
+  const createDependencyOptions = useMemo(() => buildDependencyOptions(tasks), [tasks]);
+  const selectedCreateDependencies = useMemo(
+    () => selectedDependencyOptions(form.dependencyPublicIds, createDependencyOptions),
+    [createDependencyOptions, form.dependencyPublicIds],
+  );
 
   function clearTaskFilters() {
     setAssigneePublicId("");
@@ -227,6 +293,7 @@ export function TasksPage({
       originMeetingPublicId: form.originMeetingPublicId,
       seriesPublicId: form.seriesPublicId,
       reminderMode: "manual" as const,
+      dependencyPublicIds: form.dependencyPublicIds,
       private: form.private,
     };
 
@@ -248,6 +315,7 @@ export function TasksPage({
       dueDate: task.dueDate ?? "",
       originMeetingPublicId: task.originMeetingPublicId,
       seriesPublicId: task.seriesPublicId,
+      dependencyPublicIds: (task.dependencies ?? []).map((dependency) => dependency.publicId),
       private: task.private,
     });
   }
@@ -288,6 +356,7 @@ export function TasksPage({
       originMeetingPublicId: taskEditForm.originMeetingPublicId,
       seriesPublicId: taskEditForm.seriesPublicId,
       reminderMode: "manual" as const,
+      dependencyPublicIds: taskEditForm.dependencyPublicIds,
       private: taskEditForm.private,
     });
     setEditingTaskPublicId(null);
@@ -421,6 +490,63 @@ export function TasksPage({
             onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
           />
         </FormField>
+        <FormField label="Depends on">
+          <div className="dependency-picker">
+            <select
+              aria-label="Add task dependency"
+              disabled={
+                createDependencyOptions.filter(
+                  (option) => !form.dependencyPublicIds.includes(option.publicId),
+                ).length === 0
+              }
+              value=""
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  dependencyPublicIds: addDependency(
+                    form.dependencyPublicIds,
+                    event.target.value,
+                  ),
+                })
+              }
+            >
+              <option value="">
+                {createDependencyOptions.length ? "Add dependency" : "No tasks available"}
+              </option>
+              {createDependencyOptions
+                .filter((option) => !form.dependencyPublicIds.includes(option.publicId))
+                .map((option) => (
+                  <option key={option.publicId} value={option.publicId}>
+                    {dependencyOptionLabel(option)}
+                  </option>
+                ))}
+            </select>
+            {selectedCreateDependencies.length ? (
+              <div className="dependency-chip-row">
+                {selectedCreateDependencies.map((dependency) => (
+                  <span className="dependency-chip" key={dependency.publicId}>
+                    <span>{dependencyOptionLabel(dependency)}</span>
+                    <button
+                      aria-label={`Remove dependency ${dependency.publicId}`}
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          dependencyPublicIds: removeDependency(
+                            form.dependencyPublicIds,
+                            dependency.publicId,
+                          ),
+                        })
+                      }
+                    >
+                      <X aria-hidden="true" size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </FormField>
         <div className="form-actions">
           <label className="checkbox-line">
             <input
@@ -543,6 +669,21 @@ export function TasksPage({
                   const isExpanded = Boolean(expandedTaskPublicIds[task.publicId]);
                   const detailsId = `task-details-${task.publicId}`;
                   const taskSummaryText = singleLineText(task.description, "Untitled task");
+                  const dependencies = task.dependencies ?? [];
+                  const dependencyCount = dependencies.length;
+                  const dependencyBadgeTone = taskHasOpenDependencies(task) ? "warn" : "good";
+                  const editDependencyOptions = buildDependencyOptions(
+                    tasks,
+                    dependencies,
+                    task.publicId,
+                  );
+                  const availableEditDependencies = editDependencyOptions.filter(
+                    (option) => !taskEditForm.dependencyPublicIds.includes(option.publicId),
+                  );
+                  const selectedEditDependencies = selectedDependencyOptions(
+                    taskEditForm.dependencyPublicIds,
+                    editDependencyOptions,
+                  );
 
                   return (
                   <article
@@ -582,6 +723,12 @@ export function TasksPage({
                         {hasClearedBlockers(task) ? (
                           <StatusBadge label="Blocker cleared" tone="good" />
                         ) : null}
+                        {dependencyCount ? (
+                          <StatusBadge
+                            label={countLabel(dependencyCount, "dependency")}
+                            tone={dependencyBadgeTone}
+                          />
+                        ) : null}
                         <span>{task.assignee?.name ?? "Unassigned"}</span>
                         <span>{task.dueDate ?? "No due date"}</span>
                       </span>
@@ -606,6 +753,40 @@ export function TasksPage({
                               {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
                               {task.archived ? <StatusBadge label="Archived" /> : null}
                             </div>
+                          </section>
+                          <section className="task-detail-section">
+                            <h4>Dependencies</h4>
+                            {dependencies.length ? (
+                              <div className="task-dependency-list">
+                                {dependencies.map((dependency) => (
+                                  <div
+                                    className="task-dependency-item"
+                                    key={dependency.publicId}
+                                  >
+                                    <span>
+                                      <strong>{dependency.publicId}</strong>
+                                      <span>
+                                        {singleLineText(
+                                          dependency.description,
+                                          "Untitled task",
+                                        )}
+                                      </span>
+                                    </span>
+                                    <span className="task-dependency-status">
+                                      <StatusBadge
+                                        label={dependency.status}
+                                        tone={dependency.status === "Done" ? "good" : "warn"}
+                                      />
+                                      {dependency.archived ? (
+                                        <StatusBadge label="Archived" />
+                                      ) : null}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p>No dependencies</p>
+                            )}
                           </section>
                           <section className="task-detail-section">
                             <h4>Blockers</h4>
@@ -753,6 +934,59 @@ export function TasksPage({
                                 setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
                               }
                             />
+                          </FormField>
+                          <FormField label={`Dependencies for ${task.publicId}`}>
+                            <div className="dependency-picker">
+                              <select
+                                aria-label={`Add dependency for ${task.publicId}`}
+                                disabled={availableEditDependencies.length === 0}
+                                value=""
+                                onChange={(event) =>
+                                  setTaskEditForm({
+                                    ...taskEditForm,
+                                    dependencyPublicIds: addDependency(
+                                      taskEditForm.dependencyPublicIds,
+                                      event.target.value,
+                                    ),
+                                  })
+                                }
+                              >
+                                <option value="">
+                                  {editDependencyOptions.length
+                                    ? "Add dependency"
+                                    : "No tasks available"}
+                                </option>
+                                {availableEditDependencies.map((option) => (
+                                  <option key={option.publicId} value={option.publicId}>
+                                    {dependencyOptionLabel(option)}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedEditDependencies.length ? (
+                                <div className="dependency-chip-row">
+                                  {selectedEditDependencies.map((dependency) => (
+                                    <span className="dependency-chip" key={dependency.publicId}>
+                                      <span>{dependencyOptionLabel(dependency)}</span>
+                                      <button
+                                        aria-label={`Remove dependency ${dependency.publicId}`}
+                                        type="button"
+                                        onClick={() =>
+                                          setTaskEditForm({
+                                            ...taskEditForm,
+                                            dependencyPublicIds: removeDependency(
+                                              taskEditForm.dependencyPublicIds,
+                                              dependency.publicId,
+                                            ),
+                                          })
+                                        }
+                                      >
+                                        <X aria-hidden="true" size={14} />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
                           </FormField>
                           <label className="checkbox-line">
                             <input

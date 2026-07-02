@@ -2473,6 +2473,92 @@ button:disabled {
   color: #5b6475;
 }
 
+.task-dependency-list {
+  display: grid;
+  gap: 7px;
+}
+
+.task-dependency-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+}
+
+.task-dependency-item > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-dependency-item strong,
+.task-dependency-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-dependency-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dependency-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.dependency-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dependency-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.84rem;
+  padding: 4px 6px 4px 9px;
+}
+
+.dependency-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dependency-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dependency-chip button:hover,
+.dependency-chip button:focus-visible {
+  background: #dbeafe;
+}
+
 .task-detail-badges,
 .task-card-actions {
   display: flex;
@@ -3784,7 +3870,8 @@ button:disabled {
 .app-shell[data-skin] .series-note-header h3,
 .app-shell[data-skin] .series-note-body,
 .app-shell[data-skin] .meeting-detail-section p,
-.app-shell[data-skin] .task-detail-section p {
+.app-shell[data-skin] .task-detail-section p,
+.app-shell[data-skin] .task-dependency-item {
   color: var(--skin-text);
 }
 
@@ -3823,6 +3910,7 @@ button:disabled {
 .app-shell[data-skin] .meeting-task-form,
 .app-shell[data-skin] .person-related-records,
 .app-shell[data-skin] .task-reminder-feedback,
+.app-shell[data-skin] .task-dependency-item,
 .app-shell[data-skin] .lane-header,
 .app-shell[data-skin] .series-note-header {
   background: var(--skin-surface-alt);
@@ -3834,9 +3922,21 @@ button:disabled {
 .app-shell[data-skin] .meeting-task-form,
 .app-shell[data-skin] .person-related-records,
 .app-shell[data-skin] .task-reminder-feedback,
+.app-shell[data-skin] .task-dependency-item,
 .app-shell[data-skin] .audit-log,
 .app-shell[data-skin] .series-note-header {
   border-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .dependency-chip {
+  border-color: var(--skin-border);
+  background: var(--skin-surface-alt);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .dependency-chip button:hover,
+.app-shell[data-skin] .dependency-chip button:focus-visible {
+  background: var(--skin-surface-raised);
 }
 
 .app-shell[data-skin] .series-row,

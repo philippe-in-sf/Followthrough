@@ -71,6 +71,7 @@ describe("tasks", () => {
     expect(created.body.task.notes).toBe("Drafted the first pass and sent it to legal.");
     expect(created.body.task.blockersClearedAt).toBeNull();
     expect(created.body.task.reminderMode).toBe("manual");
+    expect(created.body.task.dependencies).toEqual([]);
     expect(created.body.task.alert).toBe("dueSoon");
 
     const filtered = await request(app)
@@ -137,6 +138,83 @@ describe("tasks", () => {
     expect(
       activeAfterRestore.body.tasks.map((task: { publicId: string }) => task.publicId),
     ).toContain("T001");
+  });
+
+  it("tracks task dependencies and rejects invalid dependency graphs", async () => {
+    const { app, cookie, personPublicId } = await setup();
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Collect requirements",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-10",
+    });
+
+    const dependent = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Build the thing",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+      dependencyPublicIds: ["T001"],
+    });
+
+    expect(dependent.status).toBe(201);
+    expect(dependent.body.task.dependencies).toEqual([
+      {
+        publicId: "T001",
+        description: "Collect requirements",
+        status: "Open",
+        archived: false,
+      },
+    ]);
+
+    const listed = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(
+      listed.body.tasks.find((task: { publicId: string }) => task.publicId === "T002")
+        .dependencies,
+    ).toEqual([
+      expect.objectContaining({
+        publicId: "T001",
+        description: "Collect requirements",
+      }),
+    ]);
+
+    const selfDependency = await request(app)
+      .patch("/api/tasks/T001")
+      .set("Cookie", cookie)
+      .send({
+        description: "Collect requirements",
+        assigneePublicId: personPublicId,
+        status: "Open",
+        dueDate: "2026-06-10",
+        dependencyPublicIds: ["T001"],
+      });
+    expect(selfDependency.status).toBe(400);
+
+    const cycle = await request(app)
+      .patch("/api/tasks/T001")
+      .set("Cookie", cookie)
+      .send({
+        description: "Collect requirements",
+        assigneePublicId: personPublicId,
+        status: "Open",
+        dueDate: "2026-06-10",
+        dependencyPublicIds: ["T002"],
+      });
+    expect(cycle.status).toBe(400);
+
+    const cleared = await request(app)
+      .patch("/api/tasks/T002")
+      .set("Cookie", cookie)
+      .send({
+        description: "Build the thing",
+        assigneePublicId: personPublicId,
+        status: "Open",
+        dueDate: "2026-06-12",
+        dependencyPublicIds: [],
+      });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.task.dependencies).toEqual([]);
   });
 
   it("records task audit history", async () => {

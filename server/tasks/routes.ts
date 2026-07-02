@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { taskInputSchema, taskUpdateInputSchema } from "../../shared/schemas.js";
-import type { TaskDto, TaskReminderMode, TaskStatus } from "../../shared/types.js";
+import type {
+  TaskDependencyDto,
+  TaskDto,
+  TaskReminderMode,
+  TaskStatus,
+} from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
@@ -13,6 +18,7 @@ import { getTaskAlert } from "./alerts.js";
 import { sendManualTaskReminder } from "./reminders.js";
 
 export type TaskRow = {
+  task_id: number;
   public_id: string;
   description: string;
   blockers: string;
@@ -41,8 +47,17 @@ type ResolvedTaskRelations = {
   seriesId: number | null;
 };
 
+type TaskDependencyRow = {
+  task_id: number;
+  public_id: string;
+  description: string;
+  status: TaskStatus;
+  archived_at: string | null;
+};
+
 const taskSelect = `
-  SELECT tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
+  SELECT tasks.id AS task_id,
+         tasks.public_id, tasks.description, tasks.blockers, tasks.notes, tasks.blockers_cleared_at,
          tasks.status, tasks.due_date,
          tasks.reminder_mode,
          (
@@ -67,7 +82,11 @@ const taskSelect = `
   LEFT JOIN meeting_series ON meeting_series.id = tasks.series_id
 `;
 
-export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
+export function mapTaskRow(
+  row: TaskRow,
+  config: AppConfig,
+  dependencies: TaskDependencyDto[] = [],
+): TaskDto {
   return {
     publicId: row.public_id,
     description: row.description,
@@ -91,9 +110,69 @@ export function mapTaskRow(row: TaskRow, config: AppConfig): TaskDto {
     reminderMode: row.reminder_mode,
     lastReminderSentAt: row.last_reminder_sent_at,
     alert: getTaskAlert(row.due_date, row.status, config.dueSoonDays),
+    dependencies,
     private: row.private === 1,
     archived: row.archived_at !== null,
   };
+}
+
+export function getTaskDependencyMap(
+  db: AppDatabase,
+  taskIds: number[],
+  userId: number,
+): Map<number, TaskDependencyDto[]> {
+  const uniqueTaskIds = [...new Set(taskIds)];
+  if (uniqueTaskIds.length === 0) return new Map();
+
+  const placeholders = uniqueTaskIds.map(() => "?").join(", ");
+  const rows = db
+    .prepare(
+      `SELECT task_dependencies.task_id,
+              dependency_tasks.public_id,
+              dependency_tasks.description,
+              dependency_tasks.status,
+              dependency_tasks.archived_at
+       FROM task_dependencies
+       JOIN tasks AS parent_tasks ON parent_tasks.id = task_dependencies.task_id
+       JOIN tasks AS dependency_tasks ON dependency_tasks.id = task_dependencies.depends_on_task_id
+       WHERE task_dependencies.task_id IN (${placeholders})
+       AND dependency_tasks.team_id = parent_tasks.team_id
+       AND (dependency_tasks.private = 0 OR dependency_tasks.created_by_user_id = ?)
+       ORDER BY dependency_tasks.status = 'Done',
+                dependency_tasks.archived_at IS NOT NULL,
+                dependency_tasks.due_date IS NULL,
+                dependency_tasks.due_date ASC,
+                dependency_tasks.created_at ASC`,
+    )
+    .all(...uniqueTaskIds, userId) as TaskDependencyRow[];
+
+  const dependenciesByTaskId = new Map<number, TaskDependencyDto[]>();
+  for (const row of rows) {
+    const taskDependencies = dependenciesByTaskId.get(row.task_id) ?? [];
+    taskDependencies.push({
+      publicId: row.public_id,
+      description: row.description,
+      status: row.status,
+      archived: row.archived_at !== null,
+    });
+    dependenciesByTaskId.set(row.task_id, taskDependencies);
+  }
+
+  return dependenciesByTaskId;
+}
+
+export function mapTaskRows(
+  db: AppDatabase,
+  config: AppConfig,
+  rows: TaskRow[],
+  userId: number,
+): TaskDto[] {
+  const dependenciesByTaskId = getTaskDependencyMap(
+    db,
+    rows.map((row) => row.task_id),
+    userId,
+  );
+  return rows.map((row) => mapTaskRow(row, config, dependenciesByTaskId.get(row.task_id) ?? []));
 }
 
 function visibleTaskCondition() {
@@ -123,7 +202,98 @@ function getTaskByPublicId(
     .get(publicId, teamId, userId) as TaskRow | undefined;
 
   if (!row) throw notFound("Task not found");
-  return mapTaskRow(row, config);
+  return mapTaskRow(
+    row,
+    config,
+    getTaskDependencyMap(db, [row.task_id], userId).get(row.task_id) ?? [],
+  );
+}
+
+function createsDependencyCycle(
+  db: AppDatabase,
+  taskId: number,
+  dependencyTaskId: number,
+): boolean {
+  const cycle = db
+    .prepare(
+      `WITH RECURSIVE dependency_chain(task_id) AS (
+         SELECT depends_on_task_id
+         FROM task_dependencies
+         WHERE task_id = ?
+         UNION
+         SELECT task_dependencies.depends_on_task_id
+         FROM task_dependencies
+         JOIN dependency_chain ON dependency_chain.task_id = task_dependencies.task_id
+       )
+       SELECT 1 AS found
+       FROM dependency_chain
+       WHERE task_id = ?
+       LIMIT 1`,
+    )
+    .get(dependencyTaskId, taskId) as { found: number } | undefined;
+
+  return Boolean(cycle);
+}
+
+function resolveDependencyTaskIds(
+  db: AppDatabase,
+  dependencyPublicIds: string[],
+  userId: number,
+  teamId: number,
+  currentTaskId: number | null = null,
+): number[] {
+  const uniquePublicIds = [...new Set(dependencyPublicIds)];
+
+  return uniquePublicIds.map((publicId) => {
+    const dependency = db
+      .prepare(
+        `SELECT id
+         FROM tasks
+         WHERE public_id = ?
+         AND team_id = ?
+         AND (private = 0 OR created_by_user_id = ?)`,
+      )
+      .get(publicId, teamId, userId) as { id: number } | undefined;
+
+    if (!dependency) throw badRequest(`Dependency task not found: ${publicId}`);
+    if (currentTaskId !== null && dependency.id === currentTaskId) {
+      throw badRequest("A task cannot depend on itself");
+    }
+    if (
+      currentTaskId !== null &&
+      createsDependencyCycle(db, currentTaskId, dependency.id)
+    ) {
+      throw badRequest(`Dependency would create a cycle: ${publicId}`);
+    }
+
+    return dependency.id;
+  });
+}
+
+function replaceVisibleTaskDependencies(
+  db: AppDatabase,
+  taskId: number,
+  dependencyTaskIds: number[],
+  userId: number,
+  teamId: number,
+) {
+  db.prepare(
+    `DELETE FROM task_dependencies
+     WHERE task_id = ?
+     AND depends_on_task_id IN (
+       SELECT id
+       FROM tasks
+       WHERE team_id = ?
+       AND (private = 0 OR created_by_user_id = ?)
+     )`,
+  ).run(taskId, teamId, userId);
+
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id) VALUES (?, ?)",
+  );
+  for (const dependencyTaskId of dependencyTaskIds) {
+    insert.run(taskId, dependencyTaskId);
+  }
 }
 
 function resolveRelations(
@@ -222,7 +392,7 @@ export function taskRoutes(
       )
       .all(...params) as TaskRow[];
 
-    let tasks = rows.map((row) => mapTaskRow(row, config));
+    let tasks = mapTaskRows(db, config, rows, userId);
     if (req.query.alert === "dueSoon" || req.query.alert === "overdue") {
       tasks = tasks.filter((task) => task.alert === req.query.alert);
     }
@@ -237,6 +407,12 @@ export function taskRoutes(
         const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
         const relations = resolveRelations(db, input, userId, teamId);
+        const dependencyTaskIds = resolveDependencyTaskIds(
+          db,
+          input.dependencyPublicIds,
+          userId,
+          teamId,
+        );
         const publicId = nextPublicId(db, "T");
         const blockersClearedAt = resolveBlockerClearedAt({
           blockers: input.blockers,
@@ -264,11 +440,13 @@ export function taskRoutes(
             userId,
             teamId,
           );
+        const taskId = Number(result.lastInsertRowid);
+        replaceVisibleTaskDependencies(db, taskId, dependencyTaskIds, userId, teamId);
 
         if (relations.originMeetingId) {
           db.prepare("INSERT OR IGNORE INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
             relations.originMeetingId,
-            Number(result.lastInsertRowid),
+            taskId,
           );
         }
 
@@ -371,6 +549,13 @@ export function taskRoutes(
         );
 
         const relations = resolveRelations(db, input, userId, req.user?.teamId ?? 0);
+        const dependencyTaskIds = resolveDependencyTaskIds(
+          db,
+          input.dependencyPublicIds,
+          userId,
+          req.user?.teamId ?? 0,
+          existing.id,
+        );
         const createdByUserId =
           input.private && existing.created_by_user_id === null
             ? userId
@@ -421,6 +606,13 @@ export function taskRoutes(
             existing.id,
           );
         }
+        replaceVisibleTaskDependencies(
+          db,
+          existing.id,
+          dependencyTaskIds,
+          userId,
+          req.user?.teamId ?? 0,
+        );
 
         const updated = getTaskByPublicId(
           db,

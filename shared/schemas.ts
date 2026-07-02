@@ -58,6 +58,7 @@ export const taskInputSchema = z.object({
   originMeetingPublicId: publicIdSchema.optional().nullable(),
   seriesPublicId: publicIdSchema.optional().nullable(),
   reminderMode: taskReminderModeSchema.default("manual"),
+  dependencyPublicIds: z.array(publicIdSchema).default([]),
   private: z.boolean().default(false),
 });
 
