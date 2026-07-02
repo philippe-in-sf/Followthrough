@@ -29,6 +29,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
+import { comparePublicRecordNumber } from "../../recordSort";
 import { scrollRecordIntoView } from "../../recordFocus";
 import { toApiDateTime, toDateTimeInputValue } from "./dateTime";
 
@@ -182,13 +183,6 @@ function taskOptionLabel(task: TaskDto) {
       {task.publicId} <LinkedText text={task.description} />
     </>
   );
-}
-
-function compareTaskNumber(left: TaskDto, right: TaskDto) {
-  return left.publicId.localeCompare(right.publicId, undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
 }
 
 function toMeetingLinkForm(link: MeetingLinkDto): MeetingLinkFormState {
@@ -593,7 +587,7 @@ export function MeetingsPage({
     };
   }, [activeSeriesNotesPublicId, meetings, series]);
 
-  const taskPicklistOptions = useMemo(() => [...tasks].sort(compareTaskNumber), [tasks]);
+  const taskPicklistOptions = useMemo(() => [...tasks].sort(comparePublicRecordNumber), [tasks]);
 
   async function load() {
     const requestId = meetingLoadRequestId.current + 1;

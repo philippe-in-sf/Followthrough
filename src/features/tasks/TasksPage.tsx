@@ -15,6 +15,7 @@ import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
+import { comparePublicRecordNumber } from "../../recordSort";
 
 const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
 
@@ -98,7 +99,7 @@ function buildDependencyOptions(
     options.set(dependency.publicId, dependency);
   }
 
-  return Array.from(options.values());
+  return Array.from(options.values()).sort(comparePublicRecordNumber);
 }
 
 function selectedDependencyOptions(publicIds: string[], options: TaskDependencyDto[]) {

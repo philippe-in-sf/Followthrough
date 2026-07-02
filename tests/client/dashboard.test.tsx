@@ -820,6 +820,10 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
     expect(screen.queryByLabelText("Reminder mode")).not.toBeInTheDocument();
+    const dependencySelect = await screen.findByLabelText("Add task dependency");
+    expect(
+      Array.from((dependencySelect as HTMLSelectElement).options).map((option) => option.value),
+    ).toEqual(["", "T004", "T010", "T099"]);
     await userEvent.type(await screen.findByLabelText("Task description"), "Draft rollout notes");
     await userEvent.type(screen.getByLabelText("Task notes"), "Initial rollout draft saved.");
     await userEvent.selectOptions(screen.getByLabelText("Task assignee"), "P001");
