@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const deployScript = path.join(repoRoot, "deploy/scripts/deploy.ts");
-const tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
+const tsxImport = import.meta.resolve("tsx");
 
 function quoteShell(value: string) {
   return `'${value.replace(/'/g, "'\"'\"'")}'`;
@@ -35,7 +35,7 @@ function createDeployFixture() {
   fs.mkdirSync(binDir);
 
   const runDeploy = (env: NodeJS.ProcessEnv, target = "all") =>
-    spawnSync(process.execPath, [tsxCli, deployScript, target], {
+    spawnSync(process.execPath, ["--import", tsxImport, deployScript, target], {
       cwd: workDir,
       encoding: "utf8",
       env: {
@@ -126,7 +126,7 @@ describe("deploy runner", () => {
       const lines = readCommandLog(fixture.commandLog);
       expect(lines.filter((line) => line === "npm run changelog:check")).toHaveLength(1);
       expect(lines.filter((line) => line === "npm run check")).toHaveLength(1);
-      expect(lines.filter((line) => line === "npm run test")).toHaveLength(1);
+      expect(lines.filter((line) => line === "npm run test")).toHaveLength(0);
       expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);
       expect(lines.filter((line) => line === "git rev-parse --short HEAD")).toHaveLength(1);
 

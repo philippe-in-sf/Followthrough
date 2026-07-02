@@ -100,7 +100,6 @@ function stageRelease(releaseId: string) {
 function runLocalGates() {
   run("npm", ["run", "changelog:check"]);
   run("npm", ["run", "check"]);
-  run("npm", ["run", "test"]);
   run("npm", ["run", "build"]);
 }
 

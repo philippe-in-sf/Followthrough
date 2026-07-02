@@ -100,6 +100,19 @@ npm run build
 
 These cover server routes, database behavior, auth, recurring carry-over, search/dashboard APIs, frontend workflows, and the release-note rule.
 
+## Pull Request Checks
+
+GitHub Actions runs the required PR verification on pull requests to `main` and pushes to `main`:
+
+```bash
+npm run changelog:check
+npm run check
+npm run test
+npm run build
+```
+
+Protect `main` in GitHub repository settings and require the `Verify` check before merge so tests fail at review time instead of deploy time, because discovering broken code during production deployment is exciting in the least useful possible way.
+
 ## Linux SSH Deployment
 
 The app can be deployed to Linux hosts over SSH and run with `systemd`. The deployment path builds locally, checks the remote app version, pushes a release directory with `rsync`, keeps site data in a shared directory, restarts the service, and checks `/api/health`.
@@ -161,7 +174,7 @@ npm run deploy -- production
 
 Each deploy should include a package version bump and a matching `CHANGELOG.md` entry for that exact version. The running app exposes the current version at `/api/version`, serves public release notes at `/changelog`, and shows the version in the sidebar footer for logged-in users.
 
-Deployment runs `npm run changelog:check` before type checks, tests, and build. If `package.json` says `1.2.3`, `CHANGELOG.md` must contain a `## 1.2.3` release section with at least one bullet. Yes, this is bureaucracy. It is also cheaper than archaeology.
+Deployment runs `npm run changelog:check` before type checks and build. Full tests run in the required PR checks before merge. If `package.json` says `1.2.3`, `CHANGELOG.md` must contain a `## 1.2.3` release section with at least one bullet. Yes, this is bureaucracy. It is also cheaper than archaeology.
 
 Before copying files, deployment asks the remote site for `http://127.0.0.1:<port>/api/version` over SSH. If the remote site already reports the same package version, deployment fails and asks for a version bump. If an older site does not have `/api/version` yet, deployment continues.
 
@@ -170,7 +183,6 @@ The deploy command runs local verification and build once:
 ```bash
 npm run changelog:check
 npm run check
-npm run test
 npm run build
 ```
 
@@ -221,7 +233,7 @@ sudo env DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite 
 npm run deploy
 ```
 
-Sites are deployed sequentially in the order listed by `DEPLOY_SITES`. Local check, test, build, and release staging run once, then the same release is reused for each configured site.
+Sites are deployed sequentially in the order listed by `DEPLOY_SITES`. Local changelog check, typecheck, build, and release staging run once, then the same release is reused for each configured site.
 
 ### Remote environment
 

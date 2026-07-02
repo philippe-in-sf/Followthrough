@@ -215,6 +215,38 @@ describe("tasks", () => {
       });
     expect(cleared.status).toBe(200);
     expect(cleared.body.task.dependencies).toEqual([]);
+
+    const audit = await request(app).get("/api/tasks/T002/audit").set("Cookie", cookie);
+    expect(audit.status).toBe(200);
+    expect(audit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({
+        action: "updated",
+        summary: "Updated task details",
+      }),
+    );
+    expect(audit.body.auditEvents[0].changes.before.dependencies).toEqual([
+      {
+        publicId: "T001",
+        description: "Collect requirements",
+        status: "Open",
+        archived: false,
+      },
+    ]);
+    expect(audit.body.auditEvents[0].changes.after.dependencies).toEqual([]);
+    expect(audit.body.auditEvents[1]).toEqual(
+      expect.objectContaining({
+        action: "created",
+        summary: "Created task",
+      }),
+    );
+    expect(audit.body.auditEvents[1].changes.after.dependencies).toEqual([
+      {
+        publicId: "T001",
+        description: "Collect requirements",
+        status: "Open",
+        archived: false,
+      },
+    ]);
   });
 
   it("records task audit history", async () => {
