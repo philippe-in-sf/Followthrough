@@ -64,13 +64,67 @@ function readCommandLog(commandLog: string) {
   return fs.readFileSync(commandLog, "utf8").trim().split("\n").filter(Boolean);
 }
 
+function expectNoLocalGateOrRsync(commandLog: string) {
+  const lines = readCommandLog(commandLog);
+  expect(lines.some((line) => line.startsWith("npm "))).toBe(false);
+  expect(lines.some((line) => line.startsWith("rsync"))).toBe(false);
+}
+
+function writeGitFixture(
+  binDir: string,
+  commandLog: string,
+  options: {
+    branch?: string;
+    status?: string;
+    head?: string;
+    originHead?: string;
+    failShortHead?: boolean;
+  } = {},
+) {
+  const head = options.head ?? "abcdef1234567890abcdef1234567890abcdef12";
+  const originHead = options.originHead ?? head;
+  const shortHead = head.slice(0, 7);
+
+  writeExecutable(
+    path.join(binDir, "git"),
+    `#!/bin/sh
+printf 'git %s\\n' "$*" >> ${quoteShell(commandLog)}
+case "$*" in
+  "status --porcelain")
+    printf ${quoteShell(options.status ?? "")}
+    exit 0
+    ;;
+  "branch --show-current")
+    printf ${quoteShell(`${options.branch ?? "main"}\n`)}
+    exit 0
+    ;;
+  "fetch origin refs/heads/main:refs/remotes/origin/main")
+    exit 0
+    ;;
+  "rev-parse HEAD")
+    printf ${quoteShell(`${head}\n`)}
+    exit 0
+    ;;
+  "rev-parse origin/main")
+    printf ${quoteShell(`${originHead}\n`)}
+    exit 0
+    ;;
+  "rev-parse --short HEAD")
+    ${options.failShortHead ? "exit 1" : `printf ${quoteShell(`${shortHead}\n`)}\n    exit 0`}
+    ;;
+esac
+exit 1
+`,
+  );
+}
+
 describe("deploy runner", () => {
   it("removes the local staging root when copying runtime files fails", () => {
     const fixture = createDeployFixture();
 
     try {
       writeExecutable(path.join(fixture.binDir, "npm"), "#!/bin/sh\nexit 0\n");
-      writeExecutable(path.join(fixture.binDir, "git"), "#!/bin/sh\nprintf 'abcdef1'\n");
+      writeGitFixture(fixture.binDir, fixture.commandLog);
       fs.writeFileSync(path.join(fixture.workDir, "package.json"), '{"version":"1.0.1"}\n');
       fs.writeFileSync(path.join(fixture.workDir, "package-lock.json"), "{}\n");
 
@@ -98,10 +152,7 @@ describe("deploy runner", () => {
         path.join(fixture.binDir, "npm"),
         `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
       );
-      writeExecutable(
-        path.join(fixture.binDir, "git"),
-        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
-      );
+      writeGitFixture(fixture.binDir, fixture.commandLog);
       writeExecutable(
         path.join(fixture.binDir, "ssh"),
         `#!/bin/sh\nprintf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}\ncat >/dev/null\nexit 0\n`,
@@ -128,6 +179,11 @@ describe("deploy runner", () => {
       expect(lines.filter((line) => line === "npm run check")).toHaveLength(1);
       expect(lines.filter((line) => line === "npm run test")).toHaveLength(0);
       expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git status --porcelain")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git branch --show-current")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git fetch origin refs/heads/main:refs/remotes/origin/main")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git rev-parse HEAD")).toHaveLength(1);
+      expect(lines.filter((line) => line === "git rev-parse origin/main")).toHaveLength(1);
       expect(lines.filter((line) => line === "git rev-parse --short HEAD")).toHaveLength(1);
 
       const rsyncSources = lines
@@ -145,6 +201,78 @@ describe("deploy runner", () => {
     }
   });
 
+  it("fails before local gates when the worktree is dirty", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeGitFixture(fixture.binDir, fixture.commandLog, { status: " M README.md\n" });
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("Deploy requires a clean git worktree");
+      expectNoLocalGateOrRsync(fixture.commandLog);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("fails before local gates when the current branch is not main", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeGitFixture(fixture.binDir, fixture.commandLog, { branch: "codex/deploy-work" });
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("Deploy must run from main checked out at origin/main");
+      expectNoLocalGateOrRsync(fixture.commandLog);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("fails before local gates when local main does not match origin main", () => {
+    const fixture = createDeployFixture();
+
+    try {
+      writeExecutable(
+        path.join(fixture.binDir, "npm"),
+        `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
+      );
+      writeGitFixture(fixture.binDir, fixture.commandLog, {
+        head: "abcdef1234567890abcdef1234567890abcdef12",
+        originHead: "1234567890abcdef1234567890abcdef12345678",
+      });
+
+      const result = fixture.runDeploy({
+        DEPLOY_SITES: "production",
+        DEPLOY_PRODUCTION_SSH: "deploy@example.com",
+      });
+
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}${result.stderr}`).toContain("Deploy requires local main to match origin/main at HEAD");
+      expectNoLocalGateOrRsync(fixture.commandLog);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("fails before rsync when the target already reports the local version", () => {
     const fixture = createDeployFixture();
 
@@ -154,10 +282,7 @@ describe("deploy runner", () => {
         path.join(fixture.binDir, "npm"),
         `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
       );
-      writeExecutable(
-        path.join(fixture.binDir, "git"),
-        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
-      );
+      writeGitFixture(fixture.binDir, fixture.commandLog);
       writeExecutable(
         path.join(fixture.binDir, "ssh"),
         `#!/bin/sh
@@ -200,10 +325,7 @@ exit 0
         path.join(fixture.binDir, "npm"),
         `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
       );
-      writeExecutable(
-        path.join(fixture.binDir, "git"),
-        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nprintf 'abcdef1\\n'\n`,
-      );
+      writeGitFixture(fixture.binDir, fixture.commandLog);
       writeExecutable(
         path.join(fixture.binDir, "ssh"),
         `#!/bin/sh
@@ -246,10 +368,7 @@ exit 0
         path.join(fixture.binDir, "npm"),
         `#!/bin/sh\nprintf 'npm %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 0\n`,
       );
-      writeExecutable(
-        path.join(fixture.binDir, "git"),
-        `#!/bin/sh\nprintf 'git %s\\n' "$*" >> ${quoteShell(fixture.commandLog)}\nexit 1\n`,
-      );
+      writeGitFixture(fixture.binDir, fixture.commandLog, { failShortHead: true });
       writeExecutable(
         path.join(fixture.binDir, "ssh"),
         `#!/bin/sh\nprintf 'ssh %s\\n' "$1" >> ${quoteShell(fixture.commandLog)}\ncat >/dev/null\nexit 0\n`,

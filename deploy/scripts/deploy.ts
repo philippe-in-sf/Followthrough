@@ -16,6 +16,11 @@ import {
 import { readPackageVersion } from "../lib/packageVersion";
 import { createReleaseId, runtimePaths } from "../lib/release";
 
+const DEPLOY_BRANCH = "main";
+const DEPLOY_REMOTE = "origin";
+const DEPLOY_REMOTE_REF = `${DEPLOY_REMOTE}/${DEPLOY_BRANCH}`;
+const DEPLOY_FETCH_REF = `refs/heads/${DEPLOY_BRANCH}:refs/remotes/${DEPLOY_REMOTE}/${DEPLOY_BRANCH}`;
+
 function run(command: string, args: string[], options: { cwd?: string; input?: string } = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd,
@@ -29,6 +34,19 @@ function run(command: string, args: string[], options: { cwd?: string; input?: s
   }
 }
 
+function captureChecked(command: string, args: string[], description: string) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    shell: false,
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`Unable to determine ${description}: ${command} ${args.join(" ")}`);
+  }
+
+  return result.stdout.trim();
+}
+
 function capture(command: string, args: string[]) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
@@ -40,7 +58,7 @@ function capture(command: string, args: string[]) {
 }
 
 function captureRequired(command: string, args: string[], description: string) {
-  const output = capture(command, args);
+  const output = captureChecked(command, args, description);
   if (!output) {
     throw new Error(`Unable to determine ${description}: ${command} ${args.join(" ")}`);
   }
@@ -103,6 +121,32 @@ function runLocalGates() {
   run("npm", ["run", "build"]);
 }
 
+function assertDeployGitState() {
+  const status = captureChecked("git", ["status", "--porcelain"], "git worktree status");
+  if (status) {
+    throw new Error("Deploy requires a clean git worktree. Commit or stash local changes before deploying.");
+  }
+
+  const branch = capture("git", ["branch", "--show-current"]);
+  if (branch !== DEPLOY_BRANCH) {
+    throw new Error(
+      `Deploy must run from ${DEPLOY_BRANCH} checked out at ${DEPLOY_REMOTE_REF}; current branch is ${
+        branch || "(detached HEAD)"
+      }.`,
+    );
+  }
+
+  run("git", ["fetch", DEPLOY_REMOTE, DEPLOY_FETCH_REF]);
+
+  const localHead = captureRequired("git", ["rev-parse", "HEAD"], `${DEPLOY_BRANCH} git HEAD`);
+  const remoteHead = captureRequired("git", ["rev-parse", DEPLOY_REMOTE_REF], `${DEPLOY_REMOTE_REF} git HEAD`);
+  if (localHead !== remoteHead) {
+    throw new Error(
+      `Deploy requires local ${DEPLOY_BRANCH} to match ${DEPLOY_REMOTE_REF} at HEAD. Run git pull --ff-only before deploying.`,
+    );
+  }
+}
+
 function verifyRemoteVersion(site: DeploySite, localVersion: string) {
   const remoteVersion = readRemoteVersion(site);
   if (!remoteVersion) {
@@ -138,6 +182,7 @@ function main() {
   const [, , target = "all"] = process.argv;
   const config = parseDeployConfig();
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
+  assertDeployGitState();
   runLocalGates();
 
   const localVersion = readPackageVersion();

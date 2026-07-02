@@ -176,6 +176,8 @@ Each deploy should include a package version bump and a matching `CHANGELOG.md` 
 
 Deployment runs `npm run changelog:check` before type checks and build. Full tests run in the required PR checks before merge. If `package.json` says `1.2.3`, `CHANGELOG.md` must contain a `## 1.2.3` release section with at least one bullet. Yes, this is bureaucracy. It is also cheaper than archaeology.
 
+Deployment must run from a clean local `main` branch that exactly matches the freshly fetched `origin/main` HEAD. Dirty worktrees, non-`main` branches, unpushed commits, and local branches behind GitHub are rejected before local checks or remote copy work starts.
+
 Before copying files, deployment asks the remote site for `http://127.0.0.1:<port>/api/version` over SSH. If the remote site already reports the same package version, deployment fails and asks for a version bump. If an older site does not have `/api/version` yet, deployment continues.
 
 The deploy command runs local verification and build once:
