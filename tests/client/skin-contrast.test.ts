@@ -20,6 +20,20 @@ describe("skin contrast styles", () => {
     );
   });
 
+  it("keeps blocker text readable inside skins", () => {
+    const css = styles();
+
+    expect(css).toContain("--skin-danger-inline: #fda4af;");
+    expect(css).toContain("--skin-success-inline: #86efac;");
+    expect(css).toContain(
+      ".app-shell[data-skin] .blocker-note {\n  border-top-color: var(--skin-danger-border);\n  background: var(--skin-danger-bg);\n  color: var(--skin-danger-text);\n}",
+    );
+    expect(css).toContain(
+      ".app-shell[data-skin] .task-link-blocker,\n.app-shell[data-skin] .compact-blocker-text,\n.app-shell[data-skin] .person-related-blocker {\n  color: var(--skin-danger-inline);\n}",
+    );
+    expect(css).toContain(".app-shell[data-skin] .compact-blocker-text-cleared");
+  });
+
   it("keeps Google Calendar panels dark and readable inside skins", () => {
     const css = styles();
 
