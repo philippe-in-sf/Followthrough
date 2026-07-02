@@ -3891,6 +3891,16 @@ button:disabled {
   --skin-action: #60a5fa;
   --skin-action-text: #ffffff;
   --skin-secondary-bg: #243244;
+  --skin-danger-bg: #4a1520;
+  --skin-danger-border: #be123c;
+  --skin-danger-text: #ffe4e6;
+  --skin-danger-muted: #fecdd3;
+  --skin-danger-inline: #fda4af;
+  --skin-success-bg: #12351f;
+  --skin-success-border: #22c55e;
+  --skin-success-text: #dcfce7;
+  --skin-success-muted: #bbf7d0;
+  --skin-success-inline: #86efac;
   --skin-focus: #38bdf8;
   --skin-shadow: rgba(0, 0, 0, 0.36);
   color: var(--skin-text);
@@ -3986,6 +3996,16 @@ button:disabled {
   --skin-action: #2563eb;
   --skin-action-text: #ffffff;
   --skin-secondary-bg: #e8eef4;
+  --skin-danger-bg: #fff5f5;
+  --skin-danger-border: #fecaca;
+  --skin-danger-text: #991b1b;
+  --skin-danger-muted: #7f1d1d;
+  --skin-danger-inline: #991b1b;
+  --skin-success-bg: #f0fdf4;
+  --skin-success-border: #bbf7d0;
+  --skin-success-text: #166534;
+  --skin-success-muted: #166534;
+  --skin-success-inline: #166534;
   --skin-focus: #2563eb;
   --skin-shadow: rgba(0, 0, 0, 0.10);
 }
@@ -4010,6 +4030,16 @@ button:disabled {
   --skin-action: #d97706;
   --skin-action-text: #ffffff;
   --skin-secondary-bg: #f0e8d8;
+  --skin-danger-bg: #fff5f5;
+  --skin-danger-border: #fecaca;
+  --skin-danger-text: #991b1b;
+  --skin-danger-muted: #7f1d1d;
+  --skin-danger-inline: #991b1b;
+  --skin-success-bg: #f0fdf4;
+  --skin-success-border: #bbf7d0;
+  --skin-success-text: #166534;
+  --skin-success-muted: #166534;
+  --skin-success-inline: #166534;
   --skin-focus: #d97706;
   --skin-shadow: rgba(0, 0, 0, 0.10);
 }
@@ -4430,6 +4460,36 @@ button:disabled {
 .app-shell[data-skin] .dependency-chip button:hover,
 .app-shell[data-skin] .dependency-chip button:focus-visible {
   background: var(--skin-surface-raised);
+}
+
+.app-shell[data-skin] .blocker-note {
+  border-top-color: var(--skin-danger-border);
+  background: var(--skin-danger-bg);
+  color: var(--skin-danger-text);
+}
+
+.app-shell[data-skin] .blocker-note small {
+  color: var(--skin-danger-muted);
+}
+
+.app-shell[data-skin] .blocker-note-cleared {
+  border-top-color: var(--skin-success-border);
+  background: var(--skin-success-bg);
+  color: var(--skin-success-text);
+}
+
+.app-shell[data-skin] .blocker-note-cleared small {
+  color: var(--skin-success-muted);
+}
+
+.app-shell[data-skin] .task-link-blocker,
+.app-shell[data-skin] .compact-blocker-text,
+.app-shell[data-skin] .person-related-blocker {
+  color: var(--skin-danger-inline);
+}
+
+.app-shell[data-skin] .compact-blocker-text-cleared {
+  color: var(--skin-success-inline);
 }
 
 .app-shell[data-skin] .series-row,
