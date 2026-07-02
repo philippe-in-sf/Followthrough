@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.1.26 - 2026-07-02
+
+### Fixed
+
+- Improved blocker text contrast in dark themes for task, meeting, dashboard, and people views.
+
 ## 1.1.25 - 2026-07-02
 
 ### Changed
