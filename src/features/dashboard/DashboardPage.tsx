@@ -1,4 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CircleCheckBig,
+  Gauge,
+  ListChecks,
+  UsersRound,
+} from "lucide-react";
 import { api, type DashboardMeeting, type DashboardTask } from "../../api/client";
 import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { EmptyState } from "../../components/EmptyState";
@@ -12,6 +20,84 @@ export type DashboardRecordTarget = {
   type: "task" | "meeting" | "decision";
 };
 
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function focusLine(summary: DashboardSummary) {
+  const blockerCount = summary.activeBlockers.tasks.length + summary.activeBlockers.meetings.length;
+  if (blockerCount > 0) {
+    return `${countLabel(blockerCount, "blocker")} ${blockerCount === 1 ? "needs" : "need"} attention first.`;
+  }
+  if (summary.alerts.overdue.length > 0) {
+    return `${countLabel(summary.alerts.overdue.length, "overdue task")} ${
+      summary.alerts.overdue.length === 1 ? "needs" : "need"
+    } recovery.`;
+  }
+  if (summary.alerts.dueSoon.length > 0) {
+    return `${countLabel(summary.alerts.dueSoon.length, "task")} ${
+      summary.alerts.dueSoon.length === 1 ? "is" : "are"
+    } due soon.`;
+  }
+  return "No urgent work is flagged right now.";
+}
+
+function DashboardMetric({
+  label,
+  value,
+  detail,
+  icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: ReactNode;
+  tone?: "neutral" | "warn" | "bad" | "good";
+}) {
+  return (
+    <section className={`dashboard-metric dashboard-metric-${tone}`}>
+      <span className="dashboard-metric-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="dashboard-metric-label">{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </section>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  count,
+  id,
+}: {
+  eyebrow: string;
+  title: string;
+  count?: string;
+  id: string;
+}) {
+  return (
+    <div className="dashboard-section-heading">
+      <div>
+        <p className="dashboard-section-kicker">{eyebrow}</p>
+        <h3 id={id}>{title}</h3>
+      </div>
+      {count ? <span className="dashboard-count-pill">{count}</span> : null}
+    </div>
+  );
+}
+
 function TaskLine({
   task,
   onOpenTask,
@@ -20,7 +106,7 @@ function TaskLine({
   onOpenTask: (publicId: string) => void;
 }) {
   return (
-    <li className="compact-task-line">
+    <li className={`compact-task-line${hasActiveBlockers(task) ? " compact-task-line-hot" : ""}`}>
       <button
         className="compact-id-button"
         type="button"
@@ -64,7 +150,7 @@ function MeetingLine({
   onOpenMeeting: (publicId: string) => void;
 }) {
   return (
-    <li className="compact-clickable-item">
+    <li className={`compact-clickable-item${hasActiveBlockers(meeting) ? " compact-task-line-hot" : ""}`}>
       <button
         className="compact-record-button compact-record-button-stacked"
         type="button"
@@ -100,57 +186,143 @@ export function DashboardPage({
   onOpenRecord: (target: DashboardRecordTarget) => void;
 }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const blockerTaskCount = summary?.activeBlockers.tasks.length ?? 0;
+  const blockerMeetingCount = summary?.activeBlockers.meetings.length ?? 0;
+  const blockerCount = blockerTaskCount + blockerMeetingCount;
+  const overdueCount = summary?.alerts.overdue.length ?? 0;
+  const dueSoonCount = summary?.alerts.dueSoon.length ?? 0;
+  const openTaskCount =
+    summary?.openTasksByAssignee.reduce((total, group) => total + group.tasks.length, 0) ?? 0;
+  const maxAssigneeTaskCount = Math.max(
+    1,
+    ...(summary?.openTasksByAssignee.map((group) => group.tasks.length) ?? [0]),
+  );
 
   useEffect(() => {
     void api.dashboard().then(setSummary);
   }, []);
 
   return (
-    <main className="page">
-      <header className="page-header">
-        <h2>Workspace</h2>
-      </header>
-      <div className="summary-grid">
-        <section className="summary-panel">
-          <h3>Overdue</h3>
-          <strong>{summary?.alerts.overdue.length ?? 0}</strong>
-        </section>
-        <section className="summary-panel">
-          <h3>Due soon</h3>
-          <strong>{summary?.alerts.dueSoon.length ?? 0}</strong>
-        </section>
-        <section className="summary-panel summary-panel-bad">
-          <h3>Blockers</h3>
-          <strong>
-            {summary
-              ? summary.activeBlockers.tasks.length + summary.activeBlockers.meetings.length
-              : 0}
-          </strong>
-        </section>
+    <main className="page dashboard-page">
+      <section className="dashboard-hero" aria-labelledby="dashboard-heading">
+        <div className="dashboard-hero-copy">
+          <p className="marketing-eyebrow dashboard-eyebrow">Command center</p>
+          <h2 id="dashboard-heading">Workspace</h2>
+          <p>{summary ? focusLine(summary) : "Loading workspace signals..."}</p>
+        </div>
+        <div className="dashboard-pulse" aria-label="Workspace pulse">
+          <div className="dashboard-pulse-row">
+            <span>Blockers</span>
+            <strong>{blockerCount}</strong>
+          </div>
+          <div className="dashboard-pulse-row">
+            <span>Open tasks</span>
+            <strong>{openTaskCount}</strong>
+          </div>
+          <div className="dashboard-pulse-row dashboard-pulse-row-hot">
+            <span>Due soon</span>
+            <strong>{dueSoonCount}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div className="dashboard-metrics">
+        <DashboardMetric
+          label="Active blockers"
+          value={blockerCount}
+          detail={`${countLabel(blockerTaskCount, "task")} / ${countLabel(
+            blockerMeetingCount,
+            "meeting",
+          )}`}
+          icon={<AlertTriangle size={18} />}
+          tone={blockerCount > 0 ? "bad" : "good"}
+        />
+        <DashboardMetric
+          label="Overdue"
+          value={overdueCount}
+          detail={overdueCount === 1 ? "Needs recovery" : "Need recovery"}
+          icon={<Gauge size={18} />}
+          tone={overdueCount > 0 ? "warn" : "good"}
+        />
+        <DashboardMetric
+          label="Due soon"
+          value={dueSoonCount}
+          detail="Next 7 days"
+          icon={<CalendarClock size={18} />}
+          tone={dueSoonCount > 0 ? "neutral" : "good"}
+        />
+        <DashboardMetric
+          label="Open tasks"
+          value={openTaskCount}
+          detail={`${countLabel(summary?.openTasksByAssignee.length ?? 0, "owner")} with work`}
+          icon={<ListChecks size={18} />}
+          tone="neutral"
+        />
       </div>
+
       {summary ? (
-        <div className="dashboard-grid">
-          <section className="dashboard-section">
-            <h3>Active blockers</h3>
-            {summary.activeBlockers.tasks.length === 0 &&
-            summary.activeBlockers.meetings.length === 0 ? (
-              <EmptyState title="No blockers" detail="Tasks and meetings with active blockers will appear here." />
-            ) : (
-              <div className="dashboard-blocker-list">
-                {summary.activeBlockers.meetings.length > 0 ? (
-                  <ul className="compact-list">
-                    {summary.activeBlockers.meetings.map((meeting) => (
-                      <MeetingLine
-                        key={meeting.publicId}
-                        meeting={meeting}
-                        onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
-                      />
-                    ))}
-                  </ul>
-                ) : null}
-                {summary.activeBlockers.tasks.length > 0 ? (
-                  <ul className="compact-list compact-task-list">
-                    {summary.activeBlockers.tasks.map((task) => (
+        <div className="dashboard-layout">
+          <div className="dashboard-main-column">
+            <section
+              className="dashboard-section dashboard-section-priority"
+              aria-labelledby="active-blockers-heading"
+            >
+              <SectionHeading
+                eyebrow="Priority"
+                title="Active blockers"
+                count={countLabel(blockerCount, "item")}
+                id="active-blockers-heading"
+              />
+              {summary.activeBlockers.tasks.length === 0 &&
+              summary.activeBlockers.meetings.length === 0 ? (
+                <EmptyState title="No blockers" detail="Tasks and meetings with active blockers will appear here." />
+              ) : (
+                <div className="dashboard-blocker-list">
+                  {summary.activeBlockers.meetings.length > 0 ? (
+                    <div className="dashboard-sublist">
+                      <span className="dashboard-sublist-label">Meetings</span>
+                      <ul className="compact-list dashboard-record-list">
+                        {summary.activeBlockers.meetings.map((meeting) => (
+                          <MeetingLine
+                            key={meeting.publicId}
+                            meeting={meeting}
+                            onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {summary.activeBlockers.tasks.length > 0 ? (
+                    <div className="dashboard-sublist">
+                      <span className="dashboard-sublist-label">Tasks</span>
+                      <ul className="compact-list compact-task-list dashboard-record-list">
+                        {summary.activeBlockers.tasks.map((task) => (
+                          <TaskLine
+                            key={task.publicId}
+                            task={task}
+                            onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
+            <div className="dashboard-task-columns">
+              <section className="dashboard-section" aria-labelledby="overdue-tasks-heading">
+                <SectionHeading
+                  eyebrow="Recovery"
+                  title="Overdue tasks"
+                  count={countLabel(overdueCount, "task")}
+                  id="overdue-tasks-heading"
+                />
+                {summary.alerts.overdue.length === 0 ? (
+                  <EmptyState title="No overdue tasks" detail="Tasks past their due date will appear here." />
+                ) : (
+                  <ul className="compact-list compact-task-list dashboard-record-list">
+                    {summary.alerts.overdue.map((task) => (
                       <TaskLine
                         key={task.publicId}
                         task={task}
@@ -158,133 +330,167 @@ export function DashboardPage({
                       />
                     ))}
                   </ul>
-                ) : null}
-              </div>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Overdue tasks</h3>
-            {summary.alerts.overdue.length === 0 ? (
-              <EmptyState title="No overdue tasks" detail="Tasks past their due date will appear here." />
-            ) : (
-              <ul className="compact-list compact-task-list">
-                {summary.alerts.overdue.map((task) => (
-                  <TaskLine
-                    key={task.publicId}
-                    task={task}
-                    onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Due soon tasks</h3>
-            {summary.alerts.dueSoon.length === 0 ? (
-              <EmptyState title="No tasks due soon" detail="Tasks nearing their due date will appear here." />
-            ) : (
-              <ul className="compact-list compact-task-list">
-                {summary.alerts.dueSoon.map((task) => (
-                  <TaskLine
-                    key={task.publicId}
-                    task={task}
-                    onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Open tasks by assignee</h3>
-            {summary.openTasksByAssignee.length === 0 ? (
-              <EmptyState title="No open tasks" detail="Open tasks will be grouped by assignee." />
-            ) : (
-              <ul className="compact-list">
-                {summary.openTasksByAssignee.map((group) => (
-                  <li key={group.assignee?.publicId ?? "unassigned"}>
-                    <strong>{group.assignee?.name ?? "Unassigned"}</strong>
-                    <span>{group.tasks.length} open</span>
-                    {group.tasks.some((task) => hasActiveBlockers(task)) ? (
-                      <StatusBadge
-                        label={`${group.tasks.filter((task) => hasActiveBlockers(task)).length} blockers`}
-                        tone="bad"
+                )}
+              </section>
+              <section className="dashboard-section" aria-labelledby="due-soon-tasks-heading">
+                <SectionHeading
+                  eyebrow="Upcoming"
+                  title="Due soon tasks"
+                  count={countLabel(dueSoonCount, "task")}
+                  id="due-soon-tasks-heading"
+                />
+                {summary.alerts.dueSoon.length === 0 ? (
+                  <EmptyState title="No tasks due soon" detail="Tasks nearing their due date will appear here." />
+                ) : (
+                  <ul className="compact-list compact-task-list dashboard-record-list">
+                    {summary.alerts.dueSoon.map((task) => (
+                      <TaskLine
+                        key={task.publicId}
+                        task={task}
+                        onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
                       />
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Recent meetings</h3>
-            {summary.recentMeetings.length === 0 ? (
-              <EmptyState title="No meetings" detail="Recent meetings will appear here." />
-            ) : (
-              <ul className="compact-list">
-                {summary.recentMeetings.map((meeting) => (
-                  <li className="compact-clickable-item" key={meeting.publicId}>
-                    <button
-                      className="compact-record-button"
-                      type="button"
-                      onClick={() =>
-                        onOpenRecord({ type: "meeting", publicId: meeting.publicId })
-                      }
-                      aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
-                    >
-                      <strong>{meeting.publicId}</strong>
-                      <span>{collapseLinks(meeting.title)}</span>
-                      <small>{new Date(meeting.startsAt).toLocaleString()}</small>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Recent decisions</h3>
-            {summary.recentDecisions.length === 0 ? (
-              <EmptyState title="No decisions" detail="Recent decisions will appear here." />
-            ) : (
-              <ul className="compact-list">
-                {summary.recentDecisions.map((decision) => (
-                  <li className="compact-clickable-item" key={decision.publicId}>
-                    <button
-                      className="compact-record-button"
-                      type="button"
-                      onClick={() =>
-                        onOpenRecord({ type: "decision", publicId: decision.publicId })
-                      }
-                      aria-label={`Open decision ${decision.publicId} ${collapseLinks(decision.decisionText)}`}
-                    >
-                      <strong>{decision.publicId}</strong>
-                      <span>{collapseLinks(decision.decisionText)}</span>
-                      <small>{decision.decisionDate}</small>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="dashboard-section">
-            <h3>Recurring meetings</h3>
-            {summary.activeSeries.length === 0 ? (
-              <EmptyState title="No recurring meetings" detail="Active meeting series will appear here." />
-            ) : (
-              <ul className="compact-list">
-                {summary.activeSeries.map((series) => (
-                  <li key={series.publicId}>
-                    <strong>{series.publicId}</strong>
-                    <span>
-                      <LinkedText text={series.title} />
-                    </span>
-                    {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            <section className="dashboard-section" aria-labelledby="open-tasks-heading">
+              <SectionHeading
+                eyebrow="Ownership"
+                title="Open tasks by assignee"
+                count={countLabel(openTaskCount, "task")}
+                id="open-tasks-heading"
+              />
+              {summary.openTasksByAssignee.length === 0 ? (
+                <EmptyState title="No open tasks" detail="Open tasks will be grouped by assignee." />
+              ) : (
+                <ul className="compact-list dashboard-assignee-list">
+                  {summary.openTasksByAssignee.map((group) => {
+                    const groupBlockerCount = group.tasks.filter((task) => hasActiveBlockers(task)).length;
+                    return (
+                      <li className="dashboard-assignee-row" key={group.assignee?.publicId ?? "unassigned"}>
+                        <span className="dashboard-assignee-avatar" aria-hidden="true">
+                          <UsersRound size={16} />
+                        </span>
+                        <span className="dashboard-assignee-main">
+                          <strong>{group.assignee?.name ?? "Unassigned"}</strong>
+                          <span>{countLabel(group.tasks.length, "open task")}</span>
+                          <span className="dashboard-assignee-meter" aria-hidden="true">
+                            <span
+                              style={{
+                                width: `${Math.max(10, (group.tasks.length / maxAssigneeTaskCount) * 100)}%`,
+                              }}
+                            />
+                          </span>
+                        </span>
+                        {groupBlockerCount > 0 ? (
+                          <StatusBadge label={countLabel(groupBlockerCount, "blocker")} tone="bad" />
+                        ) : (
+                          <StatusBadge label="Clear" tone="good" />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          <aside className="dashboard-side-column" aria-label="Workspace activity">
+            <section className="dashboard-section" aria-labelledby="recent-meetings-heading">
+              <SectionHeading
+                eyebrow="Meetings"
+                title="Recent meetings"
+                count={countLabel(summary.recentMeetings.length, "meeting")}
+                id="recent-meetings-heading"
+              />
+              {summary.recentMeetings.length === 0 ? (
+                <EmptyState title="No meetings" detail="Recent meetings will appear here." />
+              ) : (
+                <ul className="compact-list dashboard-record-list">
+                  {summary.recentMeetings.map((meeting) => (
+                    <li className="compact-clickable-item" key={meeting.publicId}>
+                      <button
+                        className="compact-record-button"
+                        type="button"
+                        onClick={() =>
+                          onOpenRecord({ type: "meeting", publicId: meeting.publicId })
+                        }
+                        aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
+                      >
+                        <strong>{meeting.publicId}</strong>
+                        <span>{collapseLinks(meeting.title)}</span>
+                        <small>{formatDateTime(meeting.startsAt)}</small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section className="dashboard-section" aria-labelledby="recent-decisions-heading">
+              <SectionHeading
+                eyebrow="Decisions"
+                title="Recent decisions"
+                count={countLabel(summary.recentDecisions.length, "decision")}
+                id="recent-decisions-heading"
+              />
+              {summary.recentDecisions.length === 0 ? (
+                <EmptyState title="No decisions" detail="Recent decisions will appear here." />
+              ) : (
+                <ul className="compact-list dashboard-record-list">
+                  {summary.recentDecisions.map((decision) => (
+                    <li className="compact-clickable-item" key={decision.publicId}>
+                      <button
+                        className="compact-record-button"
+                        type="button"
+                        onClick={() =>
+                          onOpenRecord({ type: "decision", publicId: decision.publicId })
+                        }
+                        aria-label={`Open decision ${decision.publicId} ${collapseLinks(decision.decisionText)}`}
+                      >
+                        <strong>{decision.publicId}</strong>
+                        <span>{collapseLinks(decision.decisionText)}</span>
+                        <small>{decision.decisionDate}</small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section className="dashboard-section" aria-labelledby="recurring-meetings-heading">
+              <SectionHeading
+                eyebrow="Rhythm"
+                title="Recurring meetings"
+                count={countLabel(summary.activeSeries.length, "series", "series")}
+                id="recurring-meetings-heading"
+              />
+              {summary.activeSeries.length === 0 ? (
+                <EmptyState title="No recurring meetings" detail="Active meeting series will appear here." />
+              ) : (
+                <ul className="compact-list dashboard-record-list dashboard-series-list">
+                  {summary.activeSeries.map((series) => (
+                    <li key={series.publicId}>
+                      <span className="dashboard-series-icon" aria-hidden="true">
+                        <CircleCheckBig size={16} />
+                      </span>
+                      <strong>{series.publicId}</strong>
+                      <span>
+                        <LinkedText text={series.title} />
+                      </span>
+                      {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </aside>
         </div>
-      ) : null}
+      ) : (
+        <section className="dashboard-section dashboard-loading-panel">
+          <EmptyState title="Loading dashboard" detail="Workspace activity is loading." />
+        </section>
+      )}
     </main>
   );
 }
