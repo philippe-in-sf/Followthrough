@@ -10,6 +10,7 @@ import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { PeoplePage } from "./features/people/PeoplePage";
 import { TasksPage } from "./features/tasks/TasksPage";
+import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
 import type { UserPreferencesDto } from "../shared/types";
 import type { TeamDto } from "../shared/types";
@@ -201,6 +202,8 @@ export function App() {
     setUser((current) => (current ? { ...current, team } : current));
   }, []);
 
+  const { notificationStatus, enableNotifications } = useTaskAssignmentNotifications(Boolean(user));
+
   if (user === undefined) return <main className="loading">Loading...</main>;
   if (!user) return <AuthPage onAuth={handleAuth} />;
   const currentUser = user;
@@ -233,6 +236,8 @@ export function App() {
       onSectionChange={changeSection}
       onLogout={logout}
       onLeaveTeam={leaveTeam}
+      onEnableNotifications={enableNotifications}
+      notificationStatus={notificationStatus}
       version={appVersion}
       workCalendarUrl={calendarShortcutUrl}
     >

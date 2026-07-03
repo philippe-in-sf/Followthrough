@@ -66,4 +66,45 @@ describe("decisions", () => {
     const archived = await request(app).post("/api/decisions/D001/archive").set("Cookie", cookie);
     expect(archived.status).toBe(204);
   });
+
+  it("lists and audits tasks spawned by a decision", async () => {
+    const { app, cookie } = await setup();
+
+    await request(app).post("/api/decisions").set("Cookie", cookie).send({
+      decisionText: "Launch with the lightweight checklist",
+      decisionDate: "2026-06-09",
+      context: "The team agreed to keep the first release narrow.",
+    });
+
+    const task = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Write the launch checklist",
+      status: "Open",
+      dueDate: "2026-06-12",
+      originDecisionPublicId: "D001",
+    });
+
+    expect(task.status).toBe(201);
+    expect(task.body.task.originDecisionPublicId).toBe("D001");
+
+    const decision = await request(app).get("/api/decisions/D001").set("Cookie", cookie);
+    expect(decision.status).toBe(200);
+    expect(decision.body.decision.tasks).toEqual([
+      expect.objectContaining({
+        publicId: "T001",
+        description: "Write the launch checklist",
+      }),
+    ]);
+
+    const audit = await request(app).get("/api/decisions/D001/audit").set("Cookie", cookie);
+    expect(audit.status).toBe(200);
+    expect(audit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({
+        action: "task_added",
+        entityPublicId: "D001",
+        entityType: "decision",
+        summary: "Added task T001",
+      }),
+    );
+    expect(audit.body.auditEvents[0].changes.task.originDecisionPublicId).toBe("D001");
+  });
 });

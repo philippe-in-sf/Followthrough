@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.0 - 2026-07-03
+
+### Added
+
+- Added decision-to-task traceability so decisions list the tasks they spawned and task creation records decision audit events.
+- Added lightweight browser notification support for newly assigned tasks, including notification storage, opt-in browser polling, and a service worker scaffold for future web push delivery.
+
+### Changed
+
+- Bumped the deployed minor version for the decision traceability and assignment notification release.
+
 ## 1.1.26 - 2026-07-02
 
 ### Fixed

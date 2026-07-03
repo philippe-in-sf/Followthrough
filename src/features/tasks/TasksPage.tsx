@@ -38,6 +38,7 @@ type TaskFormState = {
   status: TaskStatus;
   dueDate: string;
   originMeetingPublicId: string | null;
+  originDecisionPublicId: string | null;
   seriesPublicId: string | null;
   dependencyPublicIds: string[];
   private: boolean;
@@ -52,6 +53,7 @@ const emptyTaskForm: TaskFormState = {
   status: "Open",
   dueDate: "",
   originMeetingPublicId: null,
+  originDecisionPublicId: null,
   seriesPublicId: null,
   dependencyPublicIds: [],
   private: false,
@@ -292,6 +294,7 @@ export function TasksPage({
       status: form.status,
       dueDate: form.dueDate || null,
       originMeetingPublicId: form.originMeetingPublicId,
+      originDecisionPublicId: form.originDecisionPublicId,
       seriesPublicId: form.seriesPublicId,
       reminderMode: "manual" as const,
       dependencyPublicIds: form.dependencyPublicIds,
@@ -315,6 +318,7 @@ export function TasksPage({
       status: task.status,
       dueDate: task.dueDate ?? "",
       originMeetingPublicId: task.originMeetingPublicId,
+      originDecisionPublicId: task.originDecisionPublicId,
       seriesPublicId: task.seriesPublicId,
       dependencyPublicIds: (task.dependencies ?? []).map((dependency) => dependency.publicId),
       private: task.private,
@@ -355,6 +359,7 @@ export function TasksPage({
       status: taskEditForm.status,
       dueDate: taskEditForm.dueDate || null,
       originMeetingPublicId: taskEditForm.originMeetingPublicId,
+      originDecisionPublicId: taskEditForm.originDecisionPublicId,
       seriesPublicId: taskEditForm.seriesPublicId,
       reminderMode: "manual" as const,
       dependencyPublicIds: taskEditForm.dependencyPublicIds,
@@ -746,6 +751,11 @@ export function TasksPage({
                               {task.originMeetingPublicId ? (
                                 <span className="hint-chip">
                                   Meeting {task.originMeetingPublicId}
+                                </span>
+                              ) : null}
+                              {task.originDecisionPublicId ? (
+                                <span className="hint-chip">
+                                  Decision {task.originDecisionPublicId}
                                 </span>
                               ) : null}
                               {task.seriesPublicId ? (

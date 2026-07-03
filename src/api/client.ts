@@ -11,6 +11,7 @@ import type {
   PersonDto,
   PersonMergeResultDto,
   PersonRelatedRecordsDto,
+  TaskAssignmentNotificationDto,
   TaskDto,
   TaskReminderMode,
   TaskStatus,
@@ -95,6 +96,7 @@ type TaskInput = {
   status: TaskStatus;
   dueDate?: string | null;
   originMeetingPublicId?: string | null;
+  originDecisionPublicId?: string | null;
   seriesPublicId?: string | null;
   reminderMode?: TaskReminderMode;
   dependencyPublicIds?: string[];
@@ -336,6 +338,20 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+  },
+  notifications: {
+    config: () => request<{ publicVapidKey: string | null }>("/api/notifications/config"),
+    savePushSubscription: (body: PushSubscriptionJSON) =>
+      request<void>("/api/notifications/push-subscriptions", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    taskAssignments: (afterId = 0) =>
+      request<{ notifications: TaskAssignmentNotificationDto[] }>(
+        `/api/notifications/task-assignments?afterId=${afterId}`,
+      ),
+    markTaskAssignmentRead: (id: number) =>
+      request<void>(`/api/notifications/task-assignments/${id}/read`, { method: "POST" }),
   },
   get: request,
   post: <T>(path: string, body: unknown) =>

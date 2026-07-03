@@ -67,12 +67,13 @@ describe("database migrations", () => {
 
     const rows = db
       .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'index' AND name IN (?, ?, ?, ?, ?) ORDER BY name",
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name IN (?, ?, ?, ?, ?, ?) ORDER BY name",
       )
       .all(
         "idx_decisions_meeting",
         "idx_meeting_attendees_person",
         "idx_meeting_tasks_task",
+        "idx_tasks_origin_decision",
         "idx_tasks_origin_meeting",
         "idx_tasks_series",
       ) as { name: string }[];
@@ -81,6 +82,7 @@ describe("database migrations", () => {
       "idx_decisions_meeting",
       "idx_meeting_attendees_person",
       "idx_meeting_tasks_task",
+      "idx_tasks_origin_decision",
       "idx_tasks_origin_meeting",
       "idx_tasks_series",
     ]);

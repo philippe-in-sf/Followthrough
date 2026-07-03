@@ -2915,6 +2915,17 @@ button:disabled {
   color: #5b6475;
 }
 
+.decision-task-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.muted-text {
+  color: #6b7280;
+}
+
 .task-reminder-feedback {
   margin: 0;
   border-top: 1px solid #d9dee7;

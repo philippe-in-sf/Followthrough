@@ -3,7 +3,7 @@ export type TaskReminderMode = "automatic" | "manual";
 export type MeetingType = "single" | "recurring";
 export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
-export type AuditEntityType = "task" | "meeting" | "person";
+export type AuditEntityType = "task" | "meeting" | "decision" | "person";
 export type UserRole = "admin" | "member";
 
 export type TeamDto = {
@@ -70,6 +70,7 @@ export type TaskDto = {
   status: TaskStatus;
   dueDate: string | null;
   originMeetingPublicId: string | null;
+  originDecisionPublicId: string | null;
   seriesPublicId: string | null;
   reminderMode: TaskReminderMode;
   lastReminderSentAt: string | null;
@@ -181,6 +182,7 @@ export type DecisionDto = {
   decisionDate: string;
   context: string;
   meetingPublicId: string | null;
+  tasks: TaskDto[];
   archived: boolean;
 };
 
@@ -193,4 +195,12 @@ export type AuditLogDto = {
   actorName: string | null;
   createdAt: string;
   changes: Record<string, unknown>;
+};
+
+export type TaskAssignmentNotificationDto = {
+  id: number;
+  taskPublicId: string;
+  taskDescription: string;
+  triggeredByName: string | null;
+  createdAt: string;
 };

@@ -1040,6 +1040,7 @@ export function MeetingsPage({
       status: form.status,
       dueDate: form.dueDate || null,
       originMeetingPublicId: meeting.publicId,
+      originDecisionPublicId: null,
       seriesPublicId: meeting.seriesPublicId,
       private: form.private,
     });

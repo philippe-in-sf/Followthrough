@@ -184,6 +184,17 @@ export function DecisionsPage({
               </div>
               <span>{decision.publicId}</span>
               <span>{decision.decisionDate}</span>
+              <div className="decision-task-links">
+                {decision.tasks.length ? (
+                  decision.tasks.map((task) => (
+                    <span className="hint-chip" key={task.publicId}>
+                      {task.publicId} - {collapseLinks(task.description)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="muted-text">No spawned tasks</span>
+                )}
+              </div>
               <button
                 className="secondary-button"
                 type="button"

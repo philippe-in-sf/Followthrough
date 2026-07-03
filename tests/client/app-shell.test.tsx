@@ -33,6 +33,7 @@ function renderShell(
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
   const onLeaveTeam = vi.fn();
+  const onEnableNotifications = vi.fn();
 
   const result = render(
     <AppShell
@@ -41,6 +42,8 @@ function renderShell(
       onSectionChange={onSectionChange}
       onLogout={onLogout}
       onLeaveTeam={onLeaveTeam}
+      onEnableNotifications={onEnableNotifications}
+      notificationStatus="disabled"
       version="1.0.1"
       workCalendarUrl={options.workCalendarUrl}
     >
@@ -50,7 +53,7 @@ function renderShell(
     </AppShell>,
   );
 
-  return { onSectionChange, onLogout, onLeaveTeam, container: result.container };
+  return { onSectionChange, onLogout, onLeaveTeam, onEnableNotifications, container: result.container };
 }
 
 describe("AppShell split context rail", () => {

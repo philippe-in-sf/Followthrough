@@ -1,4 +1,4 @@
-import { LogOut, UserMinus } from "lucide-react";
+import { Bell, BellOff, LogOut, UserMinus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/types";
 import { readStoredAppSkin, storeAppSkin } from "../appSkins";
@@ -19,6 +19,8 @@ export function AppShell({
   onSectionChange,
   onLogout,
   onLeaveTeam,
+  onEnableNotifications,
+  notificationStatus,
   version,
   workCalendarUrl = loadClientConfig().workCalendarUrl,
   children,
@@ -28,6 +30,8 @@ export function AppShell({
   onSectionChange: (section: AppSection) => void;
   onLogout: () => void;
   onLeaveTeam: () => void;
+  onEnableNotifications: () => void;
+  notificationStatus: "unsupported" | "disabled" | "enabled";
   version: string;
   workCalendarUrl?: string | null;
   children: ReactNode;
@@ -59,6 +63,25 @@ export function AppShell({
           <SkinSelector skin={skin} onSkinChange={setSkin} />
           <span className="team-name">{user.team.name}</span>
           <span className="user-name">{user.name}</span>
+          {notificationStatus !== "unsupported" ? (
+            <button
+              className="icon-button"
+              onClick={onEnableNotifications}
+              aria-label={
+                notificationStatus === "enabled"
+                  ? "Task assignment notifications enabled"
+                  : "Enable task assignment notifications"
+              }
+              title={
+                notificationStatus === "enabled"
+                  ? "Task assignment notifications enabled"
+                  : "Enable task assignment notifications"
+              }
+              type="button"
+            >
+              {notificationStatus === "enabled" ? <Bell size={18} /> : <BellOff size={18} />}
+            </button>
+          ) : null}
           <button
             className="icon-button leave-team-button"
             onClick={onLeaveTeam}

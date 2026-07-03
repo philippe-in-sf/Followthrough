@@ -1,9 +1,12 @@
 import { Router } from "express";
 import { decisionInputSchema } from "../../shared/schemas.js";
 import type { DecisionDto } from "../../shared/types.js";
+import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
+import { getAuditEvents } from "../audit/auditLog.js";
 import { badRequest, notFound } from "../errors.js";
+import { mapTaskRows, taskSelect, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
 
 type DecisionRow = {
@@ -15,13 +18,41 @@ type DecisionRow = {
   archived_at: string | null;
 };
 
-function toDecision(row: DecisionRow): DecisionDto {
+function getDecisionTasks(
+  db: AppDatabase,
+  config: AppConfig,
+  decisionPublicId: string,
+  userId: number,
+  teamId: number,
+) {
+  const rows = db
+    .prepare(
+      `${taskSelect}
+       WHERE origin_decisions.public_id = ?
+       AND tasks.team_id = ?
+       AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
+       AND tasks.archived_at IS NULL
+       ORDER BY tasks.status = 'Done', tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
+    )
+    .all(decisionPublicId, teamId, userId) as TaskRow[];
+
+  return mapTaskRows(db, config, rows, userId);
+}
+
+function toDecision(
+  db: AppDatabase,
+  config: AppConfig,
+  row: DecisionRow,
+  userId: number,
+  teamId: number,
+): DecisionDto {
   return {
     publicId: row.public_id,
     decisionText: row.decision_text,
     decisionDate: row.decision_date,
     context: row.context,
     meetingPublicId: row.meeting_public_id,
+    tasks: getDecisionTasks(db, config, row.public_id, userId, teamId),
     archived: row.archived_at !== null,
   };
 }
@@ -38,7 +69,9 @@ function decisionSelect() {
 
 function getDecisionByPublicId(
   db: AppDatabase,
+  config: AppConfig,
   publicId: string,
+  userId: number,
   teamId: number,
   includeArchived = false,
 ) {
@@ -52,7 +85,7 @@ function getDecisionByPublicId(
     .get(publicId, teamId) as DecisionRow | undefined;
 
   if (!row) throw notFound("Decision not found");
-  return toDecision(row);
+  return toDecision(db, config, row, userId, teamId);
 }
 
 function resolveMeetingId(db: AppDatabase, teamId: number, meetingPublicId?: string | null) {
@@ -66,7 +99,7 @@ function resolveMeetingId(db: AppDatabase, teamId: number, meetingPublicId?: str
   return meeting.id;
 }
 
-export function decisionRoutes(db: AppDatabase) {
+export function decisionRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
 
   router.get("/", (req, res) => {
@@ -79,7 +112,11 @@ export function decisionRoutes(db: AppDatabase) {
       )
       .all(req.user?.teamId ?? 0) as DecisionRow[];
 
-    res.json({ decisions: rows.map(toDecision) });
+    const userId = req.user?.id ?? 0;
+    const teamId = req.user?.teamId ?? 0;
+    res.json({
+      decisions: rows.map((row) => toDecision(db, config, row, userId, teamId)),
+    });
   });
 
   router.post("/", (req, res, next) => {
@@ -94,7 +131,7 @@ export function decisionRoutes(db: AppDatabase) {
            VALUES (?, ?, ?, ?, ?, ?)`,
         ).run(publicId, input.decisionText, input.decisionDate, input.context, meetingId, teamId);
 
-        return getDecisionByPublicId(db, publicId, teamId);
+        return getDecisionByPublicId(db, config, publicId, req.user?.id ?? 0, teamId);
       });
 
       res.status(201).json({ decision });
@@ -106,7 +143,13 @@ export function decisionRoutes(db: AppDatabase) {
   router.get("/:publicId", (req, res, next) => {
     try {
       res.json({
-        decision: getDecisionByPublicId(db, req.params.publicId, req.user?.teamId ?? 0),
+        decision: getDecisionByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          req.user?.id ?? 0,
+          req.user?.teamId ?? 0,
+        ),
       });
     } catch (error) {
       next(error);
@@ -136,10 +179,26 @@ export function decisionRoutes(db: AppDatabase) {
           );
 
         if (result.changes === 0) throw notFound("Decision not found");
-        return getDecisionByPublicId(db, req.params.publicId, teamId);
+        return getDecisionByPublicId(db, config, req.params.publicId, req.user?.id ?? 0, teamId);
       });
 
       res.json({ decision });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:publicId/audit", (req, res, next) => {
+    try {
+      getDecisionByPublicId(
+        db,
+        config,
+        req.params.publicId,
+        req.user?.id ?? 0,
+        req.user?.teamId ?? 0,
+        true,
+      );
+      res.json({ auditEvents: getAuditEvents(db, "decision", req.params.publicId) });
     } catch (error) {
       next(error);
     }

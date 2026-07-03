@@ -289,6 +289,50 @@ describe("tasks", () => {
     expect(audit.body.auditEvents[0].changes.after.description).toBe("Send final notes");
   });
 
+  it("records browser notifications when a task is assigned to a team user", async () => {
+    const { app, cookie } = await setup({ personEmail: "assignee@example.com" });
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Assignee",
+      email: "assignee@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const assigneeCookie = signup.headers["set-cookie"];
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Review the rollout plan",
+      assigneePublicId: "P001",
+      status: "Open",
+      dueDate: "2026-06-12",
+    });
+
+    const notifications = await request(app)
+      .get("/api/notifications/task-assignments")
+      .set("Cookie", assigneeCookie);
+
+    expect(notifications.status).toBe(200);
+    expect(notifications.body.notifications).toEqual([
+      expect.objectContaining({
+        taskPublicId: "T001",
+        taskDescription: "Review the rollout plan",
+        triggeredByName: "Editor",
+      }),
+    ]);
+
+    const notificationId = notifications.body.notifications[0].id;
+    const markedRead = await request(app)
+      .post(`/api/notifications/task-assignments/${notificationId}/read`)
+      .set("Cookie", assigneeCookie);
+
+    expect(markedRead.status).toBe(204);
+
+    const afterRead = await request(app)
+      .get("/api/notifications/task-assignments")
+      .set("Cookie", assigneeCookie);
+    expect(afterRead.body.notifications).toEqual([]);
+  });
+
   it("marks overdue tasks", async () => {
     const { app, cookie, personPublicId } = await setup();
 

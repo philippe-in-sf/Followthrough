@@ -75,6 +75,7 @@ function setupAppFetch(
       status: "Open",
       dueDate: "2026-06-08",
       originMeetingPublicId: null,
+      originDecisionPublicId: null,
       seriesPublicId: null,
       reminderMode: "automatic",
       lastReminderSentAt: null,
@@ -93,6 +94,7 @@ function setupAppFetch(
       status: "In Progress",
       dueDate: "2026-06-15",
       originMeetingPublicId: "M010",
+      originDecisionPublicId: null,
       seriesPublicId: "S001",
       reminderMode: "automatic",
       lastReminderSentAt: null,
@@ -111,6 +113,7 @@ function setupAppFetch(
       status: "Open",
       dueDate: "2026-06-17",
       originMeetingPublicId: null,
+      originDecisionPublicId: null,
       seriesPublicId: null,
       reminderMode: "automatic",
       lastReminderSentAt: null,
@@ -129,6 +132,7 @@ function setupAppFetch(
       decisionDate: "2026-06-09",
       context: "Single server",
       meetingPublicId: "M010",
+      tasks: [],
       archived: false,
     },
   ];
@@ -384,6 +388,7 @@ function setupAppFetch(
         status: body.status,
         dueDate: body.dueDate,
         originMeetingPublicId: body.originMeetingPublicId ?? null,
+        originDecisionPublicId: body.originDecisionPublicId ?? null,
         seriesPublicId: body.seriesPublicId ?? null,
         reminderMode: body.reminderMode ?? "automatic",
         lastReminderSentAt: null,
@@ -493,6 +498,7 @@ function setupAppFetch(
         decisionDate: body.decisionDate,
         context: body.context,
         meetingPublicId: body.meetingPublicId,
+        tasks: [],
         archived: false,
       };
       decisions.push(decision);
@@ -1419,6 +1425,7 @@ describe("dashboard and workspace flows", () => {
         notes: "Created while the notes are still fresh.",
         dueDate: "2026-06-22",
         originMeetingPublicId: "M010",
+        originDecisionPublicId: null,
         seriesPublicId: "S001",
       }),
     );
