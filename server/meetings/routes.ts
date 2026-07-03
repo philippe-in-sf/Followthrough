@@ -14,7 +14,7 @@ import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
-import { mapTaskRows, type TaskRow } from "../tasks/routes.js";
+import { mapTaskRows, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
 import {
   getLatestSeriesMeetingContext,
