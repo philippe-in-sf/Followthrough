@@ -1,6 +1,6 @@
 {
   "name": "followthrough",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.test.json",
     "changelog:check": "tsx deploy/scripts/check-changelog.ts",
+    "domain:check": "bash deploy/check-domain.sh",
     "invite:create": "node scripts/run-server-script.mjs server/auth/createInviteCode.ts dist/server/auth/createInviteCode.js",
     "user:create": "node scripts/run-server-script.mjs server/auth/createUser.ts dist/server/auth/createUser.js",
     "version:patch": "npm version patch --no-git-tag-version",
