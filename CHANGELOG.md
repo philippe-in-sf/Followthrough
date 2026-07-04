@@ -10,6 +10,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.1 - 2026-07-04
+
+### Added
+
+- Added a repeatable production domain and TLS check for `followthrough.dev`.
+- Documented how Namecheap's SSL provider change relates to the server-managed
+  Let's Encrypt certificate renewal path.
+
 ## 1.2.0 - 2026-07-03
 
 ### Added
