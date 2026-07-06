@@ -988,8 +988,6 @@ export function MeetingsPage({
       summary: meetingEditForm.summary,
       blockers: meetingEditForm.blockers,
       blockersCleared: meetingEditForm.blockersCleared,
-      notes: meeting.notes,
-      links: meeting.links.map(toMeetingLinkForm),
       attendeePublicIds,
       taskPublicIds: meetingEditForm.taskPublicIds,
       private: meetingEditForm.private,
