@@ -666,12 +666,16 @@ describe("dashboard and workspace flows", () => {
     );
   });
 
-  it("shows Google Calendar connect as the primary path with URL paste as a secondary option", async () => {
+  it("hides Google Calendar settings behind the Meetings settings control", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Google Calendar is not connected.")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Calendar shortcut URL")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     expect(await screen.findByText("Google Calendar is not connected.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Google Calendar" })).toHaveAttribute(
       "href",
@@ -685,6 +689,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     await userEvent.type(
       await screen.findByLabelText("Calendar shortcut URL"),
       "https://calendar.example.com/team",
@@ -710,6 +715,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     await userEvent.type(await screen.findByLabelText("Calendar shortcut URL"), "javascript:alert(1)");
     await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
 
@@ -727,6 +733,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     expect(await screen.findByText("Connected as editor@gmail.com")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
@@ -803,6 +810,30 @@ describe("dashboard and workspace flows", () => {
     });
     expect(screen.getByLabelText("Decision")).toHaveValue("Use SQLite");
     expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
+  });
+
+  it("opens meeting and series references from task detail tags", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    let taskCard = await expandTaskCard("T010");
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open meeting M010" }));
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
+    });
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).getByRole("heading", { name: "Edit details for M010" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Tasks" }));
+    taskCard = await expandTaskCard("T010");
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open series S001" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Project sync" })).toBeInTheDocument();
+    });
+    expect(within(screen.getByRole("main")).getByText("Previous launch notes")).toBeInTheDocument();
   });
 
   it("collapses task description urls in collapsed task cards", async () => {
