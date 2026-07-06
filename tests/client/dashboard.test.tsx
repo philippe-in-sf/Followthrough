@@ -1122,6 +1122,70 @@ describe("dashboard and workspace flows", () => {
     ).toBe(false);
   });
 
+  it("preserves quick-created meeting notes when later assigning a recurring series", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "CM Leadership");
+    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2026-07-06T09:00");
+    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee");
+    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+
+    let meetingCard = await expandMeetingCard("M100");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Open notes for M100" }),
+    );
+
+    await userEvent.type(
+      await screen.findByLabelText("Notes for M100"),
+      "Agenda notes from today's CM Leadership meeting.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
+    expect(await screen.findByText("Notes saved.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    meetingCard = await screen.findByLabelText("Meeting M100");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Edit details for M100" }),
+    );
+    await userEvent.selectOptions(
+      within(meetingCard).getByLabelText("Meeting type for M100"),
+      "existing",
+    );
+    const seriesSelect = within(meetingCard).getByLabelText("Meeting series for M100");
+    await waitFor(() => expect(seriesSelect).not.toBeDisabled());
+    await userEvent.selectOptions(seriesSelect, "S001");
+    await userEvent.click(within(meetingCard).getByRole("button", { name: "Save meeting M100" }));
+
+    const meetingPatchBodies = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.filter(
+        ([input, init]) => String(input) === "/api/meetings/M100" && init?.method === "PATCH",
+      )
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    const notesPatch = meetingPatchBodies.find((body) =>
+      String(body.notes ?? "").includes("CM Leadership"),
+    );
+    const recurrencePatch = [...meetingPatchBodies]
+      .reverse()
+      .find((body) => body.meetingType === "recurring");
+
+    expect(notesPatch).toEqual(
+      expect.objectContaining({
+        notes: "Agenda notes from today's CM Leadership meeting.",
+      }),
+    );
+    expect(recurrencePatch).toEqual(
+      expect.objectContaining({
+        meetingType: "recurring",
+        seriesPublicId: "S001",
+      }),
+    );
+    expect(recurrencePatch).not.toHaveProperty("notes");
+    expect(recurrencePatch).not.toHaveProperty("links");
+  });
+
   it("shows meeting wizard progress and validates Basics before moving forward", async () => {
     setupAppFetch();
     render(<App />);
