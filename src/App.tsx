@@ -9,7 +9,7 @@ import { DashboardPage, type DashboardRecordTarget } from "./features/dashboard/
 import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { PeoplePage } from "./features/people/PeoplePage";
-import { TasksPage } from "./features/tasks/TasksPage";
+import { TasksPage, type TaskReferenceTarget } from "./features/tasks/TasksPage";
 import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
 import type { UserPreferencesDto } from "../shared/types";
@@ -18,6 +18,7 @@ import type { TeamDto } from "../shared/types";
 type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions">;
 
 type FocusTarget = {
+  kind?: "record" | "series";
   publicId: string;
   section: FocusableSection;
 };
@@ -29,13 +30,22 @@ const sectionByDashboardRecord: Record<DashboardRecordTarget["type"], FocusableS
 };
 
 function focusPublicId(section: FocusableSection, focusedRecord: FocusTarget | null) {
-  return focusedRecord?.section === section ? focusedRecord.publicId : null;
+  return focusedRecord?.section === section && focusedRecord.kind !== "series"
+    ? focusedRecord.publicId
+    : null;
+}
+
+function focusSeriesPublicId(focusedRecord: FocusTarget | null) {
+  return focusedRecord?.section === "Meetings" && focusedRecord.kind === "series"
+    ? focusedRecord.publicId
+    : null;
 }
 
 function renderSection({
   section,
   focusedRecord,
   onDashboardRecordOpen,
+  onTaskReferenceOpen,
   onRecordFocusHandled,
   workCalendarUrl,
   onWorkCalendarUrlChange,
@@ -50,6 +60,7 @@ function renderSection({
   section: AppSection;
   focusedRecord: FocusTarget | null;
   onDashboardRecordOpen: (target: DashboardRecordTarget) => void;
+  onTaskReferenceOpen: (target: TaskReferenceTarget) => void;
   onRecordFocusHandled: () => void;
   workCalendarUrl: string | null;
   onWorkCalendarUrlChange: (workCalendarUrl: string | null) => void;
@@ -68,14 +79,17 @@ function renderSection({
       return (
         <TasksPage
           focusTaskPublicId={focusPublicId("Tasks", focusedRecord)}
+          onReferenceOpen={onTaskReferenceOpen}
           onTaskFocusHandled={onRecordFocusHandled}
         />
       );
     case "Meetings":
       return (
         <MeetingsPage
+          focusSeriesPublicId={focusSeriesPublicId(focusedRecord)}
           focusMeetingPublicId={focusPublicId("Meetings", focusedRecord)}
           onMeetingFocusHandled={onRecordFocusHandled}
+          onSeriesFocusHandled={onRecordFocusHandled}
           workCalendarUrl={workCalendarUrl}
           onWorkCalendarUrlChange={onWorkCalendarUrlChange}
           googleCalendarConfigured={googleCalendarConfigured}
@@ -173,6 +187,18 @@ export function App() {
     setSection(nextSection);
   }, []);
 
+  const openTaskReference = useCallback((target: TaskReferenceTarget) => {
+    if (target.type === "series") {
+      setFocusedRecord({ kind: "series", section: "Meetings", publicId: target.publicId });
+      setSection("Meetings");
+      return;
+    }
+
+    const nextSection = target.type === "meeting" ? "Meetings" : "Decisions";
+    setFocusedRecord({ section: nextSection, publicId: target.publicId });
+    setSection(nextSection);
+  }, []);
+
   const clearFocusedRecord = useCallback(() => {
     setFocusedRecord(null);
   }, []);
@@ -245,6 +271,7 @@ export function App() {
         section,
         focusedRecord,
         onDashboardRecordOpen: openDashboardRecord,
+        onTaskReferenceOpen: openTaskReference,
         onRecordFocusHandled: clearFocusedRecord,
         workCalendarUrl: calendarShortcutUrl,
         onWorkCalendarUrlChange: setWorkCalendarUrl,

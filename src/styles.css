@@ -1919,6 +1919,20 @@ button:disabled {
   margin: 0;
 }
 
+.meetings-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.calendar-settings-toggle[aria-expanded="true"] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .calendar-settings-panel {
   display: flex;
   flex-wrap: wrap;
@@ -2453,6 +2467,19 @@ button:disabled {
   font-size: 0.82rem;
   padding: 4px 9px;
   white-space: nowrap;
+}
+
+.hint-chip-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.hint-chip-button:hover,
+.hint-chip-button:focus-visible {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .record-lane-bad .lane-header {
@@ -3750,6 +3777,11 @@ button:disabled {
     flex-wrap: wrap;
   }
 
+  .meetings-header-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
   .record-view-toggle {
     width: fit-content;
   }
@@ -4192,6 +4224,17 @@ button:disabled {
 .app-shell[data-skin] .hint-chip {
   background: var(--skin-secondary-bg);
   color: var(--skin-text);
+}
+
+.app-shell[data-skin] .hint-chip-button:hover,
+.app-shell[data-skin] .hint-chip-button:focus-visible {
+  background: var(--skin-surface-raised);
+  color: var(--skin-action);
+}
+
+.app-shell[data-skin] .calendar-settings-toggle[aria-expanded="true"] {
+  background: var(--skin-surface-raised);
+  color: var(--skin-action);
 }
 
 .app-shell[data-skin] .context-row > span:first-child::before,

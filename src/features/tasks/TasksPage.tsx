@@ -29,6 +29,11 @@ type TaskLane = {
 
 type TaskArchiveView = "active" | "archived";
 
+export type TaskReferenceTarget = {
+  publicId: string;
+  type: "decision" | "meeting" | "series";
+};
+
 type TaskFormState = {
   description: string;
   blockers: string;
@@ -76,6 +81,31 @@ function dependencyOptionLabel(task: TaskDependencyDto) {
 function taskHasOpenDependencies(task: TaskDto) {
   return (task.dependencies ?? []).some(
     (dependency) => dependency.status !== "Done" && !dependency.archived,
+  );
+}
+
+function TaskReferenceChip({
+  label,
+  onOpen,
+  publicId,
+  type,
+}: {
+  label: string;
+  onOpen?: (target: TaskReferenceTarget) => void;
+  publicId: string;
+  type: TaskReferenceTarget["type"];
+}) {
+  if (!onOpen) return <span className="hint-chip">{label}</span>;
+
+  return (
+    <button
+      className="hint-chip hint-chip-button"
+      type="button"
+      onClick={() => onOpen({ publicId, type })}
+      aria-label={`Open ${type} ${publicId}`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -137,9 +167,11 @@ function taskCardTone(task: TaskDto) {
 
 export function TasksPage({
   focusTaskPublicId,
+  onReferenceOpen,
   onTaskFocusHandled,
 }: {
   focusTaskPublicId?: string | null;
+  onReferenceOpen?: (target: TaskReferenceTarget) => void;
   onTaskFocusHandled?: () => void;
 }) {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
@@ -749,17 +781,28 @@ export function TasksPage({
                             <div className="task-detail-badges">
                               <StatusBadge label={task.status} />
                               {task.originMeetingPublicId ? (
-                                <span className="hint-chip">
-                                  Meeting {task.originMeetingPublicId}
-                                </span>
+                                <TaskReferenceChip
+                                  label={`Meeting ${task.originMeetingPublicId}`}
+                                  publicId={task.originMeetingPublicId}
+                                  type="meeting"
+                                  onOpen={onReferenceOpen}
+                                />
                               ) : null}
                               {task.originDecisionPublicId ? (
-                                <span className="hint-chip">
-                                  Decision {task.originDecisionPublicId}
-                                </span>
+                                <TaskReferenceChip
+                                  label={`Decision ${task.originDecisionPublicId}`}
+                                  publicId={task.originDecisionPublicId}
+                                  type="decision"
+                                  onOpen={onReferenceOpen}
+                                />
                               ) : null}
                               {task.seriesPublicId ? (
-                                <span className="hint-chip">Series {task.seriesPublicId}</span>
+                                <TaskReferenceChip
+                                  label={`Series ${task.seriesPublicId}`}
+                                  publicId={task.seriesPublicId}
+                                  type="series"
+                                  onOpen={onReferenceOpen}
+                                />
                               ) : null}
                               {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
                               {task.archived ? <StatusBadge label="Archived" /> : null}
