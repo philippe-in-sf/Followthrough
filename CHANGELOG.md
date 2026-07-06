@@ -11,6 +11,20 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.2 - 2026-07-06
+
+### Added
+
+- Made task reference chips clickable for originating meetings, originating decisions, and meeting series.
+
+### Changed
+
+- Collapsed Meetings calendar settings behind a compact header control so meeting capture keeps the prime page space.
+
+### Fixed
+
+- Preserved meeting notes and links when changing a meeting into a recurring series.
+
 ## 1.2.1 - 2026-07-04
 
 ### Added
