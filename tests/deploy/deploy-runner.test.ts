@@ -143,7 +143,7 @@ describe("deploy runner", () => {
     }
   });
 
-  it("stages the release once for multiple sites without rerunning PR verification gates", () => {
+  it("builds release artifacts and stages them once for multiple sites without rerunning PR verification gates", () => {
     const fixture = createDeployFixture();
 
     try {
@@ -178,7 +178,7 @@ describe("deploy runner", () => {
       expect(lines.filter((line) => line === "npm run changelog:check")).toHaveLength(0);
       expect(lines.filter((line) => line === "npm run check")).toHaveLength(0);
       expect(lines.filter((line) => line === "npm run test")).toHaveLength(0);
-      expect(lines.filter((line) => line === "npm run build")).toHaveLength(0);
+      expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);
       expect(lines.filter((line) => line === "git status --porcelain")).toHaveLength(1);
       expect(lines.filter((line) => line === "git branch --show-current")).toHaveLength(1);
       expect(lines.filter((line) => line === "git fetch origin refs/heads/main:refs/remotes/origin/main")).toHaveLength(1);
