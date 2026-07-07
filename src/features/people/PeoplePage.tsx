@@ -6,6 +6,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 
@@ -400,9 +401,11 @@ export function PeoplePage({
                                   </span>
                                 ) : null}
                                 {(task.notes ?? "").trim() ? (
-                                  <span className="person-related-note">
-                                    <LinkedText text={task.notes} onRecordOpen={onRecordReferenceOpen} />
-                                  </span>
+                                  <RichNoteText
+                                    className="person-related-note"
+                                    text={task.notes}
+                                    onRecordOpen={onRecordReferenceOpen}
+                                  />
                                 ) : null}
                               </li>
                             ))}

@@ -29,6 +29,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { comparePublicRecordNumber } from "../../recordSort";
 import { scrollRecordIntoView } from "../../recordFocus";
@@ -249,9 +250,11 @@ function MeetingTaskLinks({
             </small>
           ) : null}
           {(task.notes ?? "").trim() ? (
-            <small className="task-link-notes">
-              <LinkedText text={task.notes} onRecordOpen={onRecordOpen} />
-            </small>
+            <RichNoteText
+              className="task-link-notes"
+              text={task.notes}
+              onRecordOpen={onRecordOpen}
+            />
           ) : null}
         </span>
       ))}
@@ -372,16 +375,15 @@ function MeetingTaskCreateForm({
           }
         />
       </FormField>
-      <FormField label={`New task notes for ${meeting.publicId}`}>
-        <textarea
-          value={form.notes}
-          onChange={(event) =>
-            onChange({
-              notes: event.target.value,
-            })
-          }
-        />
-      </FormField>
+      <MarkdownNotesEditor
+        label={`New task notes for ${meeting.publicId}`}
+        value={form.notes}
+        onChange={(notes) =>
+          onChange({
+            notes,
+          })
+        }
+      />
       <FormField label={`New task assignee for ${meeting.publicId}`}>
         <select
           value={form.assigneePublicId}
@@ -1243,13 +1245,12 @@ export function MeetingsPage({
                       ) : null}
                     </div>
                   </header>
-                  <div className={notes ? "series-note-body" : "series-note-body muted"}>
-                    {notes ? (
-                      <LinkedText text={notes} onRecordOpen={onRecordReferenceOpen} />
-                    ) : (
-                      "No notes captured for this occurrence."
-                    )}
-                  </div>
+                  <RichNoteText
+                    className="series-note-body"
+                    emptyText="No notes captured for this occurrence."
+                    text={notes}
+                    onRecordOpen={onRecordReferenceOpen}
+                  />
                 </article>
               );
             })}
@@ -1354,17 +1355,16 @@ export function MeetingsPage({
                 {notesSaveStatus}
               </p>
             ) : null}
-            <FormField label={`Notes for ${activeNotesMeeting.publicId}`}>
-              <textarea
-                autoFocus
-                className="meeting-notes-textarea"
-                value={notesDraft}
-                onChange={(event) => {
-                  setNotesDraft(event.target.value);
-                  setNotesSaveStatus("");
-                }}
-              />
-            </FormField>
+            <MarkdownNotesEditor
+              autoFocus
+              label={`Notes for ${activeNotesMeeting.publicId}`}
+              textareaClassName="meeting-notes-textarea"
+              value={notesDraft}
+              onChange={(notes) => {
+                setNotesDraft(notes);
+                setNotesSaveStatus("");
+              }}
+            />
           </form>
 
           <aside className="meeting-notes-sidepanel">
@@ -1519,9 +1519,11 @@ export function MeetingsPage({
                         </small>
                       ) : null}
                       {(task.notes ?? "").trim() ? (
-                        <small className="task-link-notes">
-                          <LinkedText text={task.notes} onRecordOpen={onRecordReferenceOpen} />
-                        </small>
+                        <RichNoteText
+                          className="task-link-notes"
+                          text={task.notes}
+                          onRecordOpen={onRecordReferenceOpen}
+                        />
                       ) : null}
                     </span>
                   ))}
