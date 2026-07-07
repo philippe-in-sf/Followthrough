@@ -3432,6 +3432,12 @@ button:disabled {
   line-height: 1.5;
 }
 
+.meeting-notes-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .meeting-blockers-textarea {
   min-height: 96px;
   resize: vertical;

@@ -1286,6 +1286,7 @@ export function MeetingsPage({
             </div>
           </div>
           <button
+            aria-label="Save notes from header"
             className="primary-button icon-text-button"
             disabled={notesSaving}
             type="submit"
@@ -1365,6 +1366,16 @@ export function MeetingsPage({
                 setNotesSaveStatus("");
               }}
             />
+            <div className="meeting-notes-editor-actions">
+              <button
+                className="primary-button icon-text-button"
+                disabled={notesSaving}
+                type="submit"
+              >
+                <Save aria-hidden="true" size={17} />
+                {notesSaving ? "Saving notes" : "Save notes"}
+              </button>
+            </div>
           </form>
 
           <aside className="meeting-notes-sidepanel">
