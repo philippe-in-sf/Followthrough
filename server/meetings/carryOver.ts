@@ -7,7 +7,6 @@ export type MeetingLinkSeed = {
 };
 
 export type SeriesMeetingContext = {
-  notes: string;
   links: MeetingLinkSeed[];
 };
 
@@ -44,7 +43,7 @@ export function getLatestSeriesMeetingContext(
 ): SeriesMeetingContext {
   const latestMeeting = db
     .prepare(
-      `SELECT id, notes
+      `SELECT id
        FROM meetings
        WHERE series_id = ?
        AND starts_at < ?
@@ -53,9 +52,9 @@ export function getLatestSeriesMeetingContext(
        ORDER BY starts_at DESC, id DESC
        LIMIT 1`,
     )
-    .get(seriesId, startsAt, userId) as { id: number; notes: string } | undefined;
+    .get(seriesId, startsAt, userId) as { id: number } | undefined;
 
-  if (!latestMeeting) return { notes: "", links: [] };
+  if (!latestMeeting) return { links: [] };
 
   const links = db
     .prepare(
@@ -71,21 +70,12 @@ export function getLatestSeriesMeetingContext(
   }>;
 
   return {
-    notes: latestMeeting.notes,
     links: links.map((link) => ({
       label: link.label,
       url: link.url,
       linkType: link.link_type,
     })),
   };
-}
-
-export function mergeCarriedNotes(carriedNotes: string, newNotes: string) {
-  const previous = carriedNotes.trim();
-  const next = newNotes.trim();
-
-  if (previous && next) return `${previous}\n\n${next}`;
-  return previous || next;
 }
 
 export function mergeCarriedLinks(

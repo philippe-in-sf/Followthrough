@@ -182,7 +182,7 @@ describe("meetings", () => {
     ]);
   });
 
-  it("creates next recurring occurrence and carries open tasks", async () => {
+  it("creates next recurring occurrence with open tasks and links without copying earlier notes", async () => {
     const { app, cookie, personPublicId } = await setup();
 
     const series = await request(app)
@@ -244,7 +244,6 @@ describe("meetings", () => {
       .send({
         startsAt: "2026-06-16T15:00:00.000Z",
         summary: "Second instance.",
-        notes: "Second notes.",
         links: [
           {
             label: "Follow-up deck",
@@ -262,7 +261,7 @@ describe("meetings", () => {
       "T001",
       "T003",
     ]);
-    expect(next.body.meeting.notes).toBe("First notes.\n\nSecond notes.");
+    expect(next.body.meeting.notes).toBe("");
     expect(next.body.meeting.links).toEqual([
       expect.objectContaining({
         label: "Standing agenda",

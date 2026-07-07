@@ -529,7 +529,7 @@ function setupAppFetch(
         summary: body.summary,
         blockers: body.blockers ?? "",
         blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:18:00.000Z" : null,
-        notes: body.notes ?? meetings[0]?.notes ?? "",
+        notes: body.notes ?? "",
         links: body.links ?? meetings[0]?.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
