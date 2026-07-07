@@ -141,6 +141,10 @@ function assertDeployGitState() {
   }
 }
 
+function buildReleaseArtifacts() {
+  run("npm", ["run", "build"]);
+}
+
 function verifyRemoteVersion(site: DeploySite, localVersion: string) {
   const remoteVersion = readRemoteVersion(site);
   if (!remoteVersion) {
@@ -177,6 +181,7 @@ function main() {
   const config = parseDeployConfig();
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
   assertDeployGitState();
+  buildReleaseArtifacts();
 
   const localVersion = readPackageVersion();
   const gitSha = captureRequired("git", ["rev-parse", "--short", "HEAD"], "git commit");

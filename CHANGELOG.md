@@ -15,7 +15,7 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 ### Changed
 
-- Shifted deploy verification to rely on the required PR `Verify` workflow instead of rerunning typecheck and build during production deploys.
+- Shifted deploy verification to rely on the required PR `Verify` workflow while keeping deploy builds focused on release artifact packaging.
 
 ### Fixed
 
