@@ -3,7 +3,7 @@ import type { DecisionDto, MeetingDto } from "../../../shared/types";
 import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { collapseLinks, LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
@@ -25,9 +25,11 @@ const emptyDecisionForm: DecisionFormState = {
 export function DecisionsPage({
   focusDecisionPublicId,
   onDecisionFocusHandled,
+  onRecordReferenceOpen,
 }: {
   focusDecisionPublicId?: string | null;
   onDecisionFocusHandled?: () => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [decisions, setDecisions] = useState<DecisionDto[]>([]);
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
@@ -176,19 +178,21 @@ export function DecisionsPage({
             >
               <div>
                 <strong>
-                  <LinkedText text={decision.decisionText} />
+                  <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
                 </strong>
                 <span>
-                  <LinkedText text={decision.context} />
+                  <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
                 </span>
               </div>
-              <span>{decision.publicId}</span>
+              <span>
+                <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
+              </span>
               <span>{decision.decisionDate}</span>
               <div className="decision-task-links">
                 {decision.tasks.length ? (
                   decision.tasks.map((task) => (
                     <span className="hint-chip" key={task.publicId}>
-                      {task.publicId} - {collapseLinks(task.description)}
+                      <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
                     </span>
                   ))
                 ) : (

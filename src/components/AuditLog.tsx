@@ -1,5 +1,5 @@
 import type { AuditLogDto } from "../../shared/types";
-import { LinkedText } from "./LinkedText";
+import { LinkedText, type RecordReferenceTarget } from "./LinkedText";
 
 type AuditTimeFormatOptions = {
   locale?: string;
@@ -27,7 +27,13 @@ export function formatAuditTime(value: string, options: AuditTimeFormatOptions =
   }).format(date);
 }
 
-export function AuditLog({ events }: { events: AuditLogDto[] }) {
+export function AuditLog({
+  events,
+  onRecordOpen,
+}: {
+  events: AuditLogDto[];
+  onRecordOpen?: (target: RecordReferenceTarget) => void;
+}) {
   return (
     <section className="audit-log" aria-label="Audit history">
       <h3>Audit history</h3>
@@ -38,7 +44,7 @@ export function AuditLog({ events }: { events: AuditLogDto[] }) {
           {events.map((event) => (
             <li key={event.id}>
               <strong>
-                <LinkedText text={event.summary} />
+                <LinkedText text={event.summary} onRecordOpen={onRecordOpen} />
               </strong>
               <span>
                 {event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
