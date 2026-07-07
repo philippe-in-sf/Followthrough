@@ -11,6 +11,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.8 - 2026-07-07
+
+### Added
+
+- Added optional follow-up task creation from decisions, including decision/meeting linkage and spawned-task audit history.
+
 ## 1.2.7 - 2026-07-07
 
 ### Added

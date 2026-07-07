@@ -3051,6 +3051,10 @@ button:disabled {
   max-width: 360px;
 }
 
+.decision-follow-up-fields {
+  display: contents;
+}
+
 .muted-text {
   color: #6b7280;
 }

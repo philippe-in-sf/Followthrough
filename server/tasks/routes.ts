@@ -1,6 +1,7 @@
 import { Router } from "express";
+import type { z } from "zod";
 import { taskInputSchema, taskUpdateInputSchema } from "../../shared/schemas.js";
-import type { TaskStatus } from "../../shared/types.js";
+import type { TaskDto, TaskStatus } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
@@ -18,6 +19,13 @@ type ResolvedTaskRelations = {
   originMeetingId: number | null;
   originDecisionId: number | null;
   seriesId: number | null;
+};
+
+type TaskCreationInput = z.infer<typeof taskInputSchema>;
+
+type TaskActor = {
+  userId: number;
+  teamId: number;
 };
 
 function visibleTaskCondition() {
@@ -219,6 +227,99 @@ function resolveRelations(
   };
 }
 
+export function createTaskRecord(
+  db: AppDatabase,
+  config: AppConfig,
+  input: TaskCreationInput,
+  actor: TaskActor,
+): TaskDto {
+  const { userId, teamId } = actor;
+  const relations = resolveRelations(db, input, userId, teamId);
+  const dependencyTaskIds = resolveDependencyTaskIds(
+    db,
+    input.dependencyPublicIds,
+    userId,
+    teamId,
+  );
+  const publicId = nextPublicId(db, "T");
+  const blockersClearedAt = resolveBlockerClearedAt({
+    blockers: input.blockers,
+    requestedCleared: input.blockersCleared,
+  });
+  const result = db
+    .prepare(
+      `INSERT INTO tasks
+       (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, origin_decision_id, series_id, reminder_mode, private, created_by_user_id, team_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      publicId,
+      input.description,
+      input.blockers,
+      input.notes,
+      blockersClearedAt,
+      relations.assigneePersonId,
+      input.status,
+      input.dueDate ?? null,
+      relations.originMeetingId,
+      relations.originDecisionId,
+      relations.seriesId,
+      input.reminderMode,
+      input.private ? 1 : 0,
+      userId,
+      teamId,
+    );
+  const taskId = Number(result.lastInsertRowid);
+  replaceVisibleTaskDependencies(db, taskId, dependencyTaskIds, userId, teamId);
+
+  if (relations.originMeetingId) {
+    db.prepare("INSERT OR IGNORE INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
+      relations.originMeetingId,
+      taskId,
+    );
+  }
+  recordTaskAssignmentNotification(db, {
+    taskId,
+    assigneePersonId: relations.assigneePersonId,
+    actorUserId: userId,
+    teamId,
+  });
+
+  const created = getTaskByPublicId(db, config, publicId, userId, teamId);
+  recordAuditEvent(db, {
+    entityType: "task",
+    entityPublicId: created.publicId,
+    action: "created",
+    userId,
+    summary: "Created task",
+    changes: { after: created },
+  });
+
+  if (created.originMeetingPublicId) {
+    recordAuditEvent(db, {
+      entityType: "meeting",
+      entityPublicId: created.originMeetingPublicId,
+      action: "task_added",
+      userId,
+      summary: `Added task ${created.publicId}`,
+      changes: { task: created },
+    });
+  }
+
+  if (created.originDecisionPublicId) {
+    recordAuditEvent(db, {
+      entityType: "decision",
+      entityPublicId: created.originDecisionPublicId,
+      action: "task_added",
+      userId,
+      summary: `Added task ${created.publicId}`,
+      changes: { task: created },
+    });
+  }
+
+  return created;
+}
+
 export function taskRoutes(
   db: AppDatabase,
   config: AppConfig,
@@ -269,90 +370,7 @@ export function taskRoutes(
       const task = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
-        const relations = resolveRelations(db, input, userId, teamId);
-        const dependencyTaskIds = resolveDependencyTaskIds(
-          db,
-          input.dependencyPublicIds,
-          userId,
-          teamId,
-        );
-        const publicId = nextPublicId(db, "T");
-        const blockersClearedAt = resolveBlockerClearedAt({
-          blockers: input.blockers,
-          requestedCleared: input.blockersCleared,
-        });
-        const result = db
-          .prepare(
-            `INSERT INTO tasks
-             (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, origin_decision_id, series_id, reminder_mode, private, created_by_user_id, team_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            publicId,
-            input.description,
-            input.blockers,
-            input.notes,
-            blockersClearedAt,
-            relations.assigneePersonId,
-            input.status,
-            input.dueDate ?? null,
-            relations.originMeetingId,
-            relations.originDecisionId,
-            relations.seriesId,
-            input.reminderMode,
-            input.private ? 1 : 0,
-            userId,
-            teamId,
-          );
-        const taskId = Number(result.lastInsertRowid);
-        replaceVisibleTaskDependencies(db, taskId, dependencyTaskIds, userId, teamId);
-
-        if (relations.originMeetingId) {
-          db.prepare("INSERT OR IGNORE INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
-            relations.originMeetingId,
-            taskId,
-          );
-        }
-        recordTaskAssignmentNotification(db, {
-          taskId,
-          assigneePersonId: relations.assigneePersonId,
-          actorUserId: userId,
-          teamId,
-        });
-
-        const created = getTaskByPublicId(db, config, publicId, userId, teamId);
-        recordAuditEvent(db, {
-          entityType: "task",
-          entityPublicId: created.publicId,
-          action: "created",
-          userId: req.user?.id ?? null,
-          summary: "Created task",
-          changes: { after: created },
-        });
-
-        if (created.originMeetingPublicId) {
-          recordAuditEvent(db, {
-            entityType: "meeting",
-            entityPublicId: created.originMeetingPublicId,
-            action: "task_added",
-            userId: req.user?.id ?? null,
-            summary: `Added task ${created.publicId}`,
-            changes: { task: created },
-          });
-        }
-
-        if (created.originDecisionPublicId) {
-          recordAuditEvent(db, {
-            entityType: "decision",
-            entityPublicId: created.originDecisionPublicId,
-            action: "task_added",
-            userId: req.user?.id ?? null,
-            summary: `Added task ${created.publicId}`,
-            changes: { task: created },
-          });
-        }
-
-        return created;
+        return createTaskRecord(db, config, input, { userId, teamId });
       });
 
       res.status(201).json({ task });

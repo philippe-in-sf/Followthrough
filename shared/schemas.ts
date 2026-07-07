@@ -69,6 +69,16 @@ export const taskUpdateInputSchema = taskInputSchema.extend({
   blockersCleared: z.boolean().optional(),
 });
 
+export const decisionFollowUpTaskInputSchema = z.object({
+  description: z.string().trim().min(1),
+  blockers: z.string().trim().default(""),
+  notes: z.string().default(""),
+  assigneePublicId: publicIdSchema.optional().nullable(),
+  status: taskStatusSchema.default("Open"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  private: z.boolean().default(false),
+});
+
 export const meetingLinkInputSchema = z.object({
   label: z.string().trim().min(1),
   url: z.string().trim().url(),
@@ -108,4 +118,5 @@ export const decisionInputSchema = z.object({
   decisionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   context: z.string().trim().default(""),
   meetingPublicId: publicIdSchema.optional().nullable(),
+  followUpTask: decisionFollowUpTaskInputSchema.optional().nullable(),
 });

@@ -158,6 +158,15 @@ type DecisionInput = {
   decisionDate: string;
   context: string;
   meetingPublicId?: string | null;
+  followUpTask?: {
+    description: string;
+    blockers?: string;
+    notes?: string;
+    assigneePublicId?: string | null;
+    status?: TaskStatus;
+    dueDate?: string | null;
+    private?: boolean;
+  } | null;
 };
 
 type PersonInput = {

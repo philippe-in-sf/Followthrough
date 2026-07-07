@@ -501,7 +501,7 @@ function setupAppFetch(
     if (url.pathname === "/api/decisions" && method === "GET") return json({ decisions });
 
     if (url.pathname === "/api/decisions" && method === "POST") {
-      const decision = {
+      const decision: DecisionDto = {
         publicId: "D100",
         decisionText: body.decisionText,
         decisionDate: body.decisionDate,
@@ -510,6 +510,33 @@ function setupAppFetch(
         tasks: [],
         archived: false,
       };
+      if (body.followUpTask) {
+        const task: TaskDto = {
+          publicId: "T101",
+          description: body.followUpTask.description,
+          blockers: body.followUpTask.blockers ?? "",
+          notes: body.followUpTask.notes ?? "",
+          blockersClearedAt: null,
+          assignee:
+            people.find((person) => person.publicId === body.followUpTask.assigneePublicId) ??
+            null,
+          status: body.followUpTask.status ?? "Open",
+          dueDate: body.followUpTask.dueDate ?? null,
+          originMeetingPublicId: body.meetingPublicId ?? null,
+          originDecisionPublicId: decision.publicId,
+          seriesPublicId: null,
+          reminderMode: "manual",
+          lastReminderSentAt: null,
+          alert: null,
+          dependencies: [],
+          private: body.followUpTask.private ?? false,
+          archived: false,
+        };
+        tasks.push(task);
+        decision.tasks.push(task);
+        const meeting = meetings.find((item) => item.publicId === body.meetingPublicId);
+        meeting?.tasks.push(task);
+      }
       decisions.push(decision);
       return json({ decision }, 201);
     }
@@ -972,6 +999,13 @@ describe("dashboard and workspace flows", () => {
     await userEvent.type(screen.getByLabelText("Decision context"), "Recurring governance");
     expect(screen.getByLabelText("Meeting ID")).toHaveTextContent("M010 - Leadership sync");
     await userEvent.selectOptions(screen.getByLabelText("Meeting ID"), "M010");
+    await userEvent.click(screen.getByLabelText("Create follow-up task"));
+    await userEvent.type(
+      screen.getByLabelText("Follow-up task description"),
+      "Schedule weekly review",
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Follow-up assignee"), "P001");
+    await userEvent.type(screen.getByLabelText("Follow-up due date"), "2026-06-17");
     await userEvent.click(screen.getByRole("button", { name: "Add decision" }));
     const decisionCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
       .reverse()
@@ -979,9 +1013,15 @@ describe("dashboard and workspace flows", () => {
     expect(JSON.parse(String(decisionCreateCall?.[1]?.body))).toEqual(
       expect.objectContaining({
         meetingPublicId: "M010",
+        followUpTask: expect.objectContaining({
+          description: "Schedule weekly review",
+          assigneePublicId: "P001",
+          dueDate: "2026-06-17",
+        }),
       }),
     );
     expect(await screen.findByText("Adopt weekly review")).toBeInTheDocument();
+    expect(await screen.findByText(/Schedule weekly review/)).toBeInTheDocument();
   });
 
   it("keeps task filters collapsed until expanded", async () => {
