@@ -34,6 +34,17 @@ describe("skin contrast styles", () => {
     expect(css).toContain(".app-shell[data-skin] .compact-blocker-text-cleared");
   });
 
+  it("keeps parchment dashboard pulse counts readable on light rows", () => {
+    const css = styles();
+
+    expect(css).toContain(
+      ".app-shell[data-skin=\"parchment\"] .dashboard-pulse-row strong {\n  color: var(--skin-text);\n}",
+    );
+    expect(css).toContain(
+      ".app-shell[data-skin=\"parchment\"] .dashboard-pulse-row-hot strong {\n  color: #92400e;\n}",
+    );
+  });
+
   it("keeps Google Calendar panels dark and readable inside skins", () => {
     const css = styles();
 
