@@ -28,7 +28,7 @@ import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blocke
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { collapseLinks, LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { comparePublicRecordNumber } from "../../recordSort";
 import { scrollRecordIntoView } from "../../recordFocus";
@@ -198,14 +198,20 @@ function linkTypeLabel(value: MeetingLinkType) {
   return meetingLinkTypes.find((type) => type.value === value)?.label ?? "Link";
 }
 
-function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
+function MeetingBlockerNote({
+  meeting,
+  onRecordOpen,
+}: {
+  meeting: MeetingDto;
+  onRecordOpen?: (target: RecordReferenceTarget) => void;
+}) {
   if (!hasBlockers(meeting)) return null;
 
   return (
     <p className={`blocker-note ${hasClearedBlockers(meeting) ? "blocker-note-cleared" : ""}`}>
       <strong>{hasClearedBlockers(meeting) ? "Cleared blocker" : "Blocker"}</strong>
       <span>
-        <LinkedText text={meeting.blockers} />
+        <LinkedText text={meeting.blockers} onRecordOpen={onRecordOpen} />
       </span>
       {meeting.blockersClearedAt ? (
         <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
@@ -214,7 +220,13 @@ function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
   );
 }
 
-function MeetingTaskLinks({ meeting }: { meeting: MeetingDto }) {
+function MeetingTaskLinks({
+  meeting,
+  onRecordOpen,
+}: {
+  meeting: MeetingDto;
+  onRecordOpen?: (target: RecordReferenceTarget) => void;
+}) {
   if (meeting.tasks.length === 0) {
     return <p className="muted meeting-empty-detail">No tasks</p>;
   }
@@ -223,19 +235,22 @@ function MeetingTaskLinks({ meeting }: { meeting: MeetingDto }) {
     <div className="task-links">
       {meeting.tasks.map((task) => (
         <span key={task.publicId}>
-          <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+          <strong>
+            <LinkedText text={task.publicId} onRecordOpen={onRecordOpen} />
+          </strong>{" "}
+          <LinkedText text={task.description} onRecordOpen={onRecordOpen} />
           {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
           {hasClearedBlockers(task) ? (
             <StatusBadge label="Blocker cleared" tone="good" />
           ) : null}
           {hasBlockers(task) ? (
             <small className="task-link-blocker">
-              <LinkedText text={task.blockers} />
+              <LinkedText text={task.blockers} onRecordOpen={onRecordOpen} />
             </small>
           ) : null}
           {(task.notes ?? "").trim() ? (
             <small className="task-link-notes">
-              <LinkedText text={task.notes} />
+              <LinkedText text={task.notes} onRecordOpen={onRecordOpen} />
             </small>
           ) : null}
         </span>
@@ -441,6 +456,7 @@ export function MeetingsPage({
   googleCalendarConnected = false,
   googleCalendarEmail = null,
   onGoogleCalendarConnectionChange,
+  onRecordReferenceOpen,
 }: {
   focusSeriesPublicId?: string | null;
   focusMeetingPublicId?: string | null;
@@ -452,6 +468,7 @@ export function MeetingsPage({
   googleCalendarConnected?: boolean;
   googleCalendarEmail?: string | null;
   onGoogleCalendarConnectionChange?: (connected: boolean, email: string | null) => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
@@ -1168,9 +1185,11 @@ export function MeetingsPage({
               Back
             </button>
             <div>
-              <h2>{activeSeriesNotes.series.title}</h2>
+              <h2>
+                <LinkedText text={activeSeriesNotes.series.title} onRecordOpen={onRecordReferenceOpen} />
+              </h2>
               <p>
-                {activeSeriesNotes.series.publicId} ·{" "}
+                <LinkedText text={activeSeriesNotes.series.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
                 {activeSeriesNotes.series.cadenceLabel || "Recurring"}
               </p>
             </div>
@@ -1205,9 +1224,12 @@ export function MeetingsPage({
                 >
                   <header className="series-note-header">
                     <div>
-                      <h3>{meeting.title}</h3>
+                      <h3>
+                        <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
+                      </h3>
                       <span>
-                        {meeting.publicId} · {new Date(meeting.startsAt).toLocaleString()}
+                        <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
+                        {new Date(meeting.startsAt).toLocaleString()}
                       </span>
                     </div>
                     <div className="series-note-badges">
@@ -1223,7 +1245,7 @@ export function MeetingsPage({
                   </header>
                   <div className={notes ? "series-note-body" : "series-note-body muted"}>
                     {notes ? (
-                      <LinkedText text={notes} />
+                      <LinkedText text={notes} onRecordOpen={onRecordReferenceOpen} />
                     ) : (
                       "No notes captured for this occurrence."
                     )}
@@ -1253,9 +1275,11 @@ export function MeetingsPage({
               Back
             </button>
             <div>
-              <h2>{activeNotesMeeting.title}</h2>
+              <h2>
+                <LinkedText text={activeNotesMeeting.title} onRecordOpen={onRecordReferenceOpen} />
+              </h2>
               <p>
-                {activeNotesMeeting.publicId} ·{" "}
+                <LinkedText text={activeNotesMeeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
                 {new Date(activeNotesMeeting.startsAt).toLocaleString()}
               </p>
             </div>
@@ -1481,19 +1505,22 @@ export function MeetingsPage({
                 <div className="task-links">
                   {activeNotesMeeting.tasks.map((task) => (
                     <span key={task.publicId}>
-                      <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                      <strong>
+                        <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} />
+                      </strong>{" "}
+                      <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
                       {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
                       {hasClearedBlockers(task) ? (
                         <StatusBadge label="Blocker cleared" tone="good" />
                       ) : null}
                       {hasBlockers(task) ? (
                         <small className="task-link-blocker">
-                          <LinkedText text={task.blockers} />
+                          <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
                         </small>
                       ) : null}
                       {(task.notes ?? "").trim() ? (
                         <small className="task-link-notes">
-                          <LinkedText text={task.notes} />
+                          <LinkedText text={task.notes} onRecordOpen={onRecordReferenceOpen} />
                         </small>
                       ) : null}
                     </span>
@@ -1985,9 +2012,11 @@ export function MeetingsPage({
                   <div className="series-row" key={item.publicId}>
                     <div className="series-row-main">
                       <strong>
-                        <LinkedText text={item.title} />
+                        <LinkedText text={item.title} onRecordOpen={onRecordReferenceOpen} />
                       </strong>
-                      <span>{item.publicId}</span>
+                      <span>
+                        <LinkedText text={item.publicId} onRecordOpen={onRecordReferenceOpen} />
+                      </span>
                     </div>
                     <div className="series-row-actions">
                       <span className="hint-chip hint-chip-teal">
@@ -2096,13 +2125,13 @@ export function MeetingsPage({
                             <section className="meeting-detail-section">
                               <h4>Summary</h4>
                               <p>
-                                <LinkedText text={meeting.summary || "No summary"} />
+                                <LinkedText text={meeting.summary || "No summary"} onRecordOpen={onRecordReferenceOpen} />
                               </p>
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Blockers</h4>
                               {hasBlockers(meeting) ? (
-                                <MeetingBlockerNote meeting={meeting} />
+                                <MeetingBlockerNote meeting={meeting} onRecordOpen={onRecordReferenceOpen} />
                               ) : (
                                 <p className="muted meeting-empty-detail">No blockers</p>
                               )}
@@ -2113,7 +2142,7 @@ export function MeetingsPage({
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Tasks</h4>
-                              <MeetingTaskLinks meeting={meeting} />
+                              <MeetingTaskLinks meeting={meeting} onRecordOpen={onRecordReferenceOpen} />
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Links</h4>
@@ -2346,7 +2375,7 @@ export function MeetingsPage({
                               onSubmit={(event) => submitMeetingTask(event, meeting)}
                             />
                           ) : null}
-                          <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
+                          <AuditLog events={meetingAudits[meeting.publicId] ?? []} onRecordOpen={onRecordReferenceOpen} />
                         </div>
                       ) : null}
                     </article>
