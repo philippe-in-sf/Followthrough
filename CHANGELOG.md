@@ -9,7 +9,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep adding release notes before each package version bump and deployment.
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
-- Consider adding a visual editor for the meeting notes box.
+
+## 1.2.9 - 2026-07-07
+
+### Added
+
+- Added a markdown toolbar and rich rendered note display for task, meeting, series, and related-record note fields.
 
 ## 1.2.8 - 2026-07-07
 
