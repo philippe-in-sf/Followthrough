@@ -11,6 +11,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.4 - 2026-07-07
+
+### Changed
+
+- Collapsed the skin selector behind a compact icon menu to reduce header clutter while keeping all theme options accessible.
+
 ## 1.2.3 - 2026-07-07
 
 ### Added
