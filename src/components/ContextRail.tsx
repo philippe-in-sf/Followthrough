@@ -4,7 +4,7 @@ export function ContextRail({ section }: { section: AppSection }) {
   const current = sectionNavigation[section];
 
   return (
-    <aside className="context-rail" aria-label={`${section} context`}>
+    <aside className="context-rail" aria-label={`${section} context`} data-tour-id="section-context">
       <p className="context-eyebrow">Current section</p>
       <h2>{section}</h2>
       <p className="context-description">{current.description}</p>

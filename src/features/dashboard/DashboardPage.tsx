@@ -204,7 +204,11 @@ export function DashboardPage({
 
   return (
     <main className="page dashboard-page">
-      <section className="dashboard-hero" aria-labelledby="dashboard-heading">
+      <section
+        className="dashboard-hero"
+        aria-labelledby="dashboard-heading"
+        data-tour-id="dashboard-overview"
+      >
         <div className="dashboard-hero-copy">
           <p className="marketing-eyebrow dashboard-eyebrow">Command center</p>
           <h2 id="dashboard-heading">Workspace</h2>

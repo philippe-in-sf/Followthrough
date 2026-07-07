@@ -1648,6 +1648,7 @@ export function MeetingsPage({
           ) : null}
       <form
         className="quick-meeting-form"
+        data-tour-id="meeting-capture"
         aria-label="Quick add one-time meeting"
         onSubmit={submitQuickMeeting}
       >

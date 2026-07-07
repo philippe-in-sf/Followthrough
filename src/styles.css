@@ -275,6 +275,93 @@ textarea {
   background: #ffffff;
 }
 
+.guided-tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.guided-tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.guided-tour-highlight {
+  position: fixed;
+  border: 2px solid #2dd4bf;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 9999px rgba(15, 23, 42, 0.58),
+    0 0 0 6px rgba(45, 212, 191, 0.22);
+  pointer-events: none;
+  transition:
+    top 140ms ease,
+    left 140ms ease,
+    width 140ms ease,
+    height 140ms ease;
+}
+
+.guided-tour-card {
+  position: fixed;
+  display: grid;
+  gap: 12px;
+  border: 1px solid #c8d0dc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d2433;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+  padding: 16px;
+  pointer-events: auto;
+}
+
+.guided-tour-card-header,
+.guided-tour-actions,
+.guided-tour-actions > div {
+  display: flex;
+  align-items: center;
+}
+
+.guided-tour-card-header {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guided-tour-card-header span {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.guided-tour-card h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.guided-tour-card p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.guided-tour-close {
+  width: 30px;
+  height: 30px;
+}
+
+.guided-tour-actions {
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.guided-tour-actions > div {
+  gap: 8px;
+}
+
 .user-name {
   margin-left: auto;
   white-space: nowrap;
@@ -3695,6 +3782,26 @@ button:disabled {
     width: 100%;
   }
 
+  .guided-tour-card {
+    inset:
+      auto 14px calc(76px + env(safe-area-inset-bottom))
+      14px !important;
+    width: auto !important;
+    max-height: min(62vh, 420px);
+    overflow-y: auto;
+  }
+
+  .guided-tour-actions,
+  .guided-tour-actions > div {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .guided-tour-actions > div,
+  .guided-tour-actions button {
+    flex: 1;
+  }
+
   .mobile-section-summary {
     display: grid;
     gap: 8px;
@@ -4235,6 +4342,25 @@ button:disabled {
 .app-shell[data-skin] .calendar-settings-toggle[aria-expanded="true"] {
   background: var(--skin-surface-raised);
   color: var(--skin-action);
+}
+
+.app-shell[data-skin] .guided-tour-card {
+  border-color: var(--skin-border);
+  background: var(--skin-surface);
+  color: var(--skin-text);
+  box-shadow: 0 24px 60px var(--skin-shadow);
+}
+
+.app-shell[data-skin] .guided-tour-card p,
+.app-shell[data-skin] .guided-tour-card-header span {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .guided-tour-highlight {
+  border-color: var(--skin-focus);
+  box-shadow:
+    0 0 0 9999px rgba(5, 8, 13, 0.62),
+    0 0 0 6px color-mix(in srgb, var(--skin-focus) 22%, transparent);
 }
 
 .app-shell[data-skin] .context-row > span:first-child::before,

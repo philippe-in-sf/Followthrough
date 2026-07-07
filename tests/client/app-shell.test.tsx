@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appSkinStorageKey } from "../../src/appSkins";
 import { AppShell, type AppSection } from "../../src/components/AppShell";
+import { getGuidedTourStorageKey } from "../../src/components/GuidedTour";
 import type { User } from "../../src/api/types";
 
 const user: User = {
@@ -26,10 +27,16 @@ afterEach(() => {
 function renderShell(
   section: AppSection = "Dashboard",
   options: {
+    guidedTourCompleted?: boolean;
     workCalendarUrl?: string | null;
     user?: User;
   } = {},
 ) {
+  const shellUser = options.user ?? user;
+  if (options.guidedTourCompleted !== false) {
+    localStorage.setItem(getGuidedTourStorageKey(shellUser.id), "true");
+  }
+
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
   const onLeaveTeam = vi.fn();
@@ -37,7 +44,7 @@ function renderShell(
 
   const result = render(
     <AppShell
-      user={options.user ?? user}
+      user={shellUser}
       section={section}
       onSectionChange={onSectionChange}
       onLogout={onLogout}
@@ -81,6 +88,43 @@ describe("AppShell split context rail", () => {
     expect(screen.getByRole("radio", { name: "Harbor" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Cedar" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Cinder" })).toBeInTheDocument();
+  });
+
+  it("opens the guided tour for first-run users and remembers a skip", async () => {
+    renderShell("Dashboard", { guidedTourCompleted: false });
+
+    const dialog = await screen.findByRole("dialog", { name: "Guided tour" });
+    expect(within(dialog).getByRole("heading", { name: "Primary navigation" })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Skip tour" }));
+
+    expect(screen.queryByRole("dialog", { name: "Guided tour" })).not.toBeInTheDocument();
+    expect(localStorage.getItem(getGuidedTourStorageKey(user.id))).toBe("true");
+  });
+
+  it("relaunches the guided tour from the topbar", async () => {
+    renderShell("Dashboard");
+
+    expect(screen.queryByRole("dialog", { name: "Guided tour" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Start guided tour" }));
+
+    expect(screen.getByRole("dialog", { name: "Guided tour" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Primary navigation" })).toBeInTheDocument();
+  });
+
+  it("switches sections for page-specific guided tour steps", async () => {
+    const { onSectionChange } = renderShell("Dashboard");
+
+    await userEvent.click(screen.getByRole("button", { name: "Start guided tour" }));
+    const dialog = screen.getByRole("dialog", { name: "Guided tour" });
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+    expect(onSectionChange).toHaveBeenCalledWith("Tasks");
   });
 
   it("changes and stores the selected app skin", async () => {

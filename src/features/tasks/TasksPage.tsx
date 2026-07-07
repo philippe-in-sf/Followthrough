@@ -600,7 +600,7 @@ export function TasksPage({
         </div>
       </form>
       ) : null}
-      <section className="task-filter-panel" aria-label="Task filters">
+      <section className="task-filter-panel" aria-label="Task filters" data-tour-id="task-workflow">
         <div className="task-filter-summary-row">
           <button
             aria-controls="task-filter-fields"

@@ -24,7 +24,7 @@ export function IconRail({
       <div className="app-mark" aria-hidden="true">
         <BrandMark logoUrl={teamLogoUrl} teamName={teamName} />
       </div>
-      <nav className="icon-rail-nav" aria-label="Primary sections">
+      <nav className="icon-rail-nav" aria-label="Primary sections" data-tour-id="primary-navigation">
         {visibleSectionOrder(isAdmin).map(({ section: item, icon: Icon }) => (
           <button
             aria-current={item === section ? "page" : undefined}

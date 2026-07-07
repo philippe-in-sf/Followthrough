@@ -6,6 +6,7 @@ import { loadClientConfig } from "../clientConfig";
 import { BrandMark } from "./BrandMark";
 import { ContextRail } from "./ContextRail";
 import { GlobalSearch } from "./GlobalSearch";
+import { GuidedTour } from "./GuidedTour";
 import { IconRail } from "./IconRail";
 import { MobileSectionSummary } from "./MobileSectionSummary";
 import { SkinSelector } from "./SkinSelector";
@@ -61,6 +62,7 @@ export function AppShell({
           </div>
           <GlobalSearch onOpenSection={onSectionChange} />
           <SkinSelector skin={skin} onSkinChange={setSkin} />
+          <GuidedTour section={section} onSectionChange={onSectionChange} userId={user.id} />
           <span className="team-name">{user.team.name}</span>
           <span className="user-name">{user.name}</span>
           {notificationStatus !== "unsupported" ? (
