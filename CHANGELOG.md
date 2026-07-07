@@ -11,6 +11,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.3 - 2026-07-07
+
+### Added
+
+- Added a guided onboarding tour with first-run launch, relaunch controls, highlighted feature targets, and per-user completion state.
+
 ## 1.2.2 - 2026-07-06
 
 ### Added
