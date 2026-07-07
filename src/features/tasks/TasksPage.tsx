@@ -12,7 +12,7 @@ import { hasActiveBlockers, hasClearedBlockers } from "../../blockers";
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { collapseLinks, LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 import { comparePublicRecordNumber } from "../../recordSort";
@@ -171,7 +171,7 @@ export function TasksPage({
   onTaskFocusHandled,
 }: {
   focusTaskPublicId?: string | null;
-  onReferenceOpen?: (target: RecordReferenceTarget) => void;
+  onReferenceOpen?: (target: TaskReferenceTarget) => void;
   onTaskFocusHandled?: () => void;
 }) {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
@@ -818,14 +818,12 @@ export function TasksPage({
                                     key={dependency.publicId}
                                   >
                                     <span>
-                                      <strong>
-                                        <LinkedText text={dependency.publicId} onRecordOpen={onReferenceOpen} />
-                                      </strong>
+                                      <strong>{dependency.publicId}</strong>
                                       <span>
-                                        <LinkedText
-                                          text={singleLineText(dependency.description, "Untitled task")}
-                                          onRecordOpen={onReferenceOpen}
-                                        />
+                                        {singleLineText(
+                                          dependency.description,
+                                          "Untitled task",
+                                        )}
                                       </span>
                                     </span>
                                     <span className="task-dependency-status">
@@ -847,7 +845,7 @@ export function TasksPage({
                           <section className="task-detail-section">
                             <h4>Blockers</h4>
                             <p>
-                              <LinkedText text={task.blockers || "No blockers"} onRecordOpen={onReferenceOpen} />
+                              <LinkedText text={task.blockers || "No blockers"} />
                             </p>
                             {task.blockersClearedAt ? (
                               <small>Cleared {new Date(task.blockersClearedAt).toLocaleString()}</small>
@@ -856,10 +854,7 @@ export function TasksPage({
                           <section className="task-detail-section">
                             <h4>Notes</h4>
                             <p>
-                              <LinkedText
-                                text={(task.notes ?? "").trim() ? task.notes ?? "" : "No notes"}
-                                onRecordOpen={onReferenceOpen}
-                              />
+                              <LinkedText text={(task.notes ?? "").trim() ? task.notes ?? "" : "No notes"} />
                             </p>
                           </section>
                         </div>
@@ -1098,7 +1093,7 @@ export function TasksPage({
                             </button>
                           </div>
                         </form>
-                        <AuditLog events={taskAudits[task.publicId] ?? []} onRecordOpen={onReferenceOpen} />
+                        <AuditLog events={taskAudits[task.publicId] ?? []} />
                       </>
                     ) : null}
                       </div>

@@ -5,9 +5,8 @@ import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blocke
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { LinkedText } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
-import { scrollRecordIntoView } from "../../recordFocus";
 
 function formatDate(value: string | null) {
   return value ?? "No due date";
@@ -17,15 +16,7 @@ function formatMeetingTime(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export function PeoplePage({
-  focusPersonPublicId,
-  onPersonFocusHandled,
-  onRecordReferenceOpen,
-}: {
-  focusPersonPublicId?: string | null;
-  onPersonFocusHandled?: () => void;
-  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
-}) {
+export function PeoplePage() {
   const [people, setPeople] = useState<PersonDto[]>([]);
   const [peopleAudits, setPeopleAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [relatedRecords, setRelatedRecords] = useState<Record<string, PersonRelatedRecordsDto>>({});
@@ -157,17 +148,6 @@ export function PeoplePage({
     }
   }
 
-  useEffect(() => {
-    if (!focusPersonPublicId) return;
-    const person = people.find((item) => item.publicId === focusPersonPublicId);
-    if (!person) return;
-
-    void selectPerson(person).then(() => {
-      scrollRecordIntoView(`person-${person.publicId}`);
-      onPersonFocusHandled?.();
-    });
-  }, [focusPersonPublicId, people, onPersonFocusHandled]);
-
   function cancelEdit() {
     setEditingPersonPublicId(null);
   }
@@ -267,7 +247,7 @@ export function PeoplePage({
       ) : (
         <div className="record-list">
           {people.map((person) => (
-            <div className="person-record" id={`person-${person.publicId}`} key={person.publicId}>
+            <div className="person-record" key={person.publicId}>
               <article
                 className={`record-row person-row ${
                   selectedPersonPublicId === person.publicId ? "person-row-selected" : ""
@@ -324,7 +304,7 @@ export function PeoplePage({
                       Cancel edit {person.publicId}
                     </button>
                   </div>
-                  <AuditLog events={peopleAudits[person.publicId] ?? []} onRecordOpen={onRecordReferenceOpen} />
+                  <AuditLog events={peopleAudits[person.publicId] ?? []} />
                 </form>
               ) : null}
               {selectedPersonPublicId === person.publicId ? (
@@ -351,11 +331,10 @@ export function PeoplePage({
                             {relatedRecords[person.publicId].meetings.map((meeting) => (
                               <li key={meeting.publicId}>
                                 <strong>
-                                  <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
+                                  <LinkedText text={meeting.title} />
                                 </strong>
                                 <span>
-                                  <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {formatMeetingTime(meeting.startsAt)}
+                                  {meeting.publicId} - {formatMeetingTime(meeting.startsAt)}
                                   {hasActiveBlockers(meeting) ? (
                                     <StatusBadge label="Blocker" tone="bad" />
                                   ) : null}
@@ -365,7 +344,7 @@ export function PeoplePage({
                                 </span>
                                 {hasBlockers(meeting) ? (
                                   <span className="person-related-blocker">
-                                    <LinkedText text={meeting.blockers} onRecordOpen={onRecordReferenceOpen} />
+                                    <LinkedText text={meeting.blockers} />
                                   </span>
                                 ) : null}
                               </li>
@@ -382,11 +361,10 @@ export function PeoplePage({
                             {relatedRecords[person.publicId].tasks.map((task) => (
                               <li key={task.publicId}>
                                 <strong>
-                                  <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
+                                  <LinkedText text={task.description} />
                                 </strong>
                                 <span>
-                                  <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {task.status} - {formatDate(task.dueDate)}
+                                  {task.publicId} - {task.status} - {formatDate(task.dueDate)}
                                   {hasActiveBlockers(task) ? (
                                     <StatusBadge label="Blocker" tone="bad" />
                                   ) : null}
@@ -396,12 +374,12 @@ export function PeoplePage({
                                 </span>
                                 {hasBlockers(task) ? (
                                   <span className="person-related-blocker">
-                                    <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
+                                    <LinkedText text={task.blockers} />
                                   </span>
                                 ) : null}
                                 {(task.notes ?? "").trim() ? (
                                   <span className="person-related-note">
-                                    <LinkedText text={task.notes} onRecordOpen={onRecordReferenceOpen} />
+                                    <LinkedText text={task.notes} />
                                   </span>
                                 ) : null}
                               </li>
@@ -418,16 +396,11 @@ export function PeoplePage({
                             {relatedRecords[person.publicId].decisions.map((decision) => (
                               <li key={decision.publicId}>
                                 <strong>
-                                  <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
+                                  <LinkedText text={decision.decisionText} />
                                 </strong>
                                 <span>
-                                  <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {decision.decisionDate} -{" "}
-                                  {decision.meetingPublicId ? (
-                                    <LinkedText text={decision.meetingPublicId} onRecordOpen={onRecordReferenceOpen} />
-                                  ) : (
-                                    "No meeting"
-                                  )}
+                                  {decision.publicId} - {decision.decisionDate} -{" "}
+                                  {decision.meetingPublicId}
                                 </span>
                               </li>
                             ))}

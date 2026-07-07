@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { collapseLinks, LinkedText } from "../../src/components/LinkedText";
 
 describe("LinkedText", () => {
@@ -29,34 +28,6 @@ describe("LinkedText", () => {
 
     expect(screen.getByText("Send the notes")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  });
-
-  it("links public record IDs when a record opener is provided", async () => {
-    const onRecordOpen = vi.fn();
-    render(
-      <p>
-        <LinkedText text="Follow up with P010 about T009 after M254." onRecordOpen={onRecordOpen} />
-      </p>,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "Open person P010" }));
-    await userEvent.click(screen.getByRole("button", { name: "Open task T009" }));
-    await userEvent.click(screen.getByRole("button", { name: "Open meeting M254" }));
-
-    expect(onRecordOpen).toHaveBeenNthCalledWith(1, { publicId: "P010", type: "person" });
-    expect(onRecordOpen).toHaveBeenNthCalledWith(2, { publicId: "T009", type: "task" });
-    expect(onRecordOpen).toHaveBeenNthCalledWith(3, { publicId: "M254", type: "meeting" });
-  });
-
-  it("leaves public record IDs as text without a record opener", () => {
-    render(
-      <p>
-        <LinkedText text="Follow up with P010 about T009." />
-      </p>,
-    );
-
-    expect(screen.getByText("Follow up with P010 about T009.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Open/ })).not.toBeInTheDocument();
   });
 
   it("collapses urls to text for non-linkable controls", () => {
