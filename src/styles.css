@@ -4284,6 +4284,28 @@ button:disabled {
   color: var(--skin-rail-muted);
 }
 
+.app-shell[data-skin="parchment"] .dashboard-pulse {
+  border-color: color-mix(in srgb, var(--skin-border) 78%, transparent);
+  background: color-mix(in srgb, var(--skin-surface) 74%, transparent);
+}
+
+.app-shell[data-skin="parchment"] .dashboard-pulse-row {
+  border-color: color-mix(in srgb, var(--skin-border) 88%, transparent);
+  background: color-mix(in srgb, var(--skin-surface-alt) 94%, transparent);
+}
+
+.app-shell[data-skin="parchment"] .dashboard-pulse-row span {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin="parchment"] .dashboard-pulse-row strong {
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin="parchment"] .dashboard-pulse-row-hot strong {
+  color: #92400e;
+}
+
 .app-shell[data-skin] .context-rail,
 .app-shell[data-skin] .topbar,
 .app-shell[data-skin] .mobile-section-summary {
