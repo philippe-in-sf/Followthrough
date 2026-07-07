@@ -11,6 +11,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.6 - 2026-07-07
+
+### Fixed
+
+- Stopped new recurring meeting occurrences from copying notes out of earlier meetings in the same series.
+
 ## 1.2.5 - 2026-07-07
 
 ### Changed

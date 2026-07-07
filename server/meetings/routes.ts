@@ -20,7 +20,6 @@ import {
   getLatestSeriesMeetingContext,
   linkOpenSeriesTasksToMeeting,
   mergeCarriedLinks,
-  mergeCarriedNotes,
 } from "./carryOver.js";
 
 type SeriesRow = {
@@ -363,10 +362,7 @@ function createMeeting(
 
     const carriedContext = series
       ? getLatestSeriesMeetingContext(db, series.id, input.startsAt, userId)
-      : { notes: "", links: [] };
-    const notes = series
-      ? mergeCarriedNotes(carriedContext.notes, input.notes)
-      : input.notes;
+      : { links: [] };
     const links = series
       ? mergeCarriedLinks(carriedContext.links, input.links)
       : input.links;
@@ -389,7 +385,7 @@ function createMeeting(
       input.summary,
       input.blockers,
       blockersClearedAt,
-      notes,
+      input.notes,
       input.private ? 1 : 0,
       userId,
       teamId,
@@ -515,7 +511,6 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.startsAt,
           userId,
         );
-        const notes = mergeCarriedNotes(carriedContext.notes, input.notes);
         const links = mergeCarriedLinks(carriedContext.links, input.links);
 
         const publicId = nextPublicId(db, "M");
@@ -535,7 +530,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.summary,
           input.blockers,
           blockersClearedAt,
-          notes,
+          input.notes,
           input.private ? 1 : 0,
           userId,
           teamId,
