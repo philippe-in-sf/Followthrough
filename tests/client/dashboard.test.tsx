@@ -69,7 +69,7 @@ function setupAppFetch(
       publicId: "T099",
       description: "Prep launch plan",
       blockers: "Waiting on finance numbers",
-      notes: "Finance owner pinged; waiting on workbook.",
+      notes: "Finance owner P001 pinged; waiting on workbook.",
       blockersClearedAt: null,
       assignee: avery,
       status: "Open",
@@ -346,6 +346,15 @@ function setupAppFetch(
     }
 
     if (url.pathname === "/api/people" && method === "GET") return json({ people });
+
+    if (url.pathname === "/api/people/P001/records" && method === "GET") {
+      return json({
+        person: avery,
+        meetings,
+        tasks,
+        decisions,
+      });
+    }
 
     if (url.pathname === "/api/people" && method === "POST") {
       expect(body).toEqual(
@@ -836,6 +845,22 @@ describe("dashboard and workspace flows", () => {
     expect(within(screen.getByRole("main")).getByText("Previous launch notes")).toBeInTheDocument();
   });
 
+  it("opens inline person IDs from record notes", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    const taskCard = await expandTaskCard("T099");
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open person P001" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "People" })).toBeInTheDocument();
+    });
+    const related = await screen.findByRole("region", { name: "Related records for P001" });
+    expect(related).toHaveTextContent("Prep launch plan");
+  });
+
   it("collapses task description urls in collapsed task cards", async () => {
     setupAppFetch();
     render(<App />);
@@ -905,7 +930,7 @@ describe("dashboard and workspace flows", () => {
       "Waiting on finance numbers",
     );
     expect(within(taskCard).getByLabelText("Task notes for T099")).toHaveValue(
-      "Finance owner pinged; waiting on workbook.",
+      "Finance owner P001 pinged; waiting on workbook.",
     );
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
@@ -1332,7 +1357,10 @@ describe("dashboard and workspace flows", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Project sync" })).toBeInTheDocument();
-    expect(screen.getByText("S001 · Weekly")).toBeInTheDocument();
+    const seriesPublicIdLink = within(screen.getByRole("main")).getByRole("button", {
+      name: "Open series S001",
+    });
+    expect(seriesPublicIdLink.closest("p")).toHaveTextContent("S001 · Weekly");
     expect(screen.getByText("2 meetings")).toBeInTheDocument();
     expect(screen.getByText("2 notes")).toBeInTheDocument();
 
@@ -1598,7 +1626,11 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
     expect(await screen.findByText("Need customer list")).toBeInTheDocument();
     expect(await screen.findByText("Customer list request sent.")).toBeInTheDocument();
-    expect(await screen.findByText("Added task T100")).toBeInTheDocument();
+    await waitFor(() => {
+      const auditLog = within(meetingCard).getByRole("region", { name: "Audit history" });
+      const auditTaskLink = within(auditLog).getByRole("button", { name: "Open task T100" });
+      expect(auditTaskLink.closest("strong")).toHaveTextContent("Added task T100");
+    });
 
     const refreshedMeetingCard = await screen.findByLabelText("Meeting M010");
     await userEvent.click(

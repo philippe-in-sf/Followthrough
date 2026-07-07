@@ -118,6 +118,21 @@ textarea {
   text-underline-offset: 2px;
 }
 
+.inline-record-link {
+  display: inline;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.inline-record-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 .icon-rail-button.active,
 .icon-rail-button:hover {
   background: #f8fafc;
