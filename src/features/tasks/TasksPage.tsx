@@ -13,6 +13,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 import { comparePublicRecordNumber } from "../../recordSort";
@@ -490,12 +491,11 @@ export function TasksPage({
             }
           />
         </FormField>
-        <FormField label="Task notes">
-          <textarea
-            value={form.notes}
-            onChange={(event) => setForm({ ...form, notes: event.target.value })}
-          />
-        </FormField>
+        <MarkdownNotesEditor
+          label="Task notes"
+          value={form.notes}
+          onChange={(notes) => setForm({ ...form, notes })}
+        />
         <FormField label="Task assignee">
           <select
             value={form.assigneePublicId}
@@ -855,12 +855,7 @@ export function TasksPage({
                           </section>
                           <section className="task-detail-section">
                             <h4>Notes</h4>
-                            <p>
-                              <LinkedText
-                                text={(task.notes ?? "").trim() ? task.notes ?? "" : "No notes"}
-                                onRecordOpen={onReferenceOpen}
-                              />
-                            </p>
+                            <RichNoteText text={task.notes ?? ""} onRecordOpen={onReferenceOpen} />
                           </section>
                         </div>
                         <div className="task-card-actions">
@@ -939,17 +934,16 @@ export function TasksPage({
                               }
                             />
                           </FormField>
-                          <FormField label={`Task notes for ${task.publicId}`}>
-                            <textarea
-                              value={taskEditForm.notes}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  notes: event.target.value,
-                                })
-                              }
-                            />
-                          </FormField>
+                          <MarkdownNotesEditor
+                            label={`Task notes for ${task.publicId}`}
+                            value={taskEditForm.notes}
+                            onChange={(notes) =>
+                              setTaskEditForm({
+                                ...taskEditForm,
+                                notes,
+                              })
+                            }
+                          />
                           <FormField label={`Task assignee for ${task.publicId}`}>
                             <select
                               value={taskEditForm.assigneePublicId}
