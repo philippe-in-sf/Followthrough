@@ -11,6 +11,16 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 - Consider adding a visual editor for the meeting notes box.
 
+## 1.2.5 - 2026-07-07
+
+### Changed
+
+- Shifted deploy verification to rely on the required PR `Verify` workflow instead of rerunning typecheck and build during production deploys.
+
+### Fixed
+
+- Improved parchment dashboard pulse contrast so blocker and open-task counts stay readable on light metric rows.
+
 ## 1.2.4 - 2026-07-07
 
 ### Changed

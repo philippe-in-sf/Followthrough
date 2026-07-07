@@ -115,12 +115,6 @@ function stageRelease(releaseId: string) {
   }
 }
 
-function runLocalGates() {
-  run("npm", ["run", "changelog:check"]);
-  run("npm", ["run", "check"]);
-  run("npm", ["run", "build"]);
-}
-
 function assertDeployGitState() {
   const status = captureChecked("git", ["status", "--porcelain"], "git worktree status");
   if (status) {
@@ -183,7 +177,6 @@ function main() {
   const config = parseDeployConfig();
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
   assertDeployGitState();
-  runLocalGates();
 
   const localVersion = readPackageVersion();
   const gitSha = captureRequired("git", ["rev-parse", "--short", "HEAD"], "git commit");

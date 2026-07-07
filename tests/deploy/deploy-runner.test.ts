@@ -143,7 +143,7 @@ describe("deploy runner", () => {
     }
   });
 
-  it("runs local gates and stages the release once for multiple sites", () => {
+  it("stages the release once for multiple sites without rerunning PR verification gates", () => {
     const fixture = createDeployFixture();
 
     try {
@@ -175,10 +175,10 @@ describe("deploy runner", () => {
       expect(result.status, output).toBe(0);
 
       const lines = readCommandLog(fixture.commandLog);
-      expect(lines.filter((line) => line === "npm run changelog:check")).toHaveLength(1);
-      expect(lines.filter((line) => line === "npm run check")).toHaveLength(1);
+      expect(lines.filter((line) => line === "npm run changelog:check")).toHaveLength(0);
+      expect(lines.filter((line) => line === "npm run check")).toHaveLength(0);
       expect(lines.filter((line) => line === "npm run test")).toHaveLength(0);
-      expect(lines.filter((line) => line === "npm run build")).toHaveLength(1);
+      expect(lines.filter((line) => line === "npm run build")).toHaveLength(0);
       expect(lines.filter((line) => line === "git status --porcelain")).toHaveLength(1);
       expect(lines.filter((line) => line === "git branch --show-current")).toHaveLength(1);
       expect(lines.filter((line) => line === "git fetch origin refs/heads/main:refs/remotes/origin/main")).toHaveLength(1);
@@ -201,7 +201,7 @@ describe("deploy runner", () => {
     }
   });
 
-  it("fails before local gates when the worktree is dirty", () => {
+  it("fails before deployment when the worktree is dirty", () => {
     const fixture = createDeployFixture();
 
     try {
@@ -224,7 +224,7 @@ describe("deploy runner", () => {
     }
   });
 
-  it("fails before local gates when the current branch is not main", () => {
+  it("fails before deployment when the current branch is not main", () => {
     const fixture = createDeployFixture();
 
     try {
@@ -247,7 +247,7 @@ describe("deploy runner", () => {
     }
   });
 
-  it("fails before local gates when local main does not match origin main", () => {
+  it("fails before deployment when local main does not match origin main", () => {
     const fixture = createDeployFixture();
 
     try {
