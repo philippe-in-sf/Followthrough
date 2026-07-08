@@ -750,7 +750,6 @@ export function TasksPage({
                         <span>{task.publicId}</span>
                       </span>
                       <span className="task-summary-meta">
-                        <StatusBadge label={task.status} />
                         {task.alert === "dueSoon" ? (
                           <StatusBadge label="Due soon" tone="warn" />
                         ) : null}
@@ -772,6 +771,9 @@ export function TasksPage({
                         <span>{task.assignee?.name ?? "Unassigned"}</span>
                         <span>{task.dueDate ?? "No due date"}</span>
                       </span>
+                      <span className="task-summary-status">
+                        <StatusBadge label={task.status} />
+                      </span>
                     </button>
                     {isExpanded ? (
                       <div className="task-expanded-content" id={detailsId}>
@@ -781,7 +783,6 @@ export function TasksPage({
                             <p>{task.assignee?.name ?? "Unassigned"}</p>
                             <p>{task.dueDate ?? "No due date"}</p>
                             <div className="task-detail-badges">
-                              <StatusBadge label={task.status} />
                               {task.originMeetingPublicId ? (
                                 <TaskReferenceChip
                                   label={`Meeting ${task.originMeetingPublicId}`}

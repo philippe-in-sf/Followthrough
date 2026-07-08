@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.15 - 2026-07-08
+
+### Changed
+
+- Moved task status badges to the top-right corner of task cards for faster scanning.
+
 ## 1.2.14 - 2026-07-07
 
 ### Added
