@@ -474,6 +474,7 @@ export function TasksPage({
       <form className="editor-form" onSubmit={submitTask}>
         <FormField label="Task description">
           <input
+            className="task-create-primary-field"
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
             required
@@ -481,6 +482,7 @@ export function TasksPage({
         </FormField>
         <FormField label="Task blockers">
           <textarea
+            className="task-create-primary-field"
             value={form.blockers}
             onChange={(event) =>
               setForm({

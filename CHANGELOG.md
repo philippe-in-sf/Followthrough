@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.11 - 2026-07-07
+
+### Fixed
+
+- Matched the task description and blocker field heights in the task create form.
+
 ## 1.2.10 - 2026-07-07
 
 ### Added

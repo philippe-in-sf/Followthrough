@@ -2124,6 +2124,10 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.editor-form .task-create-primary-field {
+  min-height: 82px;
+}
+
 .editor-form > .rich-notes-field,
 .meeting-task-form > .rich-notes-field,
 .task-edit-form > .rich-notes-field {
