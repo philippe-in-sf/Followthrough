@@ -2970,7 +2970,8 @@ button:disabled {
 
 .task-summary-button {
   display: grid;
-  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.35fr);
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1fr) auto;
+  grid-template-areas: "title meta status";
   align-items: center;
   gap: 14px;
   width: 100%;
@@ -2994,11 +2995,13 @@ button:disabled {
 }
 
 .task-summary-title,
-.task-summary-meta {
+.task-summary-meta,
+.task-summary-status {
   min-width: 0;
 }
 
 .task-summary-title {
+  grid-area: title;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3029,10 +3032,18 @@ button:disabled {
 }
 
 .task-summary-meta {
+  grid-area: meta;
   display: flex;
   align-items: center;
   gap: 8px;
   overflow: hidden;
+}
+
+.task-summary-status {
+  grid-area: status;
+  display: flex;
+  justify-self: end;
+  align-self: start;
 }
 
 .task-summary-meta .status-badge,
@@ -4130,8 +4141,12 @@ button:disabled {
   }
 
   .task-summary-button {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title status"
+      "meta meta";
     align-items: stretch;
-    gap: 8px;
+    gap: 8px 10px;
   }
 
   .task-summary-meta {
