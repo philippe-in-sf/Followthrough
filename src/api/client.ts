@@ -198,6 +198,11 @@ export const api = {
       body: JSON.stringify(body),
     }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    request<void>("/api/me/password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   leaveTeam: () => request<{ user: User }>("/api/me/team/leave", { method: "POST" }),
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
   search: (query: string) =>

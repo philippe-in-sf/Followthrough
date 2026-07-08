@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { UserPreferencesDto } from "../../shared/types.js";
+import { hashPassword, verifyPassword } from "../auth/password.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { badRequest } from "../errors.js";
@@ -17,6 +18,11 @@ import {
 
 const preferencesSchema = z.object({
   workCalendarUrl: z.string().nullable(),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(12),
 });
 
 function toUserPreferencesDto(
@@ -57,6 +63,26 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
         next(badRequest(error.message));
         return;
       }
+      next(error);
+    }
+  });
+
+  router.post("/password", async (req, res, next) => {
+    try {
+      const userId = req.user?.id ?? 0;
+      const input = parseBody(req, passwordSchema);
+      const row = db
+        .prepare("SELECT password_hash FROM users WHERE id = ?")
+        .get(userId) as { password_hash: string } | undefined;
+
+      if (!row || !(await verifyPassword(input.currentPassword, row.password_hash))) {
+        throw badRequest("Current password is incorrect");
+      }
+
+      const passwordHash = await hashPassword(input.newPassword);
+      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, userId);
+      res.status(204).end();
+    } catch (error) {
       next(error);
     }
   });

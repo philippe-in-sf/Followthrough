@@ -10,6 +10,7 @@ import { DashboardPage, type DashboardRecordTarget } from "./features/dashboard/
 import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { PeoplePage } from "./features/people/PeoplePage";
+import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
@@ -64,6 +65,7 @@ function renderSection({
   user,
   onTeamChange,
   currentUserId,
+  onLeaveTeam,
 }: {
   section: AppSection;
   focusedRecord: FocusTarget | null;
@@ -79,6 +81,7 @@ function renderSection({
   user: User;
   onTeamChange: (team: TeamDto) => void;
   currentUserId: number;
+  onLeaveTeam: () => Promise<void>;
 }) {
   switch (section) {
     case "Dashboard":
@@ -123,6 +126,8 @@ function renderSection({
           onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
+    case "Settings":
+      return <SettingsPage user={user} onLeaveTeam={onLeaveTeam} />;
     case "Admin":
       return user.role === "admin" ? (
         <AdminPage currentUserId={currentUserId} onTeamChange={onTeamChange} />
@@ -277,7 +282,6 @@ export function App() {
       section={section}
       onSectionChange={changeSection}
       onLogout={logout}
-      onLeaveTeam={leaveTeam}
       onEnableNotifications={enableNotifications}
       notificationStatus={notificationStatus}
       version={appVersion}
@@ -298,6 +302,7 @@ export function App() {
         user: currentUser,
         onTeamChange: setTeam,
         currentUserId: currentUser.id,
+        onLeaveTeam: leaveTeam,
       })}
     </AppShell>
   );

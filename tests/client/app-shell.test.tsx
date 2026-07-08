@@ -39,7 +39,6 @@ function renderShell(
 
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
-  const onLeaveTeam = vi.fn();
   const onEnableNotifications = vi.fn();
 
   const result = render(
@@ -48,7 +47,6 @@ function renderShell(
       section={section}
       onSectionChange={onSectionChange}
       onLogout={onLogout}
-      onLeaveTeam={onLeaveTeam}
       onEnableNotifications={onEnableNotifications}
       notificationStatus="disabled"
       version="1.0.1"
@@ -60,7 +58,7 @@ function renderShell(
     </AppShell>,
   );
 
-  return { onSectionChange, onLogout, onLeaveTeam, onEnableNotifications, container: result.container };
+  return { onSectionChange, onLogout, onEnableNotifications, container: result.container };
 }
 
 async function openSkinSelector() {
@@ -191,12 +189,11 @@ describe("AppShell split context rail", () => {
     expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
   });
 
-  it("offers a leave-team action", async () => {
-    const { onLeaveTeam } = renderShell("Dashboard");
+  it("shows settings navigation without a topbar leave-team action", () => {
+    renderShell("Dashboard");
 
-    await userEvent.click(screen.getByRole("button", { name: "Leave team" }));
-
-    expect(onLeaveTeam).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Leave team" })).not.toBeInTheDocument();
   });
 
   it("hides admin navigation for members", () => {

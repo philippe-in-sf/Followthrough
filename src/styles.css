@@ -1882,6 +1882,43 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.settings-page {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.settings-panel h2 {
+  margin: 0;
+}
+
+.settings-panel .panel-heading p,
+.settings-panel-copy {
+  margin: 4px 0 0;
+  color: #5b6475;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.settings-danger-panel {
+  border-color: #f3c6c6;
+}
+
 .waitlist-signup-list {
   display: grid;
   gap: 0;
@@ -1956,6 +1993,7 @@ button:disabled {
 @media (max-width: 860px) {
   .admin-layout,
   .admin-add-user-form,
+  .settings-layout,
   .waitlist-actions,
   .waitlist-action-form {
     grid-template-columns: 1fr;
