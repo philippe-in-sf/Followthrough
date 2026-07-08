@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.13 - 2026-07-07
+
+### Changed
+
+- Removed the dedicated white logo treatment and kept the marketing header on the standard icon and text branding.
+
 ## 1.2.12 - 2026-07-07
 
 ### Changed

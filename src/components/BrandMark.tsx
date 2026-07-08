@@ -1,16 +1,14 @@
-type BrandMarkVariant = "icon" | "logo" | "logoWhite" | "wordmark";
+type BrandMarkVariant = "icon" | "logo" | "wordmark";
 
 const followthroughMarks: Record<BrandMarkVariant, string> = {
   icon: "/brand/followthrough-icon.svg",
   logo: "/brand/followthrough-logo.svg",
-  logoWhite: "/brand/followthrough-logo-white.svg",
   wordmark: "/brand/followthrough-wordmark.svg",
 };
 
 const variantClasses: Record<BrandMarkVariant, string> = {
   icon: "followthrough-mark-icon",
   logo: "followthrough-mark-logo",
-  logoWhite: "followthrough-mark-logo-white",
   wordmark: "followthrough-mark-wordmark",
 };
 
