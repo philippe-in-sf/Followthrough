@@ -54,16 +54,20 @@ textarea {
   width: 42px;
   height: 42px;
   border-radius: 8px;
-  background: #0f766e;
-  color: #ffffff;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 10px 22px rgba(2, 44, 34, 0.24);
 }
 
 .followthrough-mark {
+  display: block;
   width: 42px;
   height: 42px;
+  object-fit: contain;
+}
+
+.followthrough-mark-logo,
+.followthrough-mark-logo-white,
+.followthrough-mark-wordmark {
+  width: 180px;
+  height: auto;
 }
 
 .team-logo {
@@ -72,17 +76,6 @@ textarea {
   height: 42px;
   border-radius: 8px;
   object-fit: cover;
-}
-
-.mark-letter {
-  fill: #ffffff;
-}
-
-.mark-forward {
-  fill: none;
-  stroke: #facc15;
-  stroke-linecap: round;
-  stroke-width: 3.8;
 }
 
 .icon-rail-nav {
@@ -652,12 +645,13 @@ textarea {
   text-decoration: none;
 }
 
-.marketing-brand-mark {
-  width: 38px;
-  height: 38px;
+.marketing-brand-logo {
+  width: clamp(150px, 18vw, 190px);
+  height: auto;
 }
 
-.marketing-brand-mark .followthrough-mark {
+.marketing-brand-icon {
+  display: none;
   width: 38px;
   height: 38px;
 }
@@ -3786,8 +3780,12 @@ button:disabled {
     padding: 22px;
   }
 
-  .marketing-brand > span:last-child {
+  .marketing-brand-logo {
     display: none;
+  }
+
+  .marketing-brand-icon {
+    display: block;
   }
 
   .marketing-links {
@@ -3904,9 +3902,6 @@ button:disabled {
     width: 34px;
     height: 34px;
     border-radius: 8px;
-    background: #0f766e;
-    color: #ffffff;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
   .mobile-topbar-mark .followthrough-mark {
@@ -4357,15 +4352,8 @@ button:disabled {
 
 .app-shell[data-skin] .app-mark,
 .app-shell[data-skin] .mobile-topbar-mark {
-  background: var(--skin-accent);
-  color: var(--skin-action-text);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 10px 22px var(--skin-shadow);
-}
-
-.app-shell[data-skin] .mark-forward {
-  stroke: var(--skin-focus);
+  background: transparent;
+  box-shadow: none;
 }
 
 .app-shell[data-skin] .icon-rail-button {

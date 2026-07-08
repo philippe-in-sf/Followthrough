@@ -3,6 +3,8 @@ import { api } from "./api/client";
 
 type NotificationStatus = "unsupported" | "disabled" | "enabled";
 
+const followthroughNotificationIcon = "/brand/followthrough-icon.svg";
+
 function urlBase64ToUint8Array(value: string) {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -76,6 +78,7 @@ export function useTaskAssignmentNotifications(enabled: boolean) {
         lastNotificationId.current = Math.max(lastNotificationId.current, notification.id);
         new Notification(`Task ${notification.taskPublicId} assigned to you`, {
           body: notification.taskDescription,
+          icon: followthroughNotificationIcon,
           tag: `task-assignment-${notification.taskPublicId}`,
         });
         await api.notifications.markTaskAssignmentRead(notification.id).catch(() => undefined);
