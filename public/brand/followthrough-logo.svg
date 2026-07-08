@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Followthrough — Horizontal Lockup
+  Icon (diagonal split F) + typographic wordmark side by side.
+  For dark backgrounds, use followthrough-logo-white.svg.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140">
+  <defs>
+    <clipPath id="rr">
+      <rect width="140" height="140" rx="30"/>
+    </clipPath>
+  </defs>
+
+  <!-- ── ICON MARK ── -->
+
+  <rect width="140" height="140" rx="30" fill="#D08820"/>
+  <polygon points="140,0 140,140 0,140" fill="#1C2340" clip-path="url(#rr)"/>
+
+  <!-- White F -->
+  <rect x="30" y="22" width="18" height="96" fill="white"/>
+  <rect x="30" y="22" width="77" height="17" fill="white"/>
+  <rect x="30" y="59" width="52" height="16" fill="white"/>
+
+  <!-- ── WORDMARK ── -->
+
+  <text x="164" y="91"
+        font-family="'SF Pro Display', 'Inter', 'Helvetica Neue', Arial, sans-serif"
+        font-weight="800"
+        font-size="52"
+        letter-spacing="-1.5">
+    <tspan fill="#D08820">F</tspan><tspan fill="#1C2340">ollowthrough</tspan>
+  </text>
+</svg>
