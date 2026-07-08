@@ -64,7 +64,6 @@ textarea {
 }
 
 .followthrough-mark-logo,
-.followthrough-mark-logo-white,
 .followthrough-mark-wordmark {
   width: 180px;
   height: auto;
@@ -645,13 +644,7 @@ textarea {
   text-decoration: none;
 }
 
-.marketing-brand-logo {
-  width: clamp(150px, 18vw, 190px);
-  height: auto;
-}
-
 .marketing-brand-icon {
-  display: none;
   width: 38px;
   height: 38px;
 }
@@ -3780,12 +3773,8 @@ button:disabled {
     padding: 22px;
   }
 
-  .marketing-brand-logo {
+  .marketing-brand-text {
     display: none;
-  }
-
-  .marketing-brand-icon {
-    display: block;
   }
 
   .marketing-links {
