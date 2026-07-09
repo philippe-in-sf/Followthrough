@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.17 - 2026-07-09
+
+### Changed
+
+- Stacked task page controls in a right-side rail for create, expanded, and edit task views.
+
 ## 1.2.16 - 2026-07-09
 
 ### Changed
