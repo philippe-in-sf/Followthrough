@@ -3400,6 +3400,21 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.task-expanded-content > .task-edit-form:first-child {
+  border-top: 0;
+}
+
+.task-edit-form > h3 {
+  grid-column: 1 / -2;
+}
+
+.task-edit-status-field {
+  grid-column: -2 / -1;
+  grid-row: 1;
+  justify-self: end;
+  width: min(190px, 100%);
+}
+
 .meeting-task-form.notes-task-form {
   grid-template-columns: 1fr;
   align-items: stretch;
@@ -4161,6 +4176,14 @@ button:disabled {
 
   .task-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .task-edit-form > h3,
+  .task-edit-status-field {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    width: 100%;
   }
 
   .person-record-trigger {
