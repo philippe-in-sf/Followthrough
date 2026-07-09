@@ -3058,6 +3058,18 @@ button:disabled {
   background: #ffffff;
 }
 
+.task-expanded-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  align-items: start;
+  gap: 14px;
+  padding: 12px 14px 0;
+}
+
+.task-expanded-layout > .task-detail-grid {
+  padding: 0;
+}
+
 .task-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -3188,7 +3200,7 @@ button:disabled {
 }
 
 .task-card-actions {
-  padding: 0 14px 12px;
+  padding: 0;
 }
 
 .record-row {
@@ -3220,6 +3232,49 @@ button:disabled {
 
 .decision-follow-up-fields {
   display: contents;
+}
+
+.task-create-form {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  align-items: start;
+}
+
+.task-create-main-fields,
+.task-edit-main-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.task-create-main-fields > .rich-notes-field,
+.task-edit-main-fields > .rich-notes-field {
+  grid-column: 1 / -1;
+}
+
+.task-control-stack {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  justify-self: end;
+  width: min(260px, 100%);
+  min-width: 0;
+}
+
+.task-control-stack .form-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.task-control-stack > button,
+.task-control-stack > .form-actions button,
+.task-control-stack > .checkbox-line {
+  width: 100%;
+}
+
+.task-control-stack .icon-text-button {
+  justify-content: center;
 }
 
 .muted-text {
@@ -3383,6 +3438,13 @@ button:disabled {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+.task-edit-form.task-expanded-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  align-items: start;
+  border-top: 0;
+  padding: 12px 14px;
+}
+
 .meeting-edit-form textarea,
 .person-edit-form textarea,
 .task-edit-form textarea,
@@ -3400,19 +3462,10 @@ button:disabled {
   font-size: 0.95rem;
 }
 
-.task-expanded-content > .task-edit-form:first-child {
-  border-top: 0;
-}
-
-.task-edit-form > h3 {
-  grid-column: 1 / -2;
-}
-
-.task-edit-status-field {
-  grid-column: -2 / -1;
-  grid-row: 1;
-  justify-self: end;
-  width: min(190px, 100%);
+.task-edit-main-fields h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .meeting-task-form.notes-task-form {
@@ -4122,6 +4175,17 @@ button:disabled {
     min-width: 0;
   }
 
+  .task-create-form,
+  .task-expanded-layout,
+  .task-edit-form.task-expanded-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .task-control-stack {
+    justify-self: stretch;
+    width: 100%;
+  }
+
   .record-row,
   .meeting-summary-button,
   .task-summary-button,
@@ -4176,14 +4240,6 @@ button:disabled {
 
   .task-detail-grid {
     grid-template-columns: 1fr;
-  }
-
-  .task-edit-form > h3,
-  .task-edit-status-field {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: stretch;
-    width: 100%;
   }
 
   .person-record-trigger {
