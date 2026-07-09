@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.16 - 2026-07-09
+
+### Changed
+
+- Moved the task status selector directly beneath the status chip in the task card edit layout.
+
 ## 1.2.15 - 2026-07-08
 
 ### Changed

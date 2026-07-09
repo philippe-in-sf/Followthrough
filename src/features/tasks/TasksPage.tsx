@@ -777,6 +777,202 @@ export function TasksPage({
                     </button>
                     {isExpanded ? (
                       <div className="task-expanded-content" id={detailsId}>
+                    {editingTaskPublicId === task.publicId ? (
+                      <>
+                        <form
+                          className="task-edit-form"
+                          onSubmit={(event) => submitTaskEdit(event, task)}
+                        >
+                          <h3>Edit details for {task.publicId}</h3>
+                          <div className="task-edit-status-field">
+                            <FormField label={`Task status for ${task.publicId}`}>
+                              <select
+                                value={taskEditForm.status}
+                                onChange={(event) =>
+                                  setTaskEditForm({
+                                    ...taskEditForm,
+                                    status: event.target.value as TaskStatus,
+                                  })
+                                }
+                              >
+                                {statuses.map((item) => (
+                                  <option key={item} value={item}>
+                                    {item}
+                                  </option>
+                                ))}
+                              </select>
+                            </FormField>
+                          </div>
+                          <FormField label={`Task description for ${task.publicId}`}>
+                            <input
+                              value={taskEditForm.description}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  description: event.target.value,
+                                })
+                              }
+                              required
+                            />
+                          </FormField>
+                          <FormField label={`Task blockers for ${task.publicId}`}>
+                            <textarea
+                              value={taskEditForm.blockers}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockers: event.target.value,
+                                  blockersCleared: event.target.value.trim()
+                                    ? taskEditForm.blockersCleared
+                                    : false,
+                                })
+                              }
+                            />
+                          </FormField>
+                          <MarkdownNotesEditor
+                            label={`Task notes for ${task.publicId}`}
+                            value={taskEditForm.notes}
+                            onChange={(notes) =>
+                              setTaskEditForm({
+                                ...taskEditForm,
+                                notes,
+                              })
+                            }
+                          />
+                          <FormField label={`Task assignee for ${task.publicId}`}>
+                            <select
+                              value={taskEditForm.assigneePublicId}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  assigneePublicId: event.target.value,
+                                })
+                              }
+                            >
+                              <option value="">Unassigned</option>
+                              {people.map((person) => (
+                                <option key={person.publicId} value={person.publicId}>
+                                  {person.name}
+                                </option>
+                              ))}
+                            </select>
+                          </FormField>
+                          <FormField label={`Task due date for ${task.publicId}`}>
+                            <input
+                              type="date"
+                              value={taskEditForm.dueDate}
+                              onChange={(event) =>
+                                setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
+                              }
+                            />
+                          </FormField>
+                          <FormField label={`Dependencies for ${task.publicId}`}>
+                            <div className="dependency-picker">
+                              <select
+                                aria-label={`Add dependency for ${task.publicId}`}
+                                disabled={availableEditDependencies.length === 0}
+                                value=""
+                                onChange={(event) =>
+                                  setTaskEditForm({
+                                    ...taskEditForm,
+                                    dependencyPublicIds: addDependency(
+                                      taskEditForm.dependencyPublicIds,
+                                      event.target.value,
+                                    ),
+                                  })
+                                }
+                              >
+                                <option value="">
+                                  {editDependencyOptions.length
+                                    ? "Add dependency"
+                                    : "No tasks available"}
+                                </option>
+                                {availableEditDependencies.map((option) => (
+                                  <option key={option.publicId} value={option.publicId}>
+                                    {dependencyOptionLabel(option)}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedEditDependencies.length ? (
+                                <div className="dependency-chip-row">
+                                  {selectedEditDependencies.map((dependency) => (
+                                    <span className="dependency-chip" key={dependency.publicId}>
+                                      <span>{dependencyOptionLabel(dependency)}</span>
+                                      <button
+                                        aria-label={`Remove dependency ${dependency.publicId}`}
+                                        type="button"
+                                        onClick={() =>
+                                          setTaskEditForm({
+                                            ...taskEditForm,
+                                            dependencyPublicIds: removeDependency(
+                                              taskEditForm.dependencyPublicIds,
+                                              dependency.publicId,
+                                            ),
+                                          })
+                                        }
+                                      >
+                                        <X aria-hidden="true" size={14} />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </FormField>
+                          <label className="checkbox-line">
+                            <input
+                              type="checkbox"
+                              checked={taskEditForm.private}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  private: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>Private</span>
+                          </label>
+                          <label className="checkbox-line">
+                            <input
+                              type="checkbox"
+                              checked={taskEditForm.blockersCleared}
+                              disabled={!taskEditForm.blockers.trim()}
+                              onChange={(event) =>
+                                setTaskEditForm({
+                                  ...taskEditForm,
+                                  blockersCleared: event.target.checked,
+                                })
+                              }
+                            />
+                            <span>Blocker cleared</span>
+                          </label>
+                          <div className="form-actions">
+                            <button className="primary-button" type="submit">
+                              Save task {task.publicId}
+                            </button>
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => {
+                                setEditingTaskPublicId(null);
+                                setTaskEditForm(emptyTaskForm);
+                              }}
+                            >
+                              Cancel edit {task.publicId}
+                            </button>
+                            <button
+                              className="danger-button icon-text-button"
+                              type="button"
+                              onClick={() => archiveTask(task)}
+                            >
+                              <Archive aria-hidden="true" size={16} />
+                              Archive task {task.publicId}
+                            </button>
+                          </div>
+                        </form>
+                        <AuditLog events={taskAudits[task.publicId] ?? []} onRecordOpen={onReferenceOpen} />
+                      </>
+                    ) : null}
                         <div className="task-detail-grid">
                           <section className="task-detail-section">
                             <h4>Details</h4>
@@ -904,200 +1100,6 @@ export function TasksPage({
                             {reminderFeedback[task.publicId]}
                           </p>
                         ) : null}
-                    {editingTaskPublicId === task.publicId ? (
-                      <>
-                        <form
-                          className="task-edit-form"
-                          onSubmit={(event) => submitTaskEdit(event, task)}
-                        >
-                          <h3>Edit details for {task.publicId}</h3>
-                          <FormField label={`Task description for ${task.publicId}`}>
-                            <input
-                              value={taskEditForm.description}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  description: event.target.value,
-                                })
-                              }
-                              required
-                            />
-                          </FormField>
-                          <FormField label={`Task blockers for ${task.publicId}`}>
-                            <textarea
-                              value={taskEditForm.blockers}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  blockers: event.target.value,
-                                  blockersCleared: event.target.value.trim()
-                                    ? taskEditForm.blockersCleared
-                                    : false,
-                                })
-                              }
-                            />
-                          </FormField>
-                          <MarkdownNotesEditor
-                            label={`Task notes for ${task.publicId}`}
-                            value={taskEditForm.notes}
-                            onChange={(notes) =>
-                              setTaskEditForm({
-                                ...taskEditForm,
-                                notes,
-                              })
-                            }
-                          />
-                          <FormField label={`Task assignee for ${task.publicId}`}>
-                            <select
-                              value={taskEditForm.assigneePublicId}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  assigneePublicId: event.target.value,
-                                })
-                              }
-                            >
-                              <option value="">Unassigned</option>
-                              {people.map((person) => (
-                                <option key={person.publicId} value={person.publicId}>
-                                  {person.name}
-                                </option>
-                              ))}
-                            </select>
-                          </FormField>
-                          <FormField label={`Task status for ${task.publicId}`}>
-                            <select
-                              value={taskEditForm.status}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  status: event.target.value as TaskStatus,
-                                })
-                              }
-                            >
-                              {statuses.map((item) => (
-                                <option key={item} value={item}>
-                                  {item}
-                                </option>
-                              ))}
-                            </select>
-                          </FormField>
-                          <FormField label={`Task due date for ${task.publicId}`}>
-                            <input
-                              type="date"
-                              value={taskEditForm.dueDate}
-                              onChange={(event) =>
-                                setTaskEditForm({ ...taskEditForm, dueDate: event.target.value })
-                              }
-                            />
-                          </FormField>
-                          <FormField label={`Dependencies for ${task.publicId}`}>
-                            <div className="dependency-picker">
-                              <select
-                                aria-label={`Add dependency for ${task.publicId}`}
-                                disabled={availableEditDependencies.length === 0}
-                                value=""
-                                onChange={(event) =>
-                                  setTaskEditForm({
-                                    ...taskEditForm,
-                                    dependencyPublicIds: addDependency(
-                                      taskEditForm.dependencyPublicIds,
-                                      event.target.value,
-                                    ),
-                                  })
-                                }
-                              >
-                                <option value="">
-                                  {editDependencyOptions.length
-                                    ? "Add dependency"
-                                    : "No tasks available"}
-                                </option>
-                                {availableEditDependencies.map((option) => (
-                                  <option key={option.publicId} value={option.publicId}>
-                                    {dependencyOptionLabel(option)}
-                                  </option>
-                                ))}
-                              </select>
-                              {selectedEditDependencies.length ? (
-                                <div className="dependency-chip-row">
-                                  {selectedEditDependencies.map((dependency) => (
-                                    <span className="dependency-chip" key={dependency.publicId}>
-                                      <span>{dependencyOptionLabel(dependency)}</span>
-                                      <button
-                                        aria-label={`Remove dependency ${dependency.publicId}`}
-                                        type="button"
-                                        onClick={() =>
-                                          setTaskEditForm({
-                                            ...taskEditForm,
-                                            dependencyPublicIds: removeDependency(
-                                              taskEditForm.dependencyPublicIds,
-                                              dependency.publicId,
-                                            ),
-                                          })
-                                        }
-                                      >
-                                        <X aria-hidden="true" size={14} />
-                                      </button>
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </FormField>
-                          <label className="checkbox-line">
-                            <input
-                              type="checkbox"
-                              checked={taskEditForm.private}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  private: event.target.checked,
-                                })
-                              }
-                            />
-                            <span>Private</span>
-                          </label>
-                          <label className="checkbox-line">
-                            <input
-                              type="checkbox"
-                              checked={taskEditForm.blockersCleared}
-                              disabled={!taskEditForm.blockers.trim()}
-                              onChange={(event) =>
-                                setTaskEditForm({
-                                  ...taskEditForm,
-                                  blockersCleared: event.target.checked,
-                                })
-                              }
-                            />
-                            <span>Blocker cleared</span>
-                          </label>
-                          <div className="form-actions">
-                            <button className="primary-button" type="submit">
-                              Save task {task.publicId}
-                            </button>
-                            <button
-                              className="secondary-button"
-                              type="button"
-                              onClick={() => {
-                                setEditingTaskPublicId(null);
-                                setTaskEditForm(emptyTaskForm);
-                              }}
-                            >
-                              Cancel edit {task.publicId}
-                            </button>
-                            <button
-                              className="danger-button icon-text-button"
-                              type="button"
-                              onClick={() => archiveTask(task)}
-                            >
-                              <Archive aria-hidden="true" size={16} />
-                              Archive task {task.publicId}
-                            </button>
-                          </div>
-                        </form>
-                        <AuditLog events={taskAudits[task.publicId] ?? []} onRecordOpen={onReferenceOpen} />
-                      </>
-                    ) : null}
                       </div>
                     ) : null}
                   </article>
