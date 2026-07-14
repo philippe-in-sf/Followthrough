@@ -45,4 +45,17 @@ describe("public status endpoints", () => {
     expect(page.text).toContain("https://consent.cookiebot.com/uc.js");
     expect(page.text).toContain("1b43ed9f-c702-40a9-9db4-ad20277b7a12");
   });
+
+  it("serves the privacy policy publicly", async () => {
+    const app = createApp();
+    const response = await request(app).get("/privacy");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Followthrough Privacy Policy");
+    expect(response.text).toContain("IP address");
+    expect(response.text).toContain("Google Calendar");
+    expect(response.text).toContain("California residents");
+    expect(response.text).toContain("We do not sell personal information");
+    expect(response.text).toContain(`Current deployed package version: ${packageVersion()}`);
+  });
 });

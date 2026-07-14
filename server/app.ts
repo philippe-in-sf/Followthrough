@@ -16,6 +16,7 @@ import { notesRoutes } from "./notes/routes.js";
 import { notificationRoutes } from "./notifications/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
+import { renderPrivacyPolicyHtml } from "./privacy.js";
 import { searchRoutes } from "./search/routes.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
@@ -52,6 +53,10 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.get("/changelog", (_req, res) => {
     res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
+  });
+
+  app.get("/privacy", (_req, res) => {
+    res.type("html").send(renderPrivacyPolicyHtml(appVersion));
   });
 
   app.use("/api/auth", authRoutes(db, config, emailSender));

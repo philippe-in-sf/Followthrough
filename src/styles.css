@@ -1155,6 +1155,13 @@ button:disabled {
   font-weight: 800;
 }
 
+.marketing-footer-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
 .marketing-footer a {
   color: #2563eb;
   font-weight: 700;
@@ -1829,6 +1836,13 @@ button:disabled {
 .admin-panel h2,
 .admin-panel h3 {
   margin: 0;
+}
+
+.admin-panel-note {
+  margin: 4px 0 0;
+  color: #5b6475;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .panel-heading {
@@ -5119,6 +5133,7 @@ button:disabled {
   color: var(--skin-muted);
 }
 
+.app-shell[data-skin] .admin-panel-note,
 .app-shell[data-skin] .admin-user-table td::before,
 .app-shell[data-skin] .admin-login-table td:first-child span {
   color: var(--skin-muted);
