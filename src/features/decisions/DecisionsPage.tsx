@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
@@ -125,7 +126,7 @@ export function DecisionsPage({
     if (!decision) return;
 
     editDecision(decision);
-    scrollRecordIntoView(`decision-${decision.publicId}`);
+    window.setTimeout(() => scrollRecordIntoView(`decision-${decision.publicId}`), 0);
     onDecisionFocusHandled?.();
   }, [decisions, focusDecisionPublicId, onDecisionFocusHandled]);
 
@@ -262,48 +263,58 @@ export function DecisionsPage({
       {decisions.length === 0 ? (
         <EmptyState title="No decisions" detail="Record decisions from meetings or standalone context." />
       ) : (
-        <div className="record-list">
-          {decisions.map((decision) => (
-            <article
-              aria-label={`Decision ${decision.publicId}`}
-              className="record-row"
-              id={`decision-${decision.publicId}`}
-              key={decision.publicId}
-            >
-              <div>
-                <strong>
-                  <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
-                </strong>
-                <span>
-                  <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
-                </span>
-              </div>
-              <span>
-                <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
-              </span>
-              <span>{decision.decisionDate}</span>
-              <div className="decision-task-links">
-                {decision.tasks.length ? (
-                  decision.tasks.map((task) => (
-                    <span className="hint-chip" key={task.publicId}>
-                      <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
+        <PaginatedItems
+          items={decisions}
+          itemName="decision"
+          pageSize={10}
+          getItemKey={(decision) => decision.publicId}
+          focusItemKey={focusDecisionPublicId}
+        >
+          {(visibleDecisions) => (
+            <div className="record-list">
+              {visibleDecisions.map((decision) => (
+                <article
+                  aria-label={`Decision ${decision.publicId}`}
+                  className="record-row"
+                  id={`decision-${decision.publicId}`}
+                  key={decision.publicId}
+                >
+                  <div>
+                    <strong>
+                      <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
+                    </strong>
+                    <span>
+                      <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
                     </span>
-                  ))
-                ) : (
-                  <span className="muted-text">No spawned tasks</span>
-                )}
-              </div>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => editDecision(decision)}
-                aria-label={`Edit ${decision.publicId}`}
-              >
-                Edit
-              </button>
-            </article>
-          ))}
-        </div>
+                  </div>
+                  <span>
+                    <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
+                  </span>
+                  <span>{decision.decisionDate}</span>
+                  <div className="decision-task-links">
+                    {decision.tasks.length ? (
+                      decision.tasks.map((task) => (
+                        <span className="hint-chip" key={task.publicId}>
+                          <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
+                        </span>
+                      ))
+                    ) : (
+                      <span className="muted-text">No spawned tasks</span>
+                    )}
+                  </div>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => editDecision(decision)}
+                    aria-label={`Edit ${decision.publicId}`}
+                  >
+                    Edit
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </PaginatedItems>
       )}
     </main>
   );

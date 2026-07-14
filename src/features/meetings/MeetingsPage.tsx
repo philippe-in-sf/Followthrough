@@ -29,6 +29,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { comparePublicRecordNumber } from "../../recordSort";
@@ -233,32 +234,41 @@ function MeetingTaskLinks({
   }
 
   return (
-    <div className="task-links">
-      {meeting.tasks.map((task) => (
-        <span key={task.publicId}>
-          <strong>
-            <LinkedText text={task.publicId} onRecordOpen={onRecordOpen} />
-          </strong>{" "}
-          <LinkedText text={task.description} onRecordOpen={onRecordOpen} />
-          {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-          {hasClearedBlockers(task) ? (
-            <StatusBadge label="Blocker cleared" tone="good" />
-          ) : null}
-          {hasBlockers(task) ? (
-            <small className="task-link-blocker">
-              <LinkedText text={task.blockers} onRecordOpen={onRecordOpen} />
-            </small>
-          ) : null}
-          {(task.notes ?? "").trim() ? (
-            <RichNoteText
-              className="task-link-notes"
-              text={task.notes}
-              onRecordOpen={onRecordOpen}
-            />
-          ) : null}
-        </span>
-      ))}
-    </div>
+    <PaginatedItems
+      items={meeting.tasks}
+      itemName="task"
+      pageSize={6}
+      getItemKey={(task) => task.publicId}
+    >
+      {(visibleTasks) => (
+        <div className="task-links">
+          {visibleTasks.map((task) => (
+            <span key={task.publicId}>
+              <strong>
+                <LinkedText text={task.publicId} onRecordOpen={onRecordOpen} />
+              </strong>{" "}
+              <LinkedText text={task.description} onRecordOpen={onRecordOpen} />
+              {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+              {hasClearedBlockers(task) ? (
+                <StatusBadge label="Blocker cleared" tone="good" />
+              ) : null}
+              {hasBlockers(task) ? (
+                <small className="task-link-blocker">
+                  <LinkedText text={task.blockers} onRecordOpen={onRecordOpen} />
+                </small>
+              ) : null}
+              {(task.notes ?? "").trim() ? (
+                <RichNoteText
+                  className="task-link-notes"
+                  text={task.notes}
+                  onRecordOpen={onRecordOpen}
+                />
+              ) : null}
+            </span>
+          ))}
+        </div>
+      )}
+    </PaginatedItems>
   );
 }
 
@@ -268,15 +278,24 @@ function MeetingStructuredLinks({ meeting }: { meeting: MeetingDto }) {
   }
 
   return (
-    <div className="meeting-link-list">
-      {meeting.links.map((link) => (
-        <a href={link.url} key={`${link.linkType}-${link.url}`} rel="noreferrer" target="_blank">
-          <LinkIcon aria-hidden="true" size={15} />
-          <span>{link.label}</span>
-          <small>{linkTypeLabel(link.linkType)}</small>
-        </a>
-      ))}
-    </div>
+    <PaginatedItems
+      items={meeting.links}
+      itemName="link"
+      pageSize={6}
+      getItemKey={(link) => `${link.linkType}-${link.url}`}
+    >
+      {(visibleLinks) => (
+        <div className="meeting-link-list">
+          {visibleLinks.map((link) => (
+            <a href={link.url} key={`${link.linkType}-${link.url}`} rel="noreferrer" target="_blank">
+              <LinkIcon aria-hidden="true" size={15} />
+              <span>{link.label}</span>
+              <small>{linkTypeLabel(link.linkType)}</small>
+            </a>
+          ))}
+        </div>
+      )}
+    </PaginatedItems>
   );
 }
 
@@ -309,20 +328,29 @@ function CheckboxGroup({
       {options.length === 0 ? (
         <span className="muted checkbox-group-empty">None</span>
       ) : (
-        <div className="checkbox-option-list">
-          {options.map((option) => (
-            <label key={option.publicId}>
-              <input
-                type="checkbox"
-                checked={selected.includes(option.publicId)}
-                onChange={(event) =>
-                  onChange(toggleValue(selected, option.publicId, event.target.checked))
-                }
-              />
-              <span>{option.label}</span>
-            </label>
-          ))}
-        </div>
+        <PaginatedItems
+          items={options}
+          itemName="option"
+          pageSize={10}
+          getItemKey={(option) => option.publicId}
+        >
+          {(visibleOptions) => (
+            <div className="checkbox-option-list">
+              {visibleOptions.map((option) => (
+                <label key={option.publicId}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(option.publicId)}
+                    onChange={(event) =>
+                      onChange(toggleValue(selected, option.publicId, event.target.checked))
+                    }
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </PaginatedItems>
       )}
     </fieldset>
   );
@@ -977,7 +1005,7 @@ export function MeetingsPage({
     if (!meeting) return;
 
     editMeeting(meeting);
-    scrollRecordIntoView(`meeting-${meeting.publicId}`);
+    window.setTimeout(() => scrollRecordIntoView(`meeting-${meeting.publicId}`), 0);
     onMeetingFocusHandled?.();
   }, [focusMeetingPublicId, meetings, onMeetingFocusHandled]);
 
@@ -1212,49 +1240,58 @@ export function MeetingsPage({
             detail="Series notes will appear after recurring meetings are created."
           />
         ) : (
-          <section
-            aria-label={`Notes for ${activeSeriesNotes.series.title}`}
-            className="series-notes-list"
+          <PaginatedItems
+            items={activeSeriesNotes.meetings}
+            itemName="meeting"
+            pageSize={8}
+            getItemKey={(meeting) => meeting.publicId}
           >
-            {activeSeriesNotes.meetings.map((meeting) => {
-              const notes = meeting.notes.trim();
-              return (
-                <article
-                  aria-label={`Notes for meeting ${meeting.publicId}`}
-                  className="series-note-card"
-                  key={meeting.publicId}
-                >
-                  <header className="series-note-header">
-                    <div>
-                      <h3>
-                        <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
-                      </h3>
-                      <span>
-                        <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
-                        {new Date(meeting.startsAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="series-note-badges">
-                      <StatusBadge label={meeting.meetingType} />
-                      {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                      {hasActiveBlockers(meeting) ? (
-                        <StatusBadge label="Blocker" tone="bad" />
-                      ) : null}
-                      {hasClearedBlockers(meeting) ? (
-                        <StatusBadge label="Blocker cleared" tone="good" />
-                      ) : null}
-                    </div>
-                  </header>
-                  <RichNoteText
-                    className="series-note-body"
-                    emptyText="No notes captured for this occurrence."
-                    text={notes}
-                    onRecordOpen={onRecordReferenceOpen}
-                  />
-                </article>
-              );
-            })}
-          </section>
+            {(visibleMeetings) => (
+              <section
+                aria-label={`Notes for ${activeSeriesNotes.series.title}`}
+                className="series-notes-list"
+              >
+                {visibleMeetings.map((meeting) => {
+                  const notes = meeting.notes.trim();
+                  return (
+                    <article
+                      aria-label={`Notes for meeting ${meeting.publicId}`}
+                      className="series-note-card"
+                      key={meeting.publicId}
+                    >
+                      <header className="series-note-header">
+                        <div>
+                          <h3>
+                            <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
+                          </h3>
+                          <span>
+                            <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
+                            {new Date(meeting.startsAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="series-note-badges">
+                          <StatusBadge label={meeting.meetingType} />
+                          {meeting.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                          {hasActiveBlockers(meeting) ? (
+                            <StatusBadge label="Blocker" tone="bad" />
+                          ) : null}
+                          {hasClearedBlockers(meeting) ? (
+                            <StatusBadge label="Blocker cleared" tone="good" />
+                          ) : null}
+                        </div>
+                      </header>
+                      <RichNoteText
+                        className="series-note-body"
+                        emptyText="No notes captured for this occurrence."
+                        text={notes}
+                        onRecordOpen={onRecordReferenceOpen}
+                      />
+                    </article>
+                  );
+                })}
+              </section>
+            )}
+          </PaginatedItems>
         )}
       </main>
     );
@@ -1513,32 +1550,41 @@ export function MeetingsPage({
               {activeNotesMeeting.tasks.length === 0 ? (
                 <p className="muted">No tasks</p>
               ) : (
-                <div className="task-links">
-                  {activeNotesMeeting.tasks.map((task) => (
-                    <span key={task.publicId}>
-                      <strong>
-                        <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} />
-                      </strong>{" "}
-                      <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
-                      {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                      {hasClearedBlockers(task) ? (
-                        <StatusBadge label="Blocker cleared" tone="good" />
-                      ) : null}
-                      {hasBlockers(task) ? (
-                        <small className="task-link-blocker">
-                          <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
-                        </small>
-                      ) : null}
-                      {(task.notes ?? "").trim() ? (
-                        <RichNoteText
-                          className="task-link-notes"
-                          text={task.notes}
-                          onRecordOpen={onRecordReferenceOpen}
-                        />
-                      ) : null}
-                    </span>
-                  ))}
-                </div>
+                <PaginatedItems
+                  items={activeNotesMeeting.tasks}
+                  itemName="task"
+                  pageSize={6}
+                  getItemKey={(task) => task.publicId}
+                >
+                  {(visibleTasks) => (
+                    <div className="task-links">
+                      {visibleTasks.map((task) => (
+                        <span key={task.publicId}>
+                          <strong>
+                            <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} />
+                          </strong>{" "}
+                          <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
+                          {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                          {hasClearedBlockers(task) ? (
+                            <StatusBadge label="Blocker cleared" tone="good" />
+                          ) : null}
+                          {hasBlockers(task) ? (
+                            <small className="task-link-blocker">
+                              <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
+                            </small>
+                          ) : null}
+                          {(task.notes ?? "").trim() ? (
+                            <RichNoteText
+                              className="task-link-notes"
+                              text={task.notes}
+                              onRecordOpen={onRecordReferenceOpen}
+                            />
+                          ) : null}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </PaginatedItems>
               )}
               <MeetingTaskCreateForm
                 className="notes-task-form"
@@ -1769,20 +1815,30 @@ export function MeetingsPage({
               </p>
             ) : null}
             {calendarImportEvents.length > 0 ? (
-              <div className="calendar-import-results">
-                {calendarImportEvents.map((event) => (
-                  <button
-                    className="calendar-import-result"
-                    key={event.id}
-                    type="button"
-                    onClick={() => applyGoogleCalendarEvent(event)}
-                  >
-                    <strong>{event.title}</strong>
-                    <span>{new Date(event.startsAt).toLocaleString()}</span>
-                    <span>{event.attendeeNames || event.summary || "No extra details"}</span>
-                  </button>
-                ))}
-              </div>
+              <PaginatedItems
+                items={calendarImportEvents}
+                itemName="event"
+                pageSize={6}
+                getItemKey={(event) => event.id}
+                resetKey={calendarImportQuery}
+              >
+                {(visibleEvents) => (
+                  <div className="calendar-import-results">
+                    {visibleEvents.map((event) => (
+                      <button
+                        className="calendar-import-result"
+                        key={event.id}
+                        type="button"
+                        onClick={() => applyGoogleCalendarEvent(event)}
+                      >
+                        <strong>{event.title}</strong>
+                        <span>{new Date(event.startsAt).toLocaleString()}</span>
+                        <span>{event.attendeeNames || event.summary || "No extra details"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </PaginatedItems>
             ) : null}
           </section>
         ) : null}
@@ -2020,34 +2076,46 @@ export function MeetingsPage({
                 </div>
                 <span className="lane-count">{countLabel(series.length, "series")}</span>
               </header>
-              <div className="series-list">
-                {series.map((item) => (
-                  <div className="series-row" key={item.publicId}>
-                    <div className="series-row-main">
-                      <strong>
-                        <LinkedText text={item.title} onRecordOpen={onRecordReferenceOpen} />
-                      </strong>
-                      <span>
-                        <LinkedText text={item.publicId} onRecordOpen={onRecordReferenceOpen} />
-                      </span>
-                    </div>
-                    <div className="series-row-actions">
-                      <span className="hint-chip hint-chip-teal">
-                        {item.cadenceLabel || "Recurring"}
-                      </span>
-                      <button
-                        aria-label={`Read notes for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
-                        className="secondary-button icon-text-button"
-                        type="button"
-                        onClick={() => openSeriesNotes(item.publicId)}
-                      >
-                        <BookOpen aria-hidden="true" size={16} />
-                        Notes
-                      </button>
-                    </div>
+              <PaginatedItems
+                items={series}
+                itemName="series"
+                pluralItemName="series"
+                pageSize={8}
+                getItemKey={(item) => item.publicId}
+                focusItemKey={focusSeriesPublicId}
+                resetKey={meetingArchiveView}
+              >
+                {(visibleSeries) => (
+                  <div className="series-list">
+                    {visibleSeries.map((item) => (
+                      <div className="series-row" key={item.publicId}>
+                        <div className="series-row-main">
+                          <strong>
+                            <LinkedText text={item.title} onRecordOpen={onRecordReferenceOpen} />
+                          </strong>
+                          <span>
+                            <LinkedText text={item.publicId} onRecordOpen={onRecordReferenceOpen} />
+                          </span>
+                        </div>
+                        <div className="series-row-actions">
+                          <span className="hint-chip hint-chip-teal">
+                            {item.cadenceLabel || "Recurring"}
+                          </span>
+                          <button
+                            aria-label={`Read notes for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
+                            className="secondary-button icon-text-button"
+                            type="button"
+                            onClick={() => openSeriesNotes(item.publicId)}
+                          >
+                            <BookOpen aria-hidden="true" size={16} />
+                            Notes
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </PaginatedItems>
             </section>
           ) : null}
           {meetingLanes.map((lane) => (
@@ -2063,8 +2131,17 @@ export function MeetingsPage({
                 </div>
                 <span className="lane-count">{countLabel(lane.meetings.length, "meeting")}</span>
               </header>
+              <PaginatedItems
+                items={lane.meetings}
+                itemName="meeting"
+                pageSize={8}
+                getItemKey={(meeting) => meeting.publicId}
+                focusItemKey={focusMeetingPublicId}
+                resetKey={`${meetingQuery}:${lane.key}`}
+              >
+                {(visibleMeetings) => (
               <div className="record-list">
-                {lane.meetings.map((meeting) => {
+                {visibleMeetings.map((meeting) => {
                   const isExpanded = Boolean(expandedMeetingPublicIds[meeting.publicId]);
                   const detailsId = `meeting-details-${meeting.publicId}`;
                   const meetingTitleText = singleLineText(meeting.title, "Untitled meeting");
@@ -2395,6 +2472,8 @@ export function MeetingsPage({
                   );
                 })}
               </div>
+                )}
+              </PaginatedItems>
             </section>
           ))}
         </div>

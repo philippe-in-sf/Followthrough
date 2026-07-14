@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.9.0 - 2026-07-14
+
+### Added
+
+- Made the dashboard "Open tasks by assignee" rows expandable so each assignee reveals their open task list.
+- Added reusable pagination controls for long rendered lists across dashboard, tasks, meetings, decisions, people, notes, admin, audit history, and related-record views.
+
 ## 1.8.0 - 2026-07-14
 
 ### Changed

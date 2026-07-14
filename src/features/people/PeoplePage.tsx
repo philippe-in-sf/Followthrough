@@ -6,6 +6,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
@@ -164,7 +165,7 @@ export function PeoplePage({
     if (!person) return;
 
     void selectPerson(person).then(() => {
-      scrollRecordIntoView(`person-${person.publicId}`);
+      window.setTimeout(() => scrollRecordIntoView(`person-${person.publicId}`), 0);
       onPersonFocusHandled?.();
     });
   }, [focusPersonPublicId, people, onPersonFocusHandled]);
@@ -266,8 +267,17 @@ export function PeoplePage({
       {people.length === 0 ? (
         <EmptyState title="No people" detail="Add people for assignees and attendees." />
       ) : (
+        <PaginatedItems
+          items={people}
+          itemName="person"
+          pluralItemName="people"
+          pageSize={10}
+          getItemKey={(person) => person.publicId}
+          focusItemKey={focusPersonPublicId}
+        >
+          {(visiblePeople) => (
         <div className="record-list">
-          {people.map((person) => (
+          {visiblePeople.map((person) => (
             <div className="person-record" id={`person-${person.publicId}`} key={person.publicId}>
               <article
                 className={`record-row person-row ${
@@ -348,30 +358,39 @@ export function PeoplePage({
                         {relatedRecords[person.publicId].meetings.length === 0 ? (
                           <p className="muted">No meetings</p>
                         ) : (
-                          <ul className="person-related-list">
-                            {relatedRecords[person.publicId].meetings.map((meeting) => (
-                              <li key={meeting.publicId}>
-                                <strong>
-                                  <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
-                                </strong>
-                                <span>
-                                  <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {formatMeetingTime(meeting.startsAt)}
-                                  {hasActiveBlockers(meeting) ? (
-                                    <StatusBadge label="Blocker" tone="bad" />
-                                  ) : null}
-                                  {hasClearedBlockers(meeting) ? (
-                                    <StatusBadge label="Blocker cleared" tone="good" />
-                                  ) : null}
-                                </span>
-                                {hasBlockers(meeting) ? (
-                                  <span className="person-related-blocker">
-                                    <LinkedText text={meeting.blockers} onRecordOpen={onRecordReferenceOpen} />
-                                  </span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
+                          <PaginatedItems
+                            items={relatedRecords[person.publicId].meetings}
+                            itemName="meeting"
+                            pageSize={5}
+                            getItemKey={(meeting) => meeting.publicId}
+                          >
+                            {(visibleMeetings) => (
+                              <ul className="person-related-list">
+                                {visibleMeetings.map((meeting) => (
+                                  <li key={meeting.publicId}>
+                                    <strong>
+                                      <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
+                                    </strong>
+                                    <span>
+                                      <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
+                                      {formatMeetingTime(meeting.startsAt)}
+                                      {hasActiveBlockers(meeting) ? (
+                                        <StatusBadge label="Blocker" tone="bad" />
+                                      ) : null}
+                                      {hasClearedBlockers(meeting) ? (
+                                        <StatusBadge label="Blocker cleared" tone="good" />
+                                      ) : null}
+                                    </span>
+                                    {hasBlockers(meeting) ? (
+                                      <span className="person-related-blocker">
+                                        <LinkedText text={meeting.blockers} onRecordOpen={onRecordReferenceOpen} />
+                                      </span>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </PaginatedItems>
                         )}
                       </section>
                       <section className="person-related-section">
@@ -379,37 +398,46 @@ export function PeoplePage({
                         {relatedRecords[person.publicId].tasks.length === 0 ? (
                           <p className="muted">No tasks</p>
                         ) : (
-                          <ul className="person-related-list">
-                            {relatedRecords[person.publicId].tasks.map((task) => (
-                              <li key={task.publicId}>
-                                <strong>
-                                  <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
-                                </strong>
-                                <span>
-                                  <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {task.status} - {formatDate(task.dueDate)}
-                                  {hasActiveBlockers(task) ? (
-                                    <StatusBadge label="Blocker" tone="bad" />
-                                  ) : null}
-                                  {hasClearedBlockers(task) ? (
-                                    <StatusBadge label="Blocker cleared" tone="good" />
-                                  ) : null}
-                                </span>
-                                {hasBlockers(task) ? (
-                                  <span className="person-related-blocker">
-                                    <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
-                                  </span>
-                                ) : null}
-                                {(task.notes ?? "").trim() ? (
-                                  <RichNoteText
-                                    className="person-related-note"
-                                    text={task.notes}
-                                    onRecordOpen={onRecordReferenceOpen}
-                                  />
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
+                          <PaginatedItems
+                            items={relatedRecords[person.publicId].tasks}
+                            itemName="task"
+                            pageSize={5}
+                            getItemKey={(task) => task.publicId}
+                          >
+                            {(visibleTasks) => (
+                              <ul className="person-related-list">
+                                {visibleTasks.map((task) => (
+                                  <li key={task.publicId}>
+                                    <strong>
+                                      <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
+                                    </strong>
+                                    <span>
+                                      <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
+                                      {task.status} - {formatDate(task.dueDate)}
+                                      {hasActiveBlockers(task) ? (
+                                        <StatusBadge label="Blocker" tone="bad" />
+                                      ) : null}
+                                      {hasClearedBlockers(task) ? (
+                                        <StatusBadge label="Blocker cleared" tone="good" />
+                                      ) : null}
+                                    </span>
+                                    {hasBlockers(task) ? (
+                                      <span className="person-related-blocker">
+                                        <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
+                                      </span>
+                                    ) : null}
+                                    {(task.notes ?? "").trim() ? (
+                                      <RichNoteText
+                                        className="person-related-note"
+                                        text={task.notes}
+                                        onRecordOpen={onRecordReferenceOpen}
+                                      />
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </PaginatedItems>
                         )}
                       </section>
                       <section className="person-related-section">
@@ -417,24 +445,33 @@ export function PeoplePage({
                         {relatedRecords[person.publicId].decisions.length === 0 ? (
                           <p className="muted">No decisions</p>
                         ) : (
-                          <ul className="person-related-list">
-                            {relatedRecords[person.publicId].decisions.map((decision) => (
-                              <li key={decision.publicId}>
-                                <strong>
-                                  <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
-                                </strong>
-                                <span>
-                                  <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
-                                  {decision.decisionDate} -{" "}
-                                  {decision.meetingPublicId ? (
-                                    <LinkedText text={decision.meetingPublicId} onRecordOpen={onRecordReferenceOpen} />
-                                  ) : (
-                                    "No meeting"
-                                  )}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                          <PaginatedItems
+                            items={relatedRecords[person.publicId].decisions}
+                            itemName="decision"
+                            pageSize={5}
+                            getItemKey={(decision) => decision.publicId}
+                          >
+                            {(visibleDecisions) => (
+                              <ul className="person-related-list">
+                                {visibleDecisions.map((decision) => (
+                                  <li key={decision.publicId}>
+                                    <strong>
+                                      <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
+                                    </strong>
+                                    <span>
+                                      <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} /> -{" "}
+                                      {decision.decisionDate} -{" "}
+                                      {decision.meetingPublicId ? (
+                                        <LinkedText text={decision.meetingPublicId} onRecordOpen={onRecordReferenceOpen} />
+                                      ) : (
+                                        "No meeting"
+                                      )}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </PaginatedItems>
                         )}
                       </section>
                     </div>
@@ -444,6 +481,8 @@ export function PeoplePage({
             </div>
           ))}
         </div>
+          )}
+        </PaginatedItems>
       )}
     </main>
   );

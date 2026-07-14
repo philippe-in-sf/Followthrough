@@ -13,6 +13,7 @@ import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
@@ -377,7 +378,7 @@ export function TasksPage({
     if (!task) return;
 
     editTask(task);
-    scrollRecordIntoView(`task-${task.publicId}`);
+    window.setTimeout(() => scrollRecordIntoView(`task-${task.publicId}`), 0);
     onTaskFocusHandled?.();
   }, [focusTaskPublicId, onTaskFocusHandled, tasks]);
 
@@ -708,8 +709,17 @@ export function TasksPage({
                 </div>
                 <span className="lane-count">{countLabel(lane.tasks.length, "task")}</span>
               </header>
+              <PaginatedItems
+                items={lane.tasks}
+                itemName="task"
+                pageSize={8}
+                getItemKey={(task) => task.publicId}
+                focusItemKey={focusTaskPublicId}
+                resetKey={`${query}:${lane.key}`}
+              >
+                {(visibleTasks) => (
               <div className="record-list">
-                {lane.tasks.map((task) => {
+                {visibleTasks.map((task) => {
                   const isExpanded = Boolean(expandedTaskPublicIds[task.publicId]);
                   const detailsId = `task-details-${task.publicId}`;
                   const taskSummaryText = singleLineText(task.description, "Untitled task");
@@ -1023,35 +1033,44 @@ export function TasksPage({
                             <section className="task-detail-section">
                               <h4>Dependencies</h4>
                               {dependencies.length ? (
-                                <div className="task-dependency-list">
-                                  {dependencies.map((dependency) => (
-                                    <div
-                                      className="task-dependency-item"
-                                      key={dependency.publicId}
-                                    >
-                                      <span>
-                                        <strong>
-                                          <LinkedText text={dependency.publicId} onRecordOpen={onReferenceOpen} />
-                                        </strong>
-                                        <span>
-                                          <LinkedText
-                                            text={singleLineText(dependency.description, "Untitled task")}
-                                            onRecordOpen={onReferenceOpen}
-                                          />
-                                        </span>
-                                      </span>
-                                      <span className="task-dependency-status">
-                                        <StatusBadge
-                                          label={dependency.status}
-                                          tone={dependency.status === "Done" ? "good" : "warn"}
-                                        />
-                                        {dependency.archived ? (
-                                          <StatusBadge label="Archived" />
-                                        ) : null}
-                                      </span>
+                                <PaginatedItems
+                                  items={dependencies}
+                                  itemName="dependency"
+                                  pageSize={6}
+                                  getItemKey={(dependency) => dependency.publicId}
+                                >
+                                  {(visibleDependencies) => (
+                                    <div className="task-dependency-list">
+                                      {visibleDependencies.map((dependency) => (
+                                        <div
+                                          className="task-dependency-item"
+                                          key={dependency.publicId}
+                                        >
+                                          <span>
+                                            <strong>
+                                              <LinkedText text={dependency.publicId} onRecordOpen={onReferenceOpen} />
+                                            </strong>
+                                            <span>
+                                              <LinkedText
+                                                text={singleLineText(dependency.description, "Untitled task")}
+                                                onRecordOpen={onReferenceOpen}
+                                              />
+                                            </span>
+                                          </span>
+                                          <span className="task-dependency-status">
+                                            <StatusBadge
+                                              label={dependency.status}
+                                              tone={dependency.status === "Done" ? "good" : "warn"}
+                                            />
+                                            {dependency.archived ? (
+                                              <StatusBadge label="Archived" />
+                                            ) : null}
+                                          </span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
+                                  )}
+                                </PaginatedItems>
                               ) : (
                                 <p>No dependencies</p>
                               )}
@@ -1122,6 +1141,8 @@ export function TasksPage({
                   );
                 })}
               </div>
+                )}
+              </PaginatedItems>
             </section>
           ))}
         </div>
