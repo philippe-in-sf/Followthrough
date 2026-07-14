@@ -58,7 +58,7 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
   Notes: {
     icon: FileText,
     description: "Review your captured meeting notes by recent or custom date ranges.",
-    contextRows: [{ label: "Last week" }, { label: "Last month" }, { label: "Custom range" }],
+    contextRows: [{ label: "Last day" }, { label: "Last week" }, { label: "Last month" }, { label: "Custom range" }],
   },
   Decisions: {
     icon: BadgeCheck,

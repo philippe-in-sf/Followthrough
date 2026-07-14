@@ -11,7 +11,6 @@ type MeetingNoteRow = {
   title: string;
   starts_at: string;
   notes: string;
-  private: number;
   created_by_user_id: number | null;
   creator_match: number;
   attendee_match: number;
@@ -123,7 +122,6 @@ function toMeetingNote(db: AppDatabase, row: MeetingNoteRow): MeetingNoteDto {
     notes: row.notes,
     matchReasons,
     attendees: getAttendees(db, row.id),
-    private: row.private === 1,
   };
 }
 
@@ -139,7 +137,7 @@ export function notesRoutes(db: AppDatabase) {
       const rows = db
         .prepare(
           `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
-                  meetings.notes, meetings.private, meetings.created_by_user_id,
+                  meetings.notes, meetings.created_by_user_id,
                   CASE WHEN meetings.created_by_user_id = ? THEN 1 ELSE 0 END AS creator_match,
                   CASE WHEN EXISTS (
                     SELECT 1

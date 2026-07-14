@@ -9,6 +9,10 @@ const dbs: ReturnType<typeof createTestDatabase>[] = [];
 const baseConfig: AppConfig = {
   port: 3000,
   databasePath: ":memory:",
+  backupEnabled: false,
+  backupDir: "data/backups",
+  backupIntervalMs: 86_400_000,
+  backupRetentionCount: 14,
   sessionCookieName: "tm_session",
   sessionTtlDays: 14,
   dueSoonDays: 7,

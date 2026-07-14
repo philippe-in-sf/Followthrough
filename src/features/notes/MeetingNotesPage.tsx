@@ -1,4 +1,4 @@
-import { ExternalLink, Lock } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, api, type MeetingNotesRange } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
@@ -12,6 +12,7 @@ type MeetingNotesPageProps = {
 };
 
 const presetRanges: Array<{ value: MeetingNotesRange; label: string }> = [
+  { value: "day", label: "Day" },
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
   { value: "custom", label: "Custom" },
@@ -168,12 +169,6 @@ export function MeetingNotesPage({ onOpenMeeting, onRecordReferenceOpen }: Meeti
               <div className="note-result-meta">
                 <span>{formatMeetingDate(note.startsAt)}</span>
                 <span>{matchLabel(note)}</span>
-                {note.private ? (
-                  <span className="private-meta">
-                    <Lock size={14} />
-                    Private
-                  </span>
-                ) : null}
               </div>
               {note.attendees.length > 0 ? (
                 <p className="note-result-attendees">

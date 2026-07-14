@@ -57,7 +57,7 @@ async function setup() {
 
 async function createMeeting(
   app: ReturnType<typeof createApp>,
-  cookie: string[],
+  cookie: string | string[],
   body: {
     title: string;
     startsAt: string;
@@ -68,7 +68,7 @@ async function createMeeting(
 ) {
   return request(app)
     .post("/api/meetings")
-    .set("Cookie", cookie)
+    .set("Cookie", Array.isArray(cookie) ? cookie : [cookie])
     .send({
       title: body.title,
       startsAt: body.startsAt,
