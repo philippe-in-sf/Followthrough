@@ -1,11 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { AdminInviteCodeDto, TeamDto, TeamUserDto, WaitlistSignupDto } from "../../shared/types.js";
+import type {
+  AdminInviteCodeDto,
+  TeamDto,
+  TeamUserDto,
+  UserLoginEventDto,
+  WaitlistSignupDto,
+} from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
 import { withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { hashPassword } from "../auth/password.js";
+import { resetUserPassword } from "../auth/passwordReset.js";
 import { createUser, insertUserWithPasswordHash } from "../auth/userManagement.js";
 import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
 
@@ -20,7 +27,7 @@ type TeamUserRow = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "member";
+  role: "owner" | "admin" | "member";
   team_id: number;
 };
 
@@ -45,6 +52,16 @@ type InviteCodeRow = {
   default_role: "admin" | "member";
 };
 
+type UserLoginEventRow = {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  created_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+};
+
 const teamInputSchema = z.object({
   name: z.string().trim().min(1),
   logoUrl: z.string().nullable(),
@@ -64,6 +81,10 @@ const userInputSchema = z.object({
 
 const roleInputSchema = z.object({
   role: z.enum(["admin", "member"]),
+});
+
+const passwordResetInputSchema = z.object({
+  password: z.string().min(12),
 });
 
 const waitlistInviteCodeInputSchema = z.object({
@@ -136,6 +157,18 @@ function inviteCodeDto(row: InviteCodeRow): AdminInviteCodeDto {
   };
 }
 
+function loginEventDto(row: UserLoginEventRow): UserLoginEventDto {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userEmail: row.user_email,
+    createdAt: row.created_at,
+    ipAddress: row.ip_address,
+    userAgent: row.user_agent,
+  };
+}
+
 function getTeam(db: AppDatabase, teamId: number) {
   const row = db
     .prepare("SELECT id, name, logo_url, work_calendar_url FROM teams WHERE id = ?")
@@ -150,6 +183,22 @@ function getTeamUser(db: AppDatabase, teamId: number, userId: number) {
     .get(userId, teamId) as TeamUserRow | undefined;
   if (!row) throw notFound("User not found");
   return row;
+}
+
+function isOwnerRole(role: string | undefined) {
+  return role === "owner";
+}
+
+function getVisibleUser(db: AppDatabase, req: { user?: { role: string; teamId: number } }, userId: number) {
+  if (isOwnerRole(req.user?.role)) {
+    const row = db
+      .prepare("SELECT id, name, email, role, team_id FROM users WHERE id = ?")
+      .get(userId) as TeamUserRow | undefined;
+    if (!row) throw notFound("User not found");
+    return row;
+  }
+
+  return getTeamUser(db, req.user?.teamId ?? 0, userId);
 }
 
 function parseSignupId(value: string | undefined) {
@@ -235,14 +284,22 @@ export function adminRoutes(db: AppDatabase) {
   });
 
   router.get("/users", (req, res) => {
-    const rows = db
-      .prepare(
-        `SELECT id, name, email, role, team_id
-         FROM users
-         WHERE team_id = ?
-         ORDER BY name COLLATE NOCASE`,
-      )
-      .all(req.user?.teamId ?? 0) as TeamUserRow[];
+    const rows = isOwnerRole(req.user?.role)
+      ? (db
+          .prepare(
+            `SELECT id, name, email, role, team_id
+             FROM users
+             ORDER BY team_id, name COLLATE NOCASE`,
+          )
+          .all() as TeamUserRow[])
+      : (db
+          .prepare(
+            `SELECT id, name, email, role, team_id
+             FROM users
+             WHERE team_id = ?
+             ORDER BY name COLLATE NOCASE`,
+          )
+          .all(req.user?.teamId ?? 0) as TeamUserRow[]);
 
     res.json({ users: rows.map(userDto) });
   });
@@ -270,6 +327,27 @@ export function adminRoutes(db: AppDatabase) {
       .all() as WaitlistSignupRow[];
 
     res.json({ signups: rows.map(waitlistSignupDto) });
+  });
+
+  router.get("/login-events", (req, res) => {
+    const rows = db
+      .prepare(
+        `SELECT user_login_events.id,
+                user_login_events.user_id,
+                users.name AS user_name,
+                users.email AS user_email,
+                user_login_events.created_at,
+                user_login_events.ip_address,
+                user_login_events.user_agent
+         FROM user_login_events
+         JOIN users ON users.id = user_login_events.user_id
+         WHERE (? = 1 OR user_login_events.team_id = ?)
+         ORDER BY user_login_events.created_at DESC, user_login_events.id DESC
+         LIMIT 100`,
+      )
+      .all(isOwnerRole(req.user?.role) ? 1 : 0, req.user?.teamId ?? 0) as UserLoginEventRow[];
+
+    res.json({ loginEvents: rows.map(loginEventDto) });
   });
 
   router.post("/waitlist/:signupId/invite-code", (req, res, next) => {
@@ -408,19 +486,36 @@ export function adminRoutes(db: AppDatabase) {
       const userId = Number(req.params.userId);
       if (!Number.isInteger(userId) || userId < 1) throw notFound("User not found");
 
-      const teamId = req.user?.teamId ?? 0;
-      const existing = getTeamUser(db, teamId, userId);
-      if (existing.role === "admin" && input.role === "member" && countTeamAdmins(db, teamId) <= 1) {
+      const existing = getVisibleUser(db, req, userId);
+      if (existing.role === "owner" && !isOwnerRole(req.user?.role)) {
+        throw badRequest("Owner access can only be changed by owner access");
+      }
+      if (
+        (existing.role === "admin" || existing.role === "owner") &&
+        input.role === "member" &&
+        countTeamAdmins(db, existing.team_id) <= 1
+      ) {
         throw badRequest("At least one admin is required");
       }
 
-      db.prepare("UPDATE users SET role = ? WHERE id = ? AND team_id = ?").run(
-        input.role,
-        userId,
-        teamId,
-      );
+      db.prepare("UPDATE users SET role = ? WHERE id = ?").run(input.role, userId);
 
-      res.json({ user: userDto(getTeamUser(db, teamId, userId)) });
+      res.json({ user: userDto(getVisibleUser(db, req, userId)) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/users/:userId/password", async (req, res, next) => {
+    try {
+      const input = parseBody(req, passwordResetInputSchema);
+      const userId = Number(req.params.userId);
+      if (!Number.isInteger(userId) || userId < 1) throw notFound("User not found");
+
+      getVisibleUser(db, req, userId);
+      await resetUserPassword(db, userId, input.password);
+
+      res.status(204).end();
     } catch (error) {
       next(error);
     }
@@ -434,7 +529,7 @@ export function adminRoutes(db: AppDatabase) {
         throw badRequest("Use leave team to remove yourself");
       }
 
-      getTeamUser(db, req.user?.teamId ?? 0, userId);
+      getVisibleUser(db, req, userId);
       const movedUser = moveUserToPersonalTeam(db, userId, { revokeSessions: true });
 
       res.json({

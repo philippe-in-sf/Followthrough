@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import {
   AlarmClockCheck,
   ArrowRight,
@@ -15,9 +15,16 @@ import { BrandMark } from "../../components/BrandMark";
 import { FormField } from "../../components/FormField";
 
 export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [openAccessPanel, setOpenAccessPanel] = useState<"account" | "waitlist" | null>(null);
+  const resetToken = useMemo(() => new URLSearchParams(window.location.search).get("resetToken"), []);
+  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(
+    resetToken ? "reset" : "login",
+  );
+  const [openAccessPanel, setOpenAccessPanel] = useState<"account" | "waitlist" | null>(
+    resetToken ? "account" : null,
+  );
   const [error, setError] = useState<string | null>(null);
+  const [passwordResetStatus, setPasswordResetStatus] = useState<string | null>(null);
+  const [passwordResetSubmitting, setPasswordResetSubmitting] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [waitlistStatus, setWaitlistStatus] = useState<string | null>(null);
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
@@ -50,6 +57,49 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
       onAuth(result.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
+    }
+  }
+
+  async function submitPasswordResetRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError(null);
+    setPasswordResetStatus(null);
+    setPasswordResetSubmitting(true);
+
+    try {
+      await api.requestPasswordReset({ email: String(form.get("email")) });
+      setPasswordResetStatus("If that email has access, a reset link is on its way.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to request password reset");
+    } finally {
+      setPasswordResetSubmitting(false);
+    }
+  }
+
+  async function submitPasswordResetConfirm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const newPassword = String(form.get("newPassword"));
+    const confirmPassword = String(form.get("confirmPassword"));
+    setError(null);
+    setPasswordResetStatus(null);
+
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+
+    setPasswordResetSubmitting(true);
+    try {
+      await api.confirmPasswordReset({ token: resetToken ?? "", newPassword });
+      window.history.replaceState({}, "", `${window.location.pathname}#access`);
+      setPasswordResetStatus("Password reset. Sign in with your new password.");
+      setMode("login");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reset password");
+    } finally {
+      setPasswordResetSubmitting(false);
     }
   }
 
@@ -246,38 +296,90 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
               </button>
             </h2>
             <div id="account-access-body" className="access-panel-body" hidden={!accountPanelOpen}>
-              <form onSubmit={submit} className="stack">
-                {mode === "signup" ? (
-                  <FormField label="Name">
-                    <input name="name" autoComplete="name" required />
+              {mode === "forgot" ? (
+                <form onSubmit={submitPasswordResetRequest} className="stack">
+                  <FormField label="Email">
+                    <input name="email" type="email" autoComplete="email" required />
                   </FormField>
-                ) : null}
-                <FormField label="Email">
-                  <input name="email" type="email" autoComplete="email" required />
-                </FormField>
-                <FormField label="Password">
-                  <input
-                    name="password"
-                    type="password"
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    required
-                  />
-                </FormField>
-                {mode === "signup" ? (
-                  <FormField label="Invite code">
-                    <input name="inviteCode" required />
+                  {error ? <p className="form-error">{error}</p> : null}
+                  {passwordResetStatus ? <p className="form-status">{passwordResetStatus}</p> : null}
+                  <button
+                    className="primary-button auth-submit-button"
+                    disabled={passwordResetSubmitting}
+                    type="submit"
+                  >
+                    <span>{passwordResetSubmitting ? "Sending..." : "Send reset link"}</span>
+                    <ArrowRight aria-hidden="true" size={18} />
+                  </button>
+                </form>
+              ) : mode === "reset" ? (
+                <form onSubmit={submitPasswordResetConfirm} className="stack">
+                  <FormField label="New password">
+                    <input name="newPassword" type="password" autoComplete="new-password" minLength={12} required />
                   </FormField>
-                ) : null}
-                {error ? <p className="form-error">{error}</p> : null}
-                <button className="primary-button auth-submit-button" type="submit">
-                  <span>{mode === "login" ? "Sign in" : "Create account"}</span>
-                  <ArrowRight aria-hidden="true" size={18} />
+                  <FormField label="Confirm new password">
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      required
+                    />
+                  </FormField>
+                  {error ? <p className="form-error">{error}</p> : null}
+                  <button
+                    className="primary-button auth-submit-button"
+                    disabled={passwordResetSubmitting}
+                    type="submit"
+                  >
+                    <span>{passwordResetSubmitting ? "Resetting..." : "Reset password"}</span>
+                    <ArrowRight aria-hidden="true" size={18} />
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={submit} className="stack">
+                  {mode === "signup" ? (
+                    <FormField label="Name">
+                      <input name="name" autoComplete="name" required />
+                    </FormField>
+                  ) : null}
+                  <FormField label="Email">
+                    <input name="email" type="email" autoComplete="email" required />
+                  </FormField>
+                  <FormField label="Password">
+                    <input
+                      name="password"
+                      type="password"
+                      autoComplete={mode === "login" ? "current-password" : "new-password"}
+                      required
+                    />
+                  </FormField>
+                  {mode === "signup" ? (
+                    <FormField label="Invite code">
+                      <input name="inviteCode" required />
+                    </FormField>
+                  ) : null}
+                  {error ? <p className="form-error">{error}</p> : null}
+                  {passwordResetStatus ? <p className="form-status">{passwordResetStatus}</p> : null}
+                  <button className="primary-button auth-submit-button" type="submit">
+                    <span>{mode === "login" ? "Sign in" : "Create account"}</span>
+                    <ArrowRight aria-hidden="true" size={18} />
+                  </button>
+                </form>
+              )}
+              {mode === "login" ? (
+                <button className="link-button" type="button" onClick={() => setMode("forgot")}>
+                  Reset password
                 </button>
-              </form>
+              ) : null}
               <button
                 className="link-button"
                 type="button"
-                onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                onClick={() => {
+                  setError(null);
+                  setPasswordResetStatus(null);
+                  setMode(mode === "login" ? "signup" : "login");
+                }}
               >
                 {mode === "login" ? "Use an invite code" : "Back to sign in"}
               </button>

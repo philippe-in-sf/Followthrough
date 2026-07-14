@@ -13,7 +13,7 @@ export const createUserInputSchema = z.object({
     .transform((value) => value.toLowerCase()),
   password: z.string().min(12),
   teamId: z.number().int().positive().optional(),
-  role: z.enum(["admin", "member"]).optional(),
+  role: z.enum(["owner", "admin", "member"]).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserInputSchema>;
@@ -35,6 +35,9 @@ function isUniqueConstraintError(error: unknown) {
 
 export async function createUser(db: AppDatabase, input: CreateUserInput) {
   const parsed = createUserInputSchema.parse(input);
+  if (parsed.role === "owner" && parsed.email !== "philippe@beaudette.me") {
+    throw badRequest("Owner access is reserved for philippe@beaudette.me");
+  }
   const passwordHash = await hashPassword(parsed.password);
   return insertUserWithPasswordHash(db, {
     name: parsed.name,

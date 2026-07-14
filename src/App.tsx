@@ -137,7 +137,7 @@ function renderSection({
     case "Settings":
       return <SettingsPage user={user} onLeaveTeam={onLeaveTeam} />;
     case "Admin":
-      return user.role === "admin" ? (
+      return user.role === "admin" || user.role === "owner" ? (
         <AdminPage currentUserId={currentUserId} onTeamChange={onTeamChange} />
       ) : null;
   }

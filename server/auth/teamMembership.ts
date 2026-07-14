@@ -7,7 +7,7 @@ type UserTeamRow = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "member";
+  role: "owner" | "admin" | "member";
   team_id: number;
 };
 
@@ -17,7 +17,7 @@ function personalTeamName(userName: string) {
 
 export function countTeamAdmins(db: AppDatabase, teamId: number) {
   const row = db
-    .prepare("SELECT COUNT(*) AS count FROM users WHERE team_id = ? AND role = 'admin'")
+    .prepare("SELECT COUNT(*) AS count FROM users WHERE team_id = ? AND role IN ('owner', 'admin')")
     .get(teamId) as { count: number };
   return row.count;
 }
@@ -38,7 +38,7 @@ export function moveUserToPersonalTeam(
   return withTransaction(db, () => {
     const user = getUserTeamRow(db, userId);
 
-    if (user.role === "admin" && countTeamAdmins(db, user.team_id) <= 1) {
+    if ((user.role === "admin" || user.role === "owner") && countTeamAdmins(db, user.team_id) <= 1) {
       throw badRequest("At least one admin is required");
     }
 

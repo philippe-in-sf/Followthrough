@@ -18,6 +18,7 @@ import type {
   TaskStatus,
   TeamDto,
   TeamUserDto,
+  UserLoginEventDto,
   UserPreferencesDto,
   UserRole,
   WaitlistSignupDto,
@@ -208,6 +209,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  requestPasswordReset: (body: { email: string }) =>
+    request<{ ok: true }>("/api/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  confirmPasswordReset: (body: { token: string; newPassword: string }) =>
+    request<void>("/api/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   waitlist: (body: { name: string; email: string }) =>
     request<{ ok: true }>("/api/waitlist", {
       method: "POST",
@@ -247,6 +258,7 @@ export const api = {
         body: JSON.stringify(body),
       }),
     users: () => request<{ users: TeamUserDto[] }>("/api/admin/users"),
+    loginEvents: () => request<{ loginEvents: UserLoginEventDto[] }>("/api/admin/login-events"),
     waitlist: () => request<{ signups: WaitlistSignupDto[] }>("/api/admin/waitlist"),
     createWaitlistInviteCode: (signupId: number, body: { code: string; role: UserRole }) =>
       request<{ inviteCode: AdminInviteCodeDto; signup: WaitlistSignupDto }>(
@@ -273,6 +285,11 @@ export const api = {
       request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/role`, {
         method: "PATCH",
         body: JSON.stringify({ role }),
+      }),
+    resetUserPassword: (userId: number, password: string) =>
+      request<void>(`/api/admin/users/${userId}/password`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
       }),
     removeUserFromTeam: (userId: number) =>
       request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/remove`, {

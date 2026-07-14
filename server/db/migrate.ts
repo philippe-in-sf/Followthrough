@@ -36,9 +36,16 @@ export function migrateDatabase(db: AppDatabase) {
 
     if (applied) continue;
 
+    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    if (sql.includes("-- migrate: no-transaction")) {
+      db.exec(sql);
+      db.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(version);
+      continue;
+    }
+
     db.exec("BEGIN IMMEDIATE");
     try {
-      db.exec(fs.readFileSync(path.join(migrationsDir, file), "utf8"));
+      db.exec(sql);
       db.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(version);
       db.exec("COMMIT");
     } catch (error) {

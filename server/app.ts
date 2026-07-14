@@ -54,7 +54,7 @@ export function createApp(deps: AppDependencies = {}) {
     res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
   });
 
-  app.use("/api/auth", authRoutes(db, config));
+  app.use("/api/auth", authRoutes(db, config, emailSender));
   app.use("/api/waitlist", waitlistRoutes(db));
 
   const protectedApi = express.Router();

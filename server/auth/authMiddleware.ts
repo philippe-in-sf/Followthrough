@@ -26,7 +26,7 @@ export function requireAuth(db: AppDatabase, config: AppConfig) {
 }
 
 export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
-  if (req.user?.role !== "admin") {
+  if (req.user?.role !== "admin" && req.user?.role !== "owner") {
     next(forbidden("Admin access required"));
     return;
   }

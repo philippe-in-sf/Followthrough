@@ -78,6 +78,21 @@ describe("admin page", () => {
       if (url.pathname === "/api/admin/users" && method === "GET") {
         return json({ users });
       }
+      if (url.pathname === "/api/admin/login-events" && method === "GET") {
+        return json({
+          loginEvents: [
+            {
+              id: 1,
+              userId: 1,
+              userName: "Editor",
+              userEmail: "editor@example.com",
+              createdAt: "2026-07-14T08:00:00.000Z",
+              ipAddress: "127.0.0.1",
+              userAgent: "Test Browser",
+            },
+          ],
+        });
+      }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups: [] });
       }
@@ -98,6 +113,11 @@ describe("admin page", () => {
         user.role = body.role;
         return json({ user });
       }
+      const passwordMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/password$/);
+      if (passwordMatch && method === "POST") {
+        expect(body).toEqual({ password: "reset-long-password" });
+        return json({}, 204);
+      }
       const removeMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/remove$/);
       if (removeMatch && method === "POST") {
         const userIndex = users.findIndex((candidate) => candidate.id === Number(removeMatch[1]));
@@ -112,6 +132,9 @@ describe("admin page", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
+    expect(await screen.findByText("Login log")).toBeInTheDocument();
+    expect(screen.getAllByText("editor@example.com").length).toBeGreaterThan(1);
+    expect(screen.getByText("127.0.0.1")).toBeInTheDocument();
 
     await userEvent.clear(await screen.findByLabelText("Team name"));
     await userEvent.type(screen.getByLabelText("Team name"), "Acme Ops");
@@ -143,6 +166,11 @@ describe("admin page", () => {
     await waitFor(() =>
       expect(within(memberRow).getByLabelText("Role for Member")).toHaveValue("admin"),
     );
+
+    await userEvent.type(within(memberRow).getByLabelText("New password for Member"), "reset-long-password");
+    await userEvent.click(within(memberRow).getByRole("button", { name: "Reset password" }));
+
+    expect(await screen.findByText("Password reset for Member")).toBeInTheDocument();
 
     await userEvent.click(within(memberRow).getByRole("button", { name: "Remove from team" }));
 
@@ -196,6 +224,9 @@ describe("admin page", () => {
       }
       if (url.pathname === "/api/admin/team") return json({ team });
       if (url.pathname === "/api/admin/users" && method === "GET") return json({ users });
+      if (url.pathname === "/api/admin/login-events" && method === "GET") {
+        return json({ loginEvents: [] });
+      }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups: [] });
       }
@@ -289,6 +320,9 @@ describe("admin page", () => {
       }
       if (url.pathname === "/api/admin/team") return json({ team });
       if (url.pathname === "/api/admin/users" && method === "GET") return json({ users });
+      if (url.pathname === "/api/admin/login-events" && method === "GET") {
+        return json({ loginEvents: [] });
+      }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups });
       }

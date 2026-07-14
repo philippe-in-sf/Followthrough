@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.6.0 - 2026-07-14
+
+### Added
+
+- Added password recovery for locked-out users and admin-managed password resets.
+- Added an admin login log with successful sign-in date, time, IP, and browser details.
+
+### Changed
+
+- Scoped standard admin user-management and login-log views to the admin's own team, with a reserved owner role for cross-team operations.
+
 ## 1.5.0 - 2026-07-14
 
 ### Fixed

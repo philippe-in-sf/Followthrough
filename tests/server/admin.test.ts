@@ -297,6 +297,88 @@ describe("admin API", () => {
     });
   });
 
+  it("scopes admin users and login events to their team unless the user has owner access", async () => {
+    const { app, db, adminCookie } = await setup();
+    const otherTeam = db.prepare("INSERT INTO teams (name) VALUES (?)").run("Other Team");
+    const otherTeamId = Number(otherTeam.lastInsertRowid);
+    await createUser(db, {
+      name: "Other Admin",
+      email: "other@example.com",
+      password: "long-enough-password",
+      role: "admin",
+      teamId: otherTeamId,
+    });
+    await createUser(db, {
+      name: "Philippe",
+      email: "philippe@beaudette.me",
+      password: "long-enough-password",
+      role: "owner",
+      teamId: 1,
+    });
+
+    await request(app).post("/api/auth/login").send({
+      email: "other@example.com",
+      password: "long-enough-password",
+    });
+    const ownerLogin = await request(app).post("/api/auth/login").send({
+      email: "philippe@beaudette.me",
+      password: "long-enough-password",
+    });
+
+    const adminUsers = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
+    expect(adminUsers.body.users.map((user: { email: string }) => user.email)).not.toContain(
+      "other@example.com",
+    );
+
+    const adminLogins = await request(app).get("/api/admin/login-events").set("Cookie", adminCookie);
+    expect(
+      adminLogins.body.loginEvents.map((event: { userEmail: string }) => event.userEmail),
+    ).not.toContain("other@example.com");
+
+    const ownerUsers = await request(app).get("/api/admin/users").set("Cookie", ownerLogin.headers["set-cookie"]);
+    expect(ownerUsers.body.users.map((user: { email: string }) => user.email)).toEqual(
+      expect.arrayContaining(["admin@example.com", "member@example.com", "other@example.com"]),
+    );
+
+    const ownerLogins = await request(app)
+      .get("/api/admin/login-events")
+      .set("Cookie", ownerLogin.headers["set-cookie"]);
+    expect(ownerLogins.body.loginEvents.map((event: { userEmail: string }) => event.userEmail)).toEqual(
+      expect.arrayContaining(["admin@example.com", "member@example.com", "other@example.com"]),
+    );
+  });
+
+  it("lets admins reset a team user's password and revoke old sessions", async () => {
+    const { app, adminCookie, memberCookie } = await setup();
+
+    const users = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
+    const member = users.body.users.find(
+      (user: { email: string }) => user.email === "member@example.com",
+    );
+
+    const reset = await request(app)
+      .post(`/api/admin/users/${member.id}/password`)
+      .set("Cookie", adminCookie)
+      .send({ password: "reset-long-password" });
+
+    expect(reset.status).toBe(204);
+
+    const oldSession = await request(app).get("/api/tasks").set("Cookie", memberCookie);
+    expect(oldSession.status).toBe(401);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: "member@example.com",
+      password: "long-enough-password",
+    });
+    expect(oldLogin.status).toBe(400);
+
+    const newLogin = await request(app).post("/api/auth/login").send({
+      email: "member@example.com",
+      password: "reset-long-password",
+    });
+    expect(newLogin.status).toBe(200);
+  });
+
   it("lets admins remove users from the team and protects old team records", async () => {
     const { app, adminCookie, memberCookie } = await setup();
 

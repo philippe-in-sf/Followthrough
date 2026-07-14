@@ -1,5 +1,11 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { TeamDto, TeamUserDto, UserRole, WaitlistSignupDto } from "../../../shared/types";
+import type {
+  TeamDto,
+  TeamUserDto,
+  UserLoginEventDto,
+  UserRole,
+  WaitlistSignupDto,
+} from "../../../shared/types";
 import { api, ApiError } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
@@ -16,6 +22,10 @@ type NewUserFormState = {
   email: string;
   password: string;
   role: UserRole;
+};
+
+type PasswordResetFormState = {
+  password: string;
 };
 
 type WaitlistInviteFormState = {
@@ -84,6 +94,15 @@ function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : "Request failed";
 }
 
+function formatLoginTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export function AdminPage({
   currentUserId,
   onTeamChange,
@@ -97,12 +116,14 @@ export function AdminPage({
     workCalendarUrl: "",
   });
   const [users, setUsers] = useState<TeamUserDto[]>([]);
+  const [loginEvents, setLoginEvents] = useState<UserLoginEventDto[]>([]);
   const [waitlistSignups, setWaitlistSignups] = useState<WaitlistSignupDto[]>([]);
   const [inviteForms, setInviteForms] = useState<Record<number, WaitlistInviteFormState>>({});
   const [directUserForms, setDirectUserForms] = useState<
     Record<number, WaitlistDirectUserFormState>
   >({});
   const [newUser, setNewUser] = useState<NewUserFormState>(emptyNewUserForm);
+  const [passwordResetForms, setPasswordResetForms] = useState<Record<number, PasswordResetFormState>>({});
   const [loading, setLoading] = useState(true);
   const [teamStatus, setTeamStatus] = useState("");
   const [teamError, setTeamError] = useState("");
@@ -111,6 +132,9 @@ export function AdminPage({
   const [roleError, setRoleError] = useState("");
   const [removeStatus, setRemoveStatus] = useState("");
   const [removeError, setRemoveError] = useState("");
+  const [passwordResetStatus, setPasswordResetStatus] = useState("");
+  const [passwordResetError, setPasswordResetError] = useState("");
+  const [resettingPasswordUserId, setResettingPasswordUserId] = useState<number | null>(null);
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
   const [handlingSignupId, setHandlingSignupId] = useState<number | null>(null);
@@ -121,14 +145,16 @@ export function AdminPage({
     async function loadAdminData() {
       setLoading(true);
       try {
-        const [teamResult, usersResult, waitlistResult] = await Promise.all([
+        const [teamResult, usersResult, loginEventsResult, waitlistResult] = await Promise.all([
           api.admin.team(),
           api.admin.users(),
+          api.admin.loginEvents(),
           api.admin.waitlist(),
         ]);
         if (!active) return;
         setTeamForm(toTeamForm(teamResult.team));
         setUsers(usersResult.users);
+        setLoginEvents(loginEventsResult.loginEvents);
         setWaitlistSignups(waitlistResult.signups);
         setInviteForms(initialInviteForms(waitlistResult.signups));
         setDirectUserForms(initialDirectUserForms(waitlistResult.signups));
@@ -259,6 +285,24 @@ export function AdminPage({
     }
   }
 
+  async function resetPassword(event: FormEvent<HTMLFormElement>, user: TeamUserDto) {
+    event.preventDefault();
+    const form = passwordResetForms[user.id] ?? { password: "" };
+    setPasswordResetStatus("");
+    setPasswordResetError("");
+    setResettingPasswordUserId(user.id);
+
+    try {
+      await api.admin.resetUserPassword(user.id, form.password);
+      setPasswordResetForms((current) => ({ ...current, [user.id]: { password: "" } }));
+      setPasswordResetStatus(`Password reset for ${user.name}`);
+    } catch (error) {
+      setPasswordResetError(errorMessage(error));
+    } finally {
+      setResettingPasswordUserId(null);
+    }
+  }
+
   async function removeUserFromTeam(user: TeamUserDto) {
     const confirmed = window.confirm(
       `Remove ${user.name} from this team? They will lose access to this team's tasks, meetings, decisions, and people records.`,
@@ -352,14 +396,44 @@ export function AdminPage({
                       <td>
                         <select
                           aria-label={`Role for ${user.name}`}
+                          disabled={user.role === "owner"}
                           onChange={(event) => void updateRole(user, event.target.value as UserRole)}
                           value={user.role}
                         >
+                          {user.role === "owner" ? <option value="owner">Owner</option> : null}
                           <option value="member">Member</option>
                           <option value="admin">Admin</option>
                         </select>
                       </td>
                       <td className="admin-user-actions">
+                        <form
+                          className="admin-password-reset-form"
+                          onSubmit={(event) => void resetPassword(event, user)}
+                        >
+                          <FormField label={`New password for ${user.name}`}>
+                            <input
+                              autoComplete="new-password"
+                              minLength={12}
+                              name={`resetPassword-${user.id}`}
+                              onChange={(event) =>
+                                setPasswordResetForms((current) => ({
+                                  ...current,
+                                  [user.id]: { password: event.target.value },
+                                }))
+                              }
+                              required
+                              type="password"
+                              value={passwordResetForms[user.id]?.password ?? ""}
+                            />
+                          </FormField>
+                          <button
+                            className="secondary-button"
+                            disabled={resettingPasswordUserId === user.id}
+                            type="submit"
+                          >
+                            {resettingPasswordUserId === user.id ? "Resetting..." : "Reset password"}
+                          </button>
+                        </form>
                         {user.id === currentUserId ? null : (
                           <button
                             className="danger-button"
@@ -377,6 +451,8 @@ export function AdminPage({
             </div>
           )}
           {roleError ? <p className="form-error">{roleError}</p> : null}
+          {passwordResetError ? <p className="form-error">{passwordResetError}</p> : null}
+          {passwordResetStatus ? <p className="form-status">{passwordResetStatus}</p> : null}
           {removeError ? <p className="form-error">{removeError}</p> : null}
           {removeStatus ? <p className="form-status">{removeStatus}</p> : null}
 
@@ -430,6 +506,41 @@ export function AdminPage({
               Add user
             </button>
           </form>
+        </section>
+
+        <section className="admin-panel admin-login-log-panel">
+          <div className="panel-heading">
+            <h2>Login log</h2>
+          </div>
+          {loginEvents.length === 0 ? (
+            <EmptyState title="No logins yet" detail="Successful team sign-ins appear here." />
+          ) : (
+            <div className="admin-user-table-wrap">
+              <table className="admin-user-table admin-login-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Date and time</th>
+                    <th>IP</th>
+                    <th>Browser</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loginEvents.map((event) => (
+                    <tr key={event.id}>
+                      <td>
+                        <strong>{event.userName}</strong>
+                        <span>{event.userEmail}</span>
+                      </td>
+                      <td>{formatLoginTime(event.createdAt)}</td>
+                      <td>{event.ipAddress ?? "Unknown"}</td>
+                      <td>{event.userAgent ?? "Unknown"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <section className="admin-panel admin-waitlist-panel">

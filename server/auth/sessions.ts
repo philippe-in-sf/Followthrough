@@ -3,7 +3,7 @@ import type { Response } from "express";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 
-export type UserRole = "admin" | "member";
+export type UserRole = "owner" | "admin" | "member";
 
 export type AuthUser = {
   id: number;
@@ -35,7 +35,7 @@ type SessionUserRow = AuthUser & {
   expiresAt: string;
 };
 
-function hashToken(token: string) {
+export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
@@ -150,4 +150,8 @@ export function destroySession(
   const token = parseCookies(cookieHeader)[config.sessionCookieName];
   if (!token) return;
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hashToken(token));
+}
+
+export function destroySessionsForUser(db: AppDatabase, userId: number) {
+  db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
 }

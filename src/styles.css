@@ -1864,6 +1864,44 @@ button:disabled {
   min-width: 120px;
 }
 
+.admin-user-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.admin-password-reset-form {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-password-reset-form .form-field {
+  gap: 4px;
+}
+
+.admin-password-reset-form input {
+  min-width: 180px;
+}
+
+.admin-login-log-panel {
+  grid-column: 1 / -1;
+}
+
+.admin-login-table td:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-login-table td:first-child span {
+  color: #5b6475;
+  font-size: 0.85rem;
+}
+
+.admin-login-table td:last-child {
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
 .admin-add-user-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
@@ -1993,12 +2031,14 @@ button:disabled {
 @media (max-width: 860px) {
   .admin-layout,
   .admin-add-user-form,
+  .admin-password-reset-form,
   .settings-layout,
   .waitlist-actions,
   .waitlist-action-form {
     grid-template-columns: 1fr;
   }
 
+  .admin-login-log-panel,
   .admin-waitlist-panel {
     grid-column: auto;
   }
@@ -5001,6 +5041,10 @@ button:disabled {
 }
 
 .app-shell[data-skin] .admin-user-table th {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .admin-login-table td:first-child span {
   color: var(--skin-muted);
 }
 

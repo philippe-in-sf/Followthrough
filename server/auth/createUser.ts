@@ -10,14 +10,14 @@ function argValue(name: string) {
 
 const name = argValue("name");
 const email = argValue("email");
-const role = argValue("role") as "admin" | "member" | null;
+const role = argValue("role") as "owner" | "admin" | "member" | null;
 const teamId = argValue("team-id");
 const suppliedPassword = argValue("password");
 const password = suppliedPassword ?? randomBytes(18).toString("base64url");
 
 if (!name || !email) {
   console.error(
-    "Usage: npm run user:create -- --name=NAME --email=EMAIL [--password=PASSWORD] [--role=admin|member] [--team-id=ID]",
+    "Usage: npm run user:create -- --name=NAME --email=EMAIL [--password=PASSWORD] [--role=owner|admin|member] [--team-id=ID]",
   );
   process.exit(1);
 }
