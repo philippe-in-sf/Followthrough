@@ -813,6 +813,30 @@ describe("dashboard and workspace flows", () => {
     });
   });
 
+  it("expands open tasks by assignee from the dashboard", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    const assigneeToggle = await screen.findByRole("button", {
+      name: "Show open tasks for Avery",
+    });
+    expect(assigneeToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Open task T004" })).not.toBeInTheDocument();
+
+    await userEvent.click(assigneeToggle);
+
+    expect(
+      screen.getByRole("button", { name: "Hide open tasks for Avery" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Open task T004" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+    });
+    const taskCard = await screen.findByLabelText("Task T004");
+    expect(within(taskCard).getByRole("heading", { name: "Edit details for T004" })).toBeInTheDocument();
+  });
+
   it("opens dashboard tasks, meetings, and decisions in their detail views", async () => {
     setupAppFetch();
     render(<App />);

@@ -1,5 +1,6 @@
 import type { AuditLogDto } from "../../shared/types";
 import { LinkedText, type RecordReferenceTarget } from "./LinkedText";
+import { PaginatedItems } from "./PaginatedItems";
 
 type AuditTimeFormatOptions = {
   locale?: string;
@@ -40,18 +41,28 @@ export function AuditLog({
       {events.length === 0 ? (
         <p className="muted">No audit entries</p>
       ) : (
-        <ol className="audit-list">
-          {events.map((event) => (
-            <li key={event.id}>
-              <strong>
-                <LinkedText text={event.summary} onRecordOpen={onRecordOpen} />
-              </strong>
-              <span>
-                {event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <PaginatedItems
+          items={events}
+          itemName="audit entry"
+          pluralItemName="audit entries"
+          pageSize={8}
+          getItemKey={(event) => String(event.id)}
+        >
+          {(visibleEvents) => (
+            <ol className="audit-list">
+              {visibleEvents.map((event) => (
+                <li key={event.id}>
+                  <strong>
+                    <LinkedText text={event.summary} onRecordOpen={onRecordOpen} />
+                  </strong>
+                  <span>
+                    {event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </PaginatedItems>
       )}
     </section>
   );

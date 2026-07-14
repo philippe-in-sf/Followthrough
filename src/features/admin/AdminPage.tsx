@@ -9,6 +9,7 @@ import type {
 import { api, ApiError } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type TeamFormState = {
@@ -379,77 +380,86 @@ export function AdminPage({
           {users.length === 0 ? (
             <EmptyState title="No users" detail="Add a team user to get started." />
           ) : (
-            <div className="admin-user-table-wrap">
-              <table className="admin-user-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td data-label="Name">{user.name}</td>
-                      <td data-label="Email">{user.email}</td>
-                      <td data-label="Role">
-                        <select
-                          aria-label={`Role for ${user.name}`}
-                          disabled={user.role === "owner"}
-                          onChange={(event) => void updateRole(user, event.target.value as UserRole)}
-                          value={user.role}
-                        >
-                          {user.role === "owner" ? <option value="owner">Owner</option> : null}
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="admin-user-actions" data-label="Actions">
-                        <form
-                          className="admin-password-reset-form"
-                          onSubmit={(event) => void resetPassword(event, user)}
-                        >
-                          <FormField label={`New password for ${user.name}`}>
-                            <input
-                              autoComplete="new-password"
-                              minLength={12}
-                              name={`resetPassword-${user.id}`}
-                              onChange={(event) =>
-                                setPasswordResetForms((current) => ({
-                                  ...current,
-                                  [user.id]: { password: event.target.value },
-                                }))
-                              }
-                              required
-                              type="password"
-                              value={passwordResetForms[user.id]?.password ?? ""}
-                            />
-                          </FormField>
-                          <button
-                            className="secondary-button"
-                            disabled={resettingPasswordUserId === user.id}
-                            type="submit"
-                          >
-                            {resettingPasswordUserId === user.id ? "Resetting..." : "Reset password"}
-                          </button>
-                        </form>
-                        {user.id === currentUserId ? null : (
-                          <button
-                            className="danger-button"
-                            onClick={() => void removeUserFromTeam(user)}
-                            type="button"
-                          >
-                            Remove from team
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PaginatedItems
+              items={users}
+              itemName="user"
+              pageSize={6}
+              getItemKey={(user) => String(user.id)}
+            >
+              {(visibleUsers) => (
+                <div className="admin-user-table-wrap">
+                  <table className="admin-user-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleUsers.map((user) => (
+                        <tr key={user.id}>
+                          <td data-label="Name">{user.name}</td>
+                          <td data-label="Email">{user.email}</td>
+                          <td data-label="Role">
+                            <select
+                              aria-label={`Role for ${user.name}`}
+                              disabled={user.role === "owner"}
+                              onChange={(event) => void updateRole(user, event.target.value as UserRole)}
+                              value={user.role}
+                            >
+                              {user.role === "owner" ? <option value="owner">Owner</option> : null}
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </td>
+                          <td className="admin-user-actions" data-label="Actions">
+                            <form
+                              className="admin-password-reset-form"
+                              onSubmit={(event) => void resetPassword(event, user)}
+                            >
+                              <FormField label={`New password for ${user.name}`}>
+                                <input
+                                  autoComplete="new-password"
+                                  minLength={12}
+                                  name={`resetPassword-${user.id}`}
+                                  onChange={(event) =>
+                                    setPasswordResetForms((current) => ({
+                                      ...current,
+                                      [user.id]: { password: event.target.value },
+                                    }))
+                                  }
+                                  required
+                                  type="password"
+                                  value={passwordResetForms[user.id]?.password ?? ""}
+                                />
+                              </FormField>
+                              <button
+                                className="secondary-button"
+                                disabled={resettingPasswordUserId === user.id}
+                                type="submit"
+                              >
+                                {resettingPasswordUserId === user.id ? "Resetting..." : "Reset password"}
+                              </button>
+                            </form>
+                            {user.id === currentUserId ? null : (
+                              <button
+                                className="danger-button"
+                                onClick={() => void removeUserFromTeam(user)}
+                                type="button"
+                              >
+                                Remove from team
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </PaginatedItems>
           )}
           {roleError ? <p className="form-error">{roleError}</p> : null}
           {passwordResetError ? <p className="form-error">{passwordResetError}</p> : null}
@@ -530,35 +540,44 @@ export function AdminPage({
           {loginEvents.length === 0 ? (
             <EmptyState title="No logins yet" detail="Successful team sign-ins appear here." />
           ) : (
-            <div className="admin-user-table-wrap">
-              <table className="admin-user-table admin-login-table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Date and time</th>
-                    <th>IP</th>
-                    <th>Browser</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loginEvents.map((event) => (
-                    <tr key={event.id}>
-                      <td data-label="User">
-                        <strong>{event.userName}</strong>
-                        <span>{event.userEmail}</span>
-                      </td>
-                      <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
-                      <td data-label="IP">
-                        {loginDetailsVisible ? event.ipAddress ?? "Unknown" : "Hidden"}
-                      </td>
-                      <td data-label="Browser">
-                        {loginDetailsVisible ? event.userAgent ?? "Unknown" : "Hidden"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PaginatedItems
+              items={loginEvents}
+              itemName="login"
+              pageSize={8}
+              getItemKey={(event) => String(event.id)}
+            >
+              {(visibleLoginEvents) => (
+                <div className="admin-user-table-wrap">
+                  <table className="admin-user-table admin-login-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Date and time</th>
+                        <th>IP</th>
+                        <th>Browser</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleLoginEvents.map((event) => (
+                        <tr key={event.id}>
+                          <td data-label="User">
+                            <strong>{event.userName}</strong>
+                            <span>{event.userEmail}</span>
+                          </td>
+                          <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
+                          <td data-label="IP">
+                            {loginDetailsVisible ? event.ipAddress ?? "Unknown" : "Hidden"}
+                          </td>
+                          <td data-label="Browser">
+                            {loginDetailsVisible ? event.userAgent ?? "Unknown" : "Hidden"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </PaginatedItems>
           )}
         </section>
 
@@ -569,135 +588,144 @@ export function AdminPage({
           {waitlistSignups.length === 0 ? (
             <EmptyState title="No waitlist signups" detail="New public waitlist requests appear here." />
           ) : (
-            <ul className="waitlist-signup-list">
-              {waitlistSignups.map((signup) => {
-                const inviteForm = inviteForms[signup.id] ?? {
-                  code: defaultInviteCode(signup),
-                  role: "member" as UserRole,
-                };
-                const directUserForm = directUserForms[signup.id] ?? {
-                  password: "",
-                  role: "member" as UserRole,
-                };
-                const handledText = waitlistHandledText(signup);
-                const handled = Boolean(signup.handledAt);
-                const busy = handlingSignupId === signup.id;
+            <PaginatedItems
+              items={waitlistSignups}
+              itemName="signup"
+              pageSize={6}
+              getItemKey={(signup) => String(signup.id)}
+            >
+              {(visibleSignups) => (
+                <ul className="waitlist-signup-list">
+                  {visibleSignups.map((signup) => {
+                    const inviteForm = inviteForms[signup.id] ?? {
+                      code: defaultInviteCode(signup),
+                      role: "member" as UserRole,
+                    };
+                    const directUserForm = directUserForms[signup.id] ?? {
+                      password: "",
+                      role: "member" as UserRole,
+                    };
+                    const handledText = waitlistHandledText(signup);
+                    const handled = Boolean(signup.handledAt);
+                    const busy = handlingSignupId === signup.id;
 
-                return (
-                  <li
-                    aria-label={`${signup.name} ${signup.email}`}
-                    className="waitlist-signup"
-                    key={signup.id}
-                  >
-                    <div className="waitlist-signup-summary">
-                      <div>
-                        <strong>{signup.name}</strong>
-                        <span>{signup.email}</span>
-                      </div>
-                      <StatusBadge
-                        label={handled ? "Handled" : "Pending"}
-                        tone={handled ? "good" : "warn"}
-                      />
-                    </div>
+                    return (
+                      <li
+                        aria-label={`${signup.name} ${signup.email}`}
+                        className="waitlist-signup"
+                        key={signup.id}
+                      >
+                        <div className="waitlist-signup-summary">
+                          <div>
+                            <strong>{signup.name}</strong>
+                            <span>{signup.email}</span>
+                          </div>
+                          <StatusBadge
+                            label={handled ? "Handled" : "Pending"}
+                            tone={handled ? "good" : "warn"}
+                          />
+                        </div>
 
-                    {handled ? (
-                      <p className="form-status waitlist-handled-status">{handledText}</p>
-                    ) : (
-                      <div className="waitlist-actions">
-                        <form
-                          className="waitlist-action-form"
-                          onSubmit={(event) => void createInviteForSignup(event, signup)}
-                        >
-                          <h3>Invite code</h3>
-                          <FormField label={`Invite code for ${signup.name}`}>
-                            <input
-                              name={`inviteCode-${signup.id}`}
-                              onChange={(event) =>
-                                setInviteForms((current) => ({
-                                  ...current,
-                                  [signup.id]: {
-                                    ...inviteForm,
-                                    code: event.target.value,
-                                  },
-                                }))
-                              }
-                              required
-                              value={inviteForm.code}
-                            />
-                          </FormField>
-                          <FormField label={`Invite role for ${signup.name}`}>
-                            <select
-                              name={`inviteRole-${signup.id}`}
-                              onChange={(event) =>
-                                setInviteForms((current) => ({
-                                  ...current,
-                                  [signup.id]: {
-                                    ...inviteForm,
-                                    role: event.target.value as UserRole,
-                                  },
-                                }))
-                              }
-                              value={inviteForm.role}
+                        {handled ? (
+                          <p className="form-status waitlist-handled-status">{handledText}</p>
+                        ) : (
+                          <div className="waitlist-actions">
+                            <form
+                              className="waitlist-action-form"
+                              onSubmit={(event) => void createInviteForSignup(event, signup)}
                             >
-                              <option value="member">Member</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          </FormField>
-                          <button className="secondary-button" disabled={busy} type="submit">
-                            Create invite for {signup.name}
-                          </button>
-                        </form>
+                              <h3>Invite code</h3>
+                              <FormField label={`Invite code for ${signup.name}`}>
+                                <input
+                                  name={`inviteCode-${signup.id}`}
+                                  onChange={(event) =>
+                                    setInviteForms((current) => ({
+                                      ...current,
+                                      [signup.id]: {
+                                        ...inviteForm,
+                                        code: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  required
+                                  value={inviteForm.code}
+                                />
+                              </FormField>
+                              <FormField label={`Invite role for ${signup.name}`}>
+                                <select
+                                  name={`inviteRole-${signup.id}`}
+                                  onChange={(event) =>
+                                    setInviteForms((current) => ({
+                                      ...current,
+                                      [signup.id]: {
+                                        ...inviteForm,
+                                        role: event.target.value as UserRole,
+                                      },
+                                    }))
+                                  }
+                                  value={inviteForm.role}
+                                >
+                                  <option value="member">Member</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </FormField>
+                              <button className="secondary-button" disabled={busy} type="submit">
+                                Create invite for {signup.name}
+                              </button>
+                            </form>
 
-                        <form
-                          className="waitlist-action-form"
-                          onSubmit={(event) => void createDirectUserForSignup(event, signup)}
-                        >
-                          <h3>Direct user</h3>
-                          <FormField label={`Temporary password for ${signup.name}`}>
-                            <input
-                              name={`directUserPassword-${signup.id}`}
-                              onChange={(event) =>
-                                setDirectUserForms((current) => ({
-                                  ...current,
-                                  [signup.id]: {
-                                    ...directUserForm,
-                                    password: event.target.value,
-                                  },
-                                }))
-                              }
-                              required
-                              type="password"
-                              value={directUserForm.password}
-                            />
-                          </FormField>
-                          <FormField label={`Direct user role for ${signup.name}`}>
-                            <select
-                              name={`directUserRole-${signup.id}`}
-                              onChange={(event) =>
-                                setDirectUserForms((current) => ({
-                                  ...current,
-                                  [signup.id]: {
-                                    ...directUserForm,
-                                    role: event.target.value as UserRole,
-                                  },
-                                }))
-                              }
-                              value={directUserForm.role}
+                            <form
+                              className="waitlist-action-form"
+                              onSubmit={(event) => void createDirectUserForSignup(event, signup)}
                             >
-                              <option value="member">Member</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          </FormField>
-                          <button className="primary-button" disabled={busy} type="submit">
-                            Create user for {signup.name}
-                          </button>
-                        </form>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                              <h3>Direct user</h3>
+                              <FormField label={`Temporary password for ${signup.name}`}>
+                                <input
+                                  name={`directUserPassword-${signup.id}`}
+                                  onChange={(event) =>
+                                    setDirectUserForms((current) => ({
+                                      ...current,
+                                      [signup.id]: {
+                                        ...directUserForm,
+                                        password: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  required
+                                  type="password"
+                                  value={directUserForm.password}
+                                />
+                              </FormField>
+                              <FormField label={`Direct user role for ${signup.name}`}>
+                                <select
+                                  name={`directUserRole-${signup.id}`}
+                                  onChange={(event) =>
+                                    setDirectUserForms((current) => ({
+                                      ...current,
+                                      [signup.id]: {
+                                        ...directUserForm,
+                                        role: event.target.value as UserRole,
+                                      },
+                                    }))
+                                  }
+                                  value={directUserForm.role}
+                                >
+                                  <option value="member">Member</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </FormField>
+                              <button className="primary-button" disabled={busy} type="submit">
+                                Create user for {signup.name}
+                              </button>
+                            </form>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </PaginatedItems>
           )}
           {waitlistError ? <p className="form-error">{waitlistError}</p> : null}
           {waitlistStatus ? <p className="form-status">{waitlistStatus}</p> : null}

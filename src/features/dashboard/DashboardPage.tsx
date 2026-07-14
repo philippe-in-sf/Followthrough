@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
   CircleCheckBig,
   Gauge,
   ListChecks,
@@ -11,6 +12,7 @@ import { api, type DashboardMeeting, type DashboardTask } from "../../api/client
 import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { EmptyState } from "../../components/EmptyState";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
@@ -190,6 +192,7 @@ export function DashboardPage({
   onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [expandedAssigneeKey, setExpandedAssigneeKey] = useState<string | null>(null);
   const blockerTaskCount = summary?.activeBlockers.tasks.length ?? 0;
   const blockerMeetingCount = summary?.activeBlockers.meetings.length ?? 0;
   const blockerCount = blockerTaskCount + blockerMeetingCount;
@@ -289,30 +292,48 @@ export function DashboardPage({
                   {summary.activeBlockers.meetings.length > 0 ? (
                     <div className="dashboard-sublist">
                       <span className="dashboard-sublist-label">Meetings</span>
-                      <ul className="compact-list dashboard-record-list">
-                        {summary.activeBlockers.meetings.map((meeting) => (
-                          <MeetingLine
-                            key={meeting.publicId}
-                            meeting={meeting}
-                            onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
-                          />
-                        ))}
-                      </ul>
+                      <PaginatedItems
+                        items={summary.activeBlockers.meetings}
+                        itemName="meeting"
+                        pageSize={5}
+                        getItemKey={(meeting) => meeting.publicId}
+                      >
+                        {(visibleMeetings) => (
+                          <ul className="compact-list dashboard-record-list">
+                            {visibleMeetings.map((meeting) => (
+                              <MeetingLine
+                                key={meeting.publicId}
+                                meeting={meeting}
+                                onOpenMeeting={(publicId) => onOpenRecord({ type: "meeting", publicId })}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                      </PaginatedItems>
                     </div>
                   ) : null}
                   {summary.activeBlockers.tasks.length > 0 ? (
                     <div className="dashboard-sublist">
                       <span className="dashboard-sublist-label">Tasks</span>
-                      <ul className="compact-list compact-task-list dashboard-record-list">
-                        {summary.activeBlockers.tasks.map((task) => (
-                          <TaskLine
-                            key={task.publicId}
-                            task={task}
-                            onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
-                            onRecordReferenceOpen={onRecordReferenceOpen}
-                          />
-                        ))}
-                      </ul>
+                      <PaginatedItems
+                        items={summary.activeBlockers.tasks}
+                        itemName="task"
+                        pageSize={5}
+                        getItemKey={(task) => task.publicId}
+                      >
+                        {(visibleTasks) => (
+                          <ul className="compact-list compact-task-list dashboard-record-list">
+                            {visibleTasks.map((task) => (
+                              <TaskLine
+                                key={task.publicId}
+                                task={task}
+                                onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                                onRecordReferenceOpen={onRecordReferenceOpen}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                      </PaginatedItems>
                     </div>
                   ) : null}
                 </div>
@@ -330,16 +351,25 @@ export function DashboardPage({
                 {summary.alerts.overdue.length === 0 ? (
                   <EmptyState title="No overdue tasks" detail="Tasks past their due date will appear here." />
                 ) : (
-                  <ul className="compact-list compact-task-list dashboard-record-list">
-                    {summary.alerts.overdue.map((task) => (
-                      <TaskLine
-                        key={task.publicId}
-                        task={task}
-                        onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
-                        onRecordReferenceOpen={onRecordReferenceOpen}
-                      />
-                    ))}
-                  </ul>
+                  <PaginatedItems
+                    items={summary.alerts.overdue}
+                    itemName="task"
+                    pageSize={5}
+                    getItemKey={(task) => task.publicId}
+                  >
+                    {(visibleTasks) => (
+                      <ul className="compact-list compact-task-list dashboard-record-list">
+                        {visibleTasks.map((task) => (
+                          <TaskLine
+                            key={task.publicId}
+                            task={task}
+                            onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                            onRecordReferenceOpen={onRecordReferenceOpen}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </PaginatedItems>
                 )}
               </section>
               <section className="dashboard-section" aria-labelledby="due-soon-tasks-heading">
@@ -352,16 +382,25 @@ export function DashboardPage({
                 {summary.alerts.dueSoon.length === 0 ? (
                   <EmptyState title="No tasks due soon" detail="Tasks nearing their due date will appear here." />
                 ) : (
-                  <ul className="compact-list compact-task-list dashboard-record-list">
-                    {summary.alerts.dueSoon.map((task) => (
-                      <TaskLine
-                        key={task.publicId}
-                        task={task}
-                        onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
-                        onRecordReferenceOpen={onRecordReferenceOpen}
-                      />
-                    ))}
-                  </ul>
+                  <PaginatedItems
+                    items={summary.alerts.dueSoon}
+                    itemName="task"
+                    pageSize={5}
+                    getItemKey={(task) => task.publicId}
+                  >
+                    {(visibleTasks) => (
+                      <ul className="compact-list compact-task-list dashboard-record-list">
+                        {visibleTasks.map((task) => (
+                          <TaskLine
+                            key={task.publicId}
+                            task={task}
+                            onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                            onRecordReferenceOpen={onRecordReferenceOpen}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </PaginatedItems>
                 )}
               </section>
             </div>
@@ -376,34 +415,87 @@ export function DashboardPage({
               {summary.openTasksByAssignee.length === 0 ? (
                 <EmptyState title="No open tasks" detail="Open tasks will be grouped by assignee." />
               ) : (
-                <ul className="compact-list dashboard-assignee-list">
-                  {summary.openTasksByAssignee.map((group) => {
-                    const groupBlockerCount = group.tasks.filter((task) => hasActiveBlockers(task)).length;
-                    return (
-                      <li className="dashboard-assignee-row" key={group.assignee?.publicId ?? "unassigned"}>
-                        <span className="dashboard-assignee-avatar" aria-hidden="true">
-                          <UsersRound size={16} />
-                        </span>
-                        <span className="dashboard-assignee-main">
-                          <strong>{group.assignee?.name ?? "Unassigned"}</strong>
-                          <span>{countLabel(group.tasks.length, "open task")}</span>
-                          <span className="dashboard-assignee-meter" aria-hidden="true">
-                            <span
-                              style={{
-                                width: `${Math.max(10, (group.tasks.length / maxAssigneeTaskCount) * 100)}%`,
-                              }}
-                            />
-                          </span>
-                        </span>
-                        {groupBlockerCount > 0 ? (
-                          <StatusBadge label={countLabel(groupBlockerCount, "blocker")} tone="bad" />
-                        ) : (
-                          <StatusBadge label="Clear" tone="good" />
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <PaginatedItems
+                  items={summary.openTasksByAssignee}
+                  itemName="assignee"
+                  pageSize={8}
+                  getItemKey={(group) => group.assignee?.publicId ?? "unassigned"}
+                >
+                  {(visibleGroups) => (
+                    <ul className="compact-list dashboard-assignee-list">
+                      {visibleGroups.map((group) => {
+                        const groupBlockerCount = group.tasks.filter((task) => hasActiveBlockers(task)).length;
+                        const assigneeKey = group.assignee?.publicId ?? "unassigned";
+                        const assigneeName = group.assignee?.name ?? "Unassigned";
+                        const isExpanded = expandedAssigneeKey === assigneeKey;
+                        const taskListId = `dashboard-assignee-${assigneeKey}-tasks`;
+                        return (
+                          <li
+                            className={`dashboard-assignee-item${isExpanded ? " is-expanded" : ""}`}
+                            key={assigneeKey}
+                          >
+                            <button
+                              className="dashboard-assignee-row"
+                              type="button"
+                              aria-expanded={isExpanded}
+                              aria-controls={taskListId}
+                              aria-label={`${isExpanded ? "Hide" : "Show"} open tasks for ${assigneeName}`}
+                              onClick={() =>
+                                setExpandedAssigneeKey((current) =>
+                                  current === assigneeKey ? null : assigneeKey,
+                                )
+                              }
+                            >
+                              <span className="dashboard-assignee-avatar" aria-hidden="true">
+                                <UsersRound size={16} />
+                              </span>
+                              <span className="dashboard-assignee-main">
+                                <strong>{assigneeName}</strong>
+                                <span>{countLabel(group.tasks.length, "open task")}</span>
+                                <span className="dashboard-assignee-meter" aria-hidden="true">
+                                  <span
+                                    style={{
+                                      width: `${Math.max(10, (group.tasks.length / maxAssigneeTaskCount) * 100)}%`,
+                                    }}
+                                  />
+                                </span>
+                              </span>
+                              {groupBlockerCount > 0 ? (
+                                <StatusBadge label={countLabel(groupBlockerCount, "blocker")} tone="bad" />
+                              ) : (
+                                <StatusBadge label="Clear" tone="good" />
+                              )}
+                              <ChevronDown className="dashboard-assignee-chevron" aria-hidden="true" size={18} />
+                            </button>
+                            {isExpanded ? (
+                              <div className="dashboard-assignee-task-panel" id={taskListId}>
+                                <PaginatedItems
+                                  items={group.tasks}
+                                  itemName="task"
+                                  pageSize={6}
+                                  getItemKey={(task) => task.publicId}
+                                >
+                                  {(visibleTasks) => (
+                                    <ul className="compact-list compact-task-list dashboard-record-list">
+                                      {visibleTasks.map((task) => (
+                                        <TaskLine
+                                          key={task.publicId}
+                                          task={task}
+                                          onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                                          onRecordReferenceOpen={onRecordReferenceOpen}
+                                        />
+                                      ))}
+                                    </ul>
+                                  )}
+                                </PaginatedItems>
+                              </div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </PaginatedItems>
               )}
             </section>
           </div>
@@ -419,24 +511,33 @@ export function DashboardPage({
               {summary.recentMeetings.length === 0 ? (
                 <EmptyState title="No meetings" detail="Recent meetings will appear here." />
               ) : (
-                <ul className="compact-list dashboard-record-list">
-                  {summary.recentMeetings.map((meeting) => (
-                    <li className="compact-clickable-item" key={meeting.publicId}>
-                      <button
-                        className="compact-record-button"
-                        type="button"
-                        onClick={() =>
-                          onOpenRecord({ type: "meeting", publicId: meeting.publicId })
-                        }
-                        aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
-                      >
-                        <strong>{meeting.publicId}</strong>
-                        <span>{collapseLinks(meeting.title)}</span>
-                        <small>{formatDateTime(meeting.startsAt)}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <PaginatedItems
+                  items={summary.recentMeetings}
+                  itemName="meeting"
+                  pageSize={5}
+                  getItemKey={(meeting) => meeting.publicId}
+                >
+                  {(visibleMeetings) => (
+                    <ul className="compact-list dashboard-record-list">
+                      {visibleMeetings.map((meeting) => (
+                        <li className="compact-clickable-item" key={meeting.publicId}>
+                          <button
+                            className="compact-record-button"
+                            type="button"
+                            onClick={() =>
+                              onOpenRecord({ type: "meeting", publicId: meeting.publicId })
+                            }
+                            aria-label={`Open meeting ${meeting.publicId} ${collapseLinks(meeting.title)}`}
+                          >
+                            <strong>{meeting.publicId}</strong>
+                            <span>{collapseLinks(meeting.title)}</span>
+                            <small>{formatDateTime(meeting.startsAt)}</small>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </PaginatedItems>
               )}
             </section>
             <section className="dashboard-section" aria-labelledby="recent-decisions-heading">
@@ -449,24 +550,33 @@ export function DashboardPage({
               {summary.recentDecisions.length === 0 ? (
                 <EmptyState title="No decisions" detail="Recent decisions will appear here." />
               ) : (
-                <ul className="compact-list dashboard-record-list">
-                  {summary.recentDecisions.map((decision) => (
-                    <li className="compact-clickable-item" key={decision.publicId}>
-                      <button
-                        className="compact-record-button"
-                        type="button"
-                        onClick={() =>
-                          onOpenRecord({ type: "decision", publicId: decision.publicId })
-                        }
-                        aria-label={`Open decision ${decision.publicId} ${collapseLinks(decision.decisionText)}`}
-                      >
-                        <strong>{decision.publicId}</strong>
-                        <span>{collapseLinks(decision.decisionText)}</span>
-                        <small>{decision.decisionDate}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <PaginatedItems
+                  items={summary.recentDecisions}
+                  itemName="decision"
+                  pageSize={5}
+                  getItemKey={(decision) => decision.publicId}
+                >
+                  {(visibleDecisions) => (
+                    <ul className="compact-list dashboard-record-list">
+                      {visibleDecisions.map((decision) => (
+                        <li className="compact-clickable-item" key={decision.publicId}>
+                          <button
+                            className="compact-record-button"
+                            type="button"
+                            onClick={() =>
+                              onOpenRecord({ type: "decision", publicId: decision.publicId })
+                            }
+                            aria-label={`Open decision ${decision.publicId} ${collapseLinks(decision.decisionText)}`}
+                          >
+                            <strong>{decision.publicId}</strong>
+                            <span>{collapseLinks(decision.decisionText)}</span>
+                            <small>{decision.decisionDate}</small>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </PaginatedItems>
               )}
             </section>
             <section className="dashboard-section" aria-labelledby="recurring-meetings-heading">
@@ -479,22 +589,32 @@ export function DashboardPage({
               {summary.activeSeries.length === 0 ? (
                 <EmptyState title="No recurring meetings" detail="Active meeting series will appear here." />
               ) : (
-                <ul className="compact-list dashboard-record-list dashboard-series-list">
-                  {summary.activeSeries.map((series) => (
-                    <li key={series.publicId}>
-                      <span className="dashboard-series-icon" aria-hidden="true">
-                        <CircleCheckBig size={16} />
-                      </span>
-                      <strong>
-                        <LinkedText text={series.publicId} onRecordOpen={onRecordReferenceOpen} />
-                      </strong>
-                      <span>
-                        <LinkedText text={series.title} onRecordOpen={onRecordReferenceOpen} />
-                      </span>
-                      {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
-                    </li>
-                  ))}
-                </ul>
+                <PaginatedItems
+                  items={summary.activeSeries}
+                  itemName="series"
+                  pluralItemName="series"
+                  pageSize={5}
+                  getItemKey={(series) => series.publicId}
+                >
+                  {(visibleSeries) => (
+                    <ul className="compact-list dashboard-record-list dashboard-series-list">
+                      {visibleSeries.map((series) => (
+                        <li key={series.publicId}>
+                          <span className="dashboard-series-icon" aria-hidden="true">
+                            <CircleCheckBig size={16} />
+                          </span>
+                          <strong>
+                            <LinkedText text={series.publicId} onRecordOpen={onRecordReferenceOpen} />
+                          </strong>
+                          <span>
+                            <LinkedText text={series.title} onRecordOpen={onRecordReferenceOpen} />
+                          </span>
+                          {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </PaginatedItems>
               )}
             </section>
           </aside>

@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, api, type MeetingNotesRange } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
+import { PaginatedItems } from "../../components/PaginatedItems";
 import { RichNoteText } from "../../components/RichNotes";
 import type { RecordReferenceTarget } from "../../components/LinkedText";
 import type { MeetingNoteDto } from "../../../shared/types";
@@ -149,36 +150,46 @@ export function MeetingNotesPage({ onOpenMeeting, onRecordReferenceOpen }: Meeti
           }
         />
       ) : (
-        <section className="notes-result-list" aria-label="Meeting notes">
-          {notes.map((note) => (
-            <article className="note-result-card" key={note.publicId}>
-              <header className="note-result-header">
-                <div>
-                  <p className="record-kicker">{note.publicId}</p>
-                  <h2>{note.title.trim() || "Untitled meeting"}</h2>
-                </div>
-                <button
-                  className="secondary-button icon-text-button"
-                  type="button"
-                  onClick={() => onOpenMeeting(note.publicId)}
-                >
-                  <ExternalLink size={16} />
-                  Open
-                </button>
-              </header>
-              <div className="note-result-meta">
-                <span>{formatMeetingDate(note.startsAt)}</span>
-                <span>{matchLabel(note)}</span>
-              </div>
-              {note.attendees.length > 0 ? (
-                <p className="note-result-attendees">
-                  {note.attendees.map((attendee) => attendee.name).join(", ")}
-                </p>
-              ) : null}
-              <RichNoteText text={note.notes} onRecordOpen={onRecordReferenceOpen} />
-            </article>
-          ))}
-        </section>
+        <PaginatedItems
+          items={notes}
+          itemName="note"
+          pageSize={8}
+          getItemKey={(note) => note.publicId}
+          resetKey={`${range}:${customStartDate}:${customEndDate}`}
+        >
+          {(visibleNotes) => (
+            <section className="notes-result-list" aria-label="Meeting notes">
+              {visibleNotes.map((note) => (
+                <article className="note-result-card" key={note.publicId}>
+                  <header className="note-result-header">
+                    <div>
+                      <p className="record-kicker">{note.publicId}</p>
+                      <h2>{note.title.trim() || "Untitled meeting"}</h2>
+                    </div>
+                    <button
+                      className="secondary-button icon-text-button"
+                      type="button"
+                      onClick={() => onOpenMeeting(note.publicId)}
+                    >
+                      <ExternalLink size={16} />
+                      Open
+                    </button>
+                  </header>
+                  <div className="note-result-meta">
+                    <span>{formatMeetingDate(note.startsAt)}</span>
+                    <span>{matchLabel(note)}</span>
+                  </div>
+                  {note.attendees.length > 0 ? (
+                    <p className="note-result-attendees">
+                      {note.attendees.map((attendee) => attendee.name).join(", ")}
+                    </p>
+                  ) : null}
+                  <RichNoteText text={note.notes} onRecordOpen={onRecordReferenceOpen} />
+                </article>
+              ))}
+            </section>
+          )}
+        </PaginatedItems>
       )}
     </main>
   );
