@@ -36,7 +36,8 @@ type RichNoteTextProps = {
 };
 
 const inlineMarkdownPattern =
-  /(`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|_([^_\n]+)_)/g;
+  /(`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?:(?:00|\s)*#[^\s)]+(?:00|\s)*)?|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|_([^_\n]+)_)/g;
+const leakedMarkdownFragmentPattern = /^(?:00|\s)*(#[^\s)]+?)(?:00|\s)*$/;
 
 function parseNoteBlocks(text: string) {
   const blocks: RichNoteBlock[] = [];
@@ -136,6 +137,16 @@ function renderLinkedText(
   return <LinkedText key={key} text={text} onRecordOpen={onRecordOpen} />;
 }
 
+function recoverMarkdownHref(rawMarkdownLink: string, href: string) {
+  const marker = `](${href})`;
+  const markerIndex = rawMarkdownLink.indexOf(marker);
+  if (markerIndex === -1) return href;
+
+  const suffix = rawMarkdownLink.slice(markerIndex + marker.length);
+  const leakedFragment = leakedMarkdownFragmentPattern.exec(suffix);
+  return leakedFragment ? `${href}${leakedFragment[1]}` : href;
+}
+
 function renderInlineMarkdown(
   text: string,
   keyPrefix: string,
@@ -159,10 +170,11 @@ function renderInlineMarkdown(
         </code>,
       );
     } else if (match[3] && match[4]) {
+      const href = recoverMarkdownHref(match[0], match[4]);
       nodes.push(
         <a
           className="inline-text-link"
-          href={match[4]}
+          href={href}
           key={`${keyPrefix}-link-${index}`}
           rel="noreferrer"
           target="_blank"
@@ -361,9 +373,10 @@ export function MarkdownNotesEditor({
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = value.slice(start, end);
-    const looksLikeUrl = /^https?:\/\//i.test(selectedText.trim());
+    const normalizedSelectedText = selectedText.trim().replace(/\s+/g, "");
+    const looksLikeUrl = /^https?:\/\//i.test(normalizedSelectedText);
     const insertedText = looksLikeUrl
-      ? `[Link](${selectedText.trim()})`
+      ? `[Link](${normalizedSelectedText})`
       : `[${selectedText || "Link text"}](https://example.com)`;
     const selectionOffset = looksLikeUrl ? insertedText.length : 1;
     const selectionEnd = looksLikeUrl
