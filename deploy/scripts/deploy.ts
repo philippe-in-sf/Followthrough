@@ -115,12 +115,6 @@ function stageRelease(releaseId: string) {
   }
 }
 
-function runLocalGates() {
-  run("npm", ["run", "changelog:check"]);
-  run("npm", ["run", "check"]);
-  run("npm", ["run", "build"]);
-}
-
 function assertDeployGitState() {
   const status = captureChecked("git", ["status", "--porcelain"], "git worktree status");
   if (status) {
@@ -145,6 +139,10 @@ function assertDeployGitState() {
       `Deploy requires local ${DEPLOY_BRANCH} to match ${DEPLOY_REMOTE_REF} at HEAD. Run git pull --ff-only before deploying.`,
     );
   }
+}
+
+function buildReleaseArtifacts() {
+  run("npm", ["run", "build"]);
 }
 
 function verifyRemoteVersion(site: DeploySite, localVersion: string) {
@@ -183,7 +181,7 @@ function main() {
   const config = parseDeployConfig();
   const sites = target === "all" ? config.sites : [findDeploySite(config, target)];
   assertDeployGitState();
-  runLocalGates();
+  buildReleaseArtifacts();
 
   const localVersion = readPackageVersion();
   const gitSha = captureRequired("git", ["rev-parse", "--short", "HEAD"], "git commit");

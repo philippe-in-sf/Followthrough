@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Followthrough — Typographic Wordmark
+  "F" in Parchment amber, "ollowthrough" in navy.
+  Use for hero images, headers, splash screens.
+  For dark backgrounds, invert: white "F" + white "ollowthrough".
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 80">
+  <text x="0" y="64"
+        font-family="'SF Pro Display', 'Inter', 'Helvetica Neue', Arial, sans-serif"
+        font-weight="800"
+        font-size="68"
+        letter-spacing="-2">
+    <tspan fill="#D08820">F</tspan><tspan fill="#1C2340">ollowthrough</tspan>
+  </text>
+</svg>

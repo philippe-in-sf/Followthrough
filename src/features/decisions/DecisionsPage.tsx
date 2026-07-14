@@ -1,9 +1,9 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import type { DecisionDto, MeetingDto } from "../../../shared/types";
+import type { DecisionDto, MeetingDto, PersonDto } from "../../../shared/types";
 import { api } from "../../api/client";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { collapseLinks, LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
 import { scrollRecordIntoView } from "../../recordFocus";
 
 type DecisionFormState = {
@@ -12,6 +12,11 @@ type DecisionFormState = {
   decisionDate: string;
   context: string;
   meetingPublicId: string;
+  createFollowUpTask: boolean;
+  followUpTaskDescription: string;
+  followUpTaskAssigneePublicId: string;
+  followUpTaskDueDate: string;
+  followUpTaskPrivate: boolean;
 };
 
 const emptyDecisionForm: DecisionFormState = {
@@ -20,26 +25,36 @@ const emptyDecisionForm: DecisionFormState = {
   decisionDate: "",
   context: "",
   meetingPublicId: "",
+  createFollowUpTask: false,
+  followUpTaskDescription: "",
+  followUpTaskAssigneePublicId: "",
+  followUpTaskDueDate: "",
+  followUpTaskPrivate: false,
 };
 
 export function DecisionsPage({
   focusDecisionPublicId,
   onDecisionFocusHandled,
+  onRecordReferenceOpen,
 }: {
   focusDecisionPublicId?: string | null;
   onDecisionFocusHandled?: () => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [decisions, setDecisions] = useState<DecisionDto[]>([]);
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
+  const [people, setPeople] = useState<PersonDto[]>([]);
   const [form, setForm] = useState<DecisionFormState>(emptyDecisionForm);
 
   async function load() {
-    const [decisionResult, meetingResult] = await Promise.all([
+    const [decisionResult, meetingResult, peopleResult] = await Promise.all([
       api.decisions.list(),
       api.meetings.list(),
+      api.people.list(),
     ]);
     setDecisions(decisionResult.decisions);
     setMeetings(meetingResult.meetings);
+    setPeople(peopleResult.people);
   }
 
   useEffect(() => {
@@ -72,6 +87,14 @@ export function DecisionsPage({
       decisionDate: form.decisionDate,
       context: form.context,
       meetingPublicId: form.meetingPublicId || null,
+      followUpTask: form.createFollowUpTask
+        ? {
+            description: form.followUpTaskDescription,
+            assigneePublicId: form.followUpTaskAssigneePublicId || null,
+            dueDate: form.followUpTaskDueDate || null,
+            private: form.followUpTaskPrivate,
+          }
+        : undefined,
     };
 
     if (form.publicId) await api.decisions.update(form.publicId, body);
@@ -88,6 +111,11 @@ export function DecisionsPage({
       decisionDate: decision.decisionDate,
       context: decision.context,
       meetingPublicId: decision.meetingPublicId ?? "",
+      createFollowUpTask: false,
+      followUpTaskDescription: "",
+      followUpTaskAssigneePublicId: "",
+      followUpTaskDueDate: "",
+      followUpTaskPrivate: false,
     });
   }
 
@@ -148,6 +176,74 @@ export function DecisionsPage({
             ))}
           </select>
         </FormField>
+        <label className="checkbox-line">
+          <input
+            type="checkbox"
+            checked={form.createFollowUpTask}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                createFollowUpTask: event.target.checked,
+                followUpTaskDescription: event.target.checked
+                  ? form.followUpTaskDescription
+                  : "",
+                followUpTaskAssigneePublicId: event.target.checked
+                  ? form.followUpTaskAssigneePublicId
+                  : "",
+                followUpTaskDueDate: event.target.checked ? form.followUpTaskDueDate : "",
+                followUpTaskPrivate: event.target.checked ? form.followUpTaskPrivate : false,
+              })
+            }
+          />
+          <span>Create follow-up task</span>
+        </label>
+        {form.createFollowUpTask ? (
+          <div className="decision-follow-up-fields">
+            <FormField label="Follow-up task description">
+              <input
+                value={form.followUpTaskDescription}
+                onChange={(event) =>
+                  setForm({ ...form, followUpTaskDescription: event.target.value })
+                }
+                required
+              />
+            </FormField>
+            <FormField label="Follow-up assignee">
+              <select
+                value={form.followUpTaskAssigneePublicId}
+                onChange={(event) =>
+                  setForm({ ...form, followUpTaskAssigneePublicId: event.target.value })
+                }
+              >
+                <option value="">Unassigned</option>
+                {people.map((person) => (
+                  <option key={person.publicId} value={person.publicId}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Follow-up due date">
+              <input
+                type="date"
+                value={form.followUpTaskDueDate}
+                onChange={(event) =>
+                  setForm({ ...form, followUpTaskDueDate: event.target.value })
+                }
+              />
+            </FormField>
+            <label className="checkbox-line">
+              <input
+                type="checkbox"
+                checked={form.followUpTaskPrivate}
+                onChange={(event) =>
+                  setForm({ ...form, followUpTaskPrivate: event.target.checked })
+                }
+              />
+              <span>Private follow-up task</span>
+            </label>
+          </div>
+        ) : null}
         <div className="form-actions">
           <button className="primary-button" type="submit">
             {form.publicId ? "Update decision" : "Add decision"}
@@ -176,19 +272,21 @@ export function DecisionsPage({
             >
               <div>
                 <strong>
-                  <LinkedText text={decision.decisionText} />
+                  <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
                 </strong>
                 <span>
-                  <LinkedText text={decision.context} />
+                  <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
                 </span>
               </div>
-              <span>{decision.publicId}</span>
+              <span>
+                <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
+              </span>
               <span>{decision.decisionDate}</span>
               <div className="decision-task-links">
                 {decision.tasks.length ? (
                   decision.tasks.map((task) => (
                     <span className="hint-chip" key={task.publicId}>
-                      {task.publicId} - {collapseLinks(task.description)}
+                      <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
                     </span>
                   ))
                 ) : (

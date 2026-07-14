@@ -10,7 +10,7 @@ import {
 import { api, type DashboardMeeting, type DashboardTask } from "../../api/client";
 import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { EmptyState } from "../../components/EmptyState";
-import { collapseLinks, LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
@@ -101,9 +101,11 @@ function SectionHeading({
 function TaskLine({
   task,
   onOpenTask,
+  onRecordReferenceOpen,
 }: {
   task: DashboardTask;
   onOpenTask: (publicId: string) => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   return (
     <li className={`compact-task-line${hasActiveBlockers(task) ? " compact-task-line-hot" : ""}`}>
@@ -117,7 +119,7 @@ function TaskLine({
       </button>
       <span className="compact-task-body">
         <span className="compact-task-description">
-          <LinkedText text={task.description} />
+          <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
         </span>
         <span className="compact-task-meta">
           <small>{task.assignee?.name ?? "Unassigned"}</small>
@@ -134,7 +136,7 @@ function TaskLine({
               hasClearedBlockers(task) ? "compact-blocker-text-cleared" : ""
             }`}
           >
-            <LinkedText text={task.blockers} />
+            <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
           </span>
         ) : null}
       </span>
@@ -182,8 +184,10 @@ function MeetingLine({
 
 export function DashboardPage({
   onOpenRecord,
+  onRecordReferenceOpen,
 }: {
   onOpenRecord: (target: DashboardRecordTarget) => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const blockerTaskCount = summary?.activeBlockers.tasks.length ?? 0;
@@ -204,7 +208,11 @@ export function DashboardPage({
 
   return (
     <main className="page dashboard-page">
-      <section className="dashboard-hero" aria-labelledby="dashboard-heading">
+      <section
+        className="dashboard-hero"
+        aria-labelledby="dashboard-heading"
+        data-tour-id="dashboard-overview"
+      >
         <div className="dashboard-hero-copy">
           <p className="marketing-eyebrow dashboard-eyebrow">Command center</p>
           <h2 id="dashboard-heading">Workspace</h2>
@@ -301,6 +309,7 @@ export function DashboardPage({
                             key={task.publicId}
                             task={task}
                             onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                            onRecordReferenceOpen={onRecordReferenceOpen}
                           />
                         ))}
                       </ul>
@@ -327,6 +336,7 @@ export function DashboardPage({
                         key={task.publicId}
                         task={task}
                         onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                        onRecordReferenceOpen={onRecordReferenceOpen}
                       />
                     ))}
                   </ul>
@@ -348,6 +358,7 @@ export function DashboardPage({
                         key={task.publicId}
                         task={task}
                         onOpenTask={(publicId) => onOpenRecord({ type: "task", publicId })}
+                        onRecordReferenceOpen={onRecordReferenceOpen}
                       />
                     ))}
                   </ul>
@@ -474,9 +485,11 @@ export function DashboardPage({
                       <span className="dashboard-series-icon" aria-hidden="true">
                         <CircleCheckBig size={16} />
                       </span>
-                      <strong>{series.publicId}</strong>
+                      <strong>
+                        <LinkedText text={series.publicId} onRecordOpen={onRecordReferenceOpen} />
+                      </strong>
                       <span>
-                        <LinkedText text={series.title} />
+                        <LinkedText text={series.title} onRecordOpen={onRecordReferenceOpen} />
                       </span>
                       {series.cadenceLabel ? <StatusBadge label={series.cadenceLabel} /> : null}
                     </li>

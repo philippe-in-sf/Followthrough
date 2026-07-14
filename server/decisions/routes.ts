@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { z } from "zod";
 import { decisionInputSchema } from "../../shared/schemas.js";
 import type { DecisionDto } from "../../shared/types.js";
 import type { AppConfig } from "../config.js";
@@ -6,8 +7,11 @@ import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { getAuditEvents } from "../audit/auditLog.js";
 import { badRequest, notFound } from "../errors.js";
+import { createTaskRecord } from "../tasks/routes.js";
 import { mapTaskRows, taskSelect, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
+
+type DecisionInput = z.infer<typeof decisionInputSchema>;
 
 type DecisionRow = {
   public_id: string;
@@ -99,6 +103,39 @@ function resolveMeetingId(db: AppDatabase, teamId: number, meetingPublicId?: str
   return meeting.id;
 }
 
+function createFollowUpTaskFromDecision(
+  db: AppDatabase,
+  config: AppConfig,
+  followUpTask: DecisionInput["followUpTask"],
+  decisionPublicId: string,
+  meetingPublicId: string | null | undefined,
+  userId: number,
+  teamId: number,
+) {
+  if (!followUpTask) return;
+
+  createTaskRecord(
+    db,
+    config,
+    {
+      description: followUpTask.description,
+      blockers: followUpTask.blockers,
+      notes: followUpTask.notes,
+      blockersCleared: false,
+      assigneePublicId: followUpTask.assigneePublicId ?? null,
+      status: followUpTask.status,
+      dueDate: followUpTask.dueDate ?? null,
+      originMeetingPublicId: meetingPublicId ?? null,
+      originDecisionPublicId: decisionPublicId,
+      seriesPublicId: null,
+      reminderMode: "manual",
+      dependencyPublicIds: [],
+      private: followUpTask.private,
+    },
+    { userId, teamId },
+  );
+}
+
 export function decisionRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
 
@@ -123,6 +160,7 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const input = parseBody(req, decisionInputSchema);
       const decision = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
         const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
         const publicId = nextPublicId(db, "D");
@@ -130,8 +168,17 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           `INSERT INTO decisions (public_id, decision_text, decision_date, context, meeting_id, team_id)
            VALUES (?, ?, ?, ?, ?, ?)`,
         ).run(publicId, input.decisionText, input.decisionDate, input.context, meetingId, teamId);
+        createFollowUpTaskFromDecision(
+          db,
+          config,
+          input.followUpTask,
+          publicId,
+          input.meetingPublicId,
+          userId,
+          teamId,
+        );
 
-        return getDecisionByPublicId(db, config, publicId, req.user?.id ?? 0, teamId);
+        return getDecisionByPublicId(db, config, publicId, userId, teamId);
       });
 
       res.status(201).json({ decision });
@@ -160,6 +207,7 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const input = parseBody(req, decisionInputSchema);
       const decision = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
         const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
         const result = db
@@ -179,7 +227,16 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           );
 
         if (result.changes === 0) throw notFound("Decision not found");
-        return getDecisionByPublicId(db, config, req.params.publicId, req.user?.id ?? 0, teamId);
+        createFollowUpTaskFromDecision(
+          db,
+          config,
+          input.followUpTask,
+          req.params.publicId,
+          input.meetingPublicId,
+          userId,
+          teamId,
+        );
+        return getDecisionByPublicId(db, config, req.params.publicId, userId, teamId);
       });
 
       res.json({ decision });

@@ -44,7 +44,7 @@ export function GlobalSearch({ onOpenSection }: { onOpenSection: (section: AppSe
   }
 
   return (
-    <div className="global-search-wrap">
+    <div className="global-search-wrap" data-tour-id="global-search">
       <label className="global-search">
         <Search size={18} aria-hidden />
         <span className="sr-only">Search</span>

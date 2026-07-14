@@ -137,10 +137,8 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
 
         <header className="marketing-nav" aria-label="Homepage">
           <a className="marketing-brand" href="#top" aria-label="Followthrough home">
-            <span className="app-mark marketing-brand-mark">
-              <BrandMark />
-            </span>
-            <span>Followthrough</span>
+            <BrandMark className="marketing-brand-icon" variant="icon" />
+            <span className="marketing-brand-text">Followthrough</span>
           </a>
           <nav className="marketing-links" aria-label="Homepage links">
             <a href="#purpose">Purpose</a>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "./api/client";
 import type { User } from "./api/types";
 import { AppShell, type AppSection } from "./components/AppShell";
+import type { RecordReferenceTarget } from "./components/LinkedText";
 import { loadClientConfig } from "./clientConfig";
 import { AuthPage } from "./features/auth/AuthPage";
 import { AdminPage } from "./features/admin/AdminPage";
@@ -9,15 +10,17 @@ import { DashboardPage, type DashboardRecordTarget } from "./features/dashboard/
 import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { PeoplePage } from "./features/people/PeoplePage";
+import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
 import type { UserPreferencesDto } from "../shared/types";
 import type { TeamDto } from "../shared/types";
 
-type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions">;
+type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions" | "People">;
 
 type FocusTarget = {
+  kind?: "record" | "series";
   publicId: string;
   section: FocusableSection;
 };
@@ -28,14 +31,30 @@ const sectionByDashboardRecord: Record<DashboardRecordTarget["type"], FocusableS
   decision: "Decisions",
 };
 
+const sectionByRecordReference: Record<Exclude<RecordReferenceTarget["type"], "series">, FocusableSection> = {
+  decision: "Decisions",
+  meeting: "Meetings",
+  person: "People",
+  task: "Tasks",
+};
+
 function focusPublicId(section: FocusableSection, focusedRecord: FocusTarget | null) {
-  return focusedRecord?.section === section ? focusedRecord.publicId : null;
+  return focusedRecord?.section === section && focusedRecord.kind !== "series"
+    ? focusedRecord.publicId
+    : null;
+}
+
+function focusSeriesPublicId(focusedRecord: FocusTarget | null) {
+  return focusedRecord?.section === "Meetings" && focusedRecord.kind === "series"
+    ? focusedRecord.publicId
+    : null;
 }
 
 function renderSection({
   section,
   focusedRecord,
   onDashboardRecordOpen,
+  onRecordReferenceOpen,
   onRecordFocusHandled,
   workCalendarUrl,
   onWorkCalendarUrlChange,
@@ -46,10 +65,12 @@ function renderSection({
   user,
   onTeamChange,
   currentUserId,
+  onLeaveTeam,
 }: {
   section: AppSection;
   focusedRecord: FocusTarget | null;
   onDashboardRecordOpen: (target: DashboardRecordTarget) => void;
+  onRecordReferenceOpen: (target: RecordReferenceTarget) => void;
   onRecordFocusHandled: () => void;
   workCalendarUrl: string | null;
   onWorkCalendarUrlChange: (workCalendarUrl: string | null) => void;
@@ -60,28 +81,33 @@ function renderSection({
   user: User;
   onTeamChange: (team: TeamDto) => void;
   currentUserId: number;
+  onLeaveTeam: () => Promise<void>;
 }) {
   switch (section) {
     case "Dashboard":
-      return <DashboardPage onOpenRecord={onDashboardRecordOpen} />;
+      return <DashboardPage onOpenRecord={onDashboardRecordOpen} onRecordReferenceOpen={onRecordReferenceOpen} />;
     case "Tasks":
       return (
         <TasksPage
           focusTaskPublicId={focusPublicId("Tasks", focusedRecord)}
+          onReferenceOpen={onRecordReferenceOpen}
           onTaskFocusHandled={onRecordFocusHandled}
         />
       );
     case "Meetings":
       return (
         <MeetingsPage
+          focusSeriesPublicId={focusSeriesPublicId(focusedRecord)}
           focusMeetingPublicId={focusPublicId("Meetings", focusedRecord)}
           onMeetingFocusHandled={onRecordFocusHandled}
+          onSeriesFocusHandled={onRecordFocusHandled}
           workCalendarUrl={workCalendarUrl}
           onWorkCalendarUrlChange={onWorkCalendarUrlChange}
           googleCalendarConfigured={googleCalendarConfigured}
           googleCalendarConnected={googleCalendarConnected}
           googleCalendarEmail={googleCalendarEmail}
           onGoogleCalendarConnectionChange={onGoogleCalendarConnectionChange}
+          onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
     case "Decisions":
@@ -89,10 +115,19 @@ function renderSection({
         <DecisionsPage
           focusDecisionPublicId={focusPublicId("Decisions", focusedRecord)}
           onDecisionFocusHandled={onRecordFocusHandled}
+          onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
     case "People":
-      return <PeoplePage />;
+      return (
+        <PeoplePage
+          focusPersonPublicId={focusPublicId("People", focusedRecord)}
+          onPersonFocusHandled={onRecordFocusHandled}
+          onRecordReferenceOpen={onRecordReferenceOpen}
+        />
+      );
+    case "Settings":
+      return <SettingsPage user={user} onLeaveTeam={onLeaveTeam} />;
     case "Admin":
       return user.role === "admin" ? (
         <AdminPage currentUserId={currentUserId} onTeamChange={onTeamChange} />
@@ -173,6 +208,18 @@ export function App() {
     setSection(nextSection);
   }, []);
 
+  const openRecordReference = useCallback((target: RecordReferenceTarget) => {
+    if (target.type === "series") {
+      setFocusedRecord({ kind: "series", section: "Meetings", publicId: target.publicId });
+      setSection("Meetings");
+      return;
+    }
+
+    const nextSection = sectionByRecordReference[target.type];
+    setFocusedRecord({ section: nextSection, publicId: target.publicId });
+    setSection(nextSection);
+  }, []);
+
   const clearFocusedRecord = useCallback(() => {
     setFocusedRecord(null);
   }, []);
@@ -235,7 +282,6 @@ export function App() {
       section={section}
       onSectionChange={changeSection}
       onLogout={logout}
-      onLeaveTeam={leaveTeam}
       onEnableNotifications={enableNotifications}
       notificationStatus={notificationStatus}
       version={appVersion}
@@ -245,6 +291,7 @@ export function App() {
         section,
         focusedRecord,
         onDashboardRecordOpen: openDashboardRecord,
+        onRecordReferenceOpen: openRecordReference,
         onRecordFocusHandled: clearFocusedRecord,
         workCalendarUrl: calendarShortcutUrl,
         onWorkCalendarUrlChange: setWorkCalendarUrl,
@@ -255,6 +302,7 @@ export function App() {
         user: currentUser,
         onTeamChange: setTeam,
         currentUserId: currentUser.id,
+        onLeaveTeam: leaveTeam,
       })}
     </AppShell>
   );

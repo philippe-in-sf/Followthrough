@@ -158,6 +158,15 @@ type DecisionInput = {
   decisionDate: string;
   context: string;
   meetingPublicId?: string | null;
+  followUpTask?: {
+    description: string;
+    blockers?: string;
+    notes?: string;
+    assigneePublicId?: string | null;
+    status?: TaskStatus;
+    dueDate?: string | null;
+    private?: boolean;
+  } | null;
 };
 
 type PersonInput = {
@@ -189,6 +198,11 @@ export const api = {
       body: JSON.stringify(body),
     }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    request<void>("/api/me/password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   leaveTeam: () => request<{ user: User }>("/api/me/team/leave", { method: "POST" }),
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
   search: (query: string) =>

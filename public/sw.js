@@ -5,6 +5,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
+      icon: "/brand/followthrough-icon.svg",
       tag: payload.tag,
       data: payload.url ? { url: payload.url } : undefined,
     }),

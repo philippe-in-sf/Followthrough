@@ -102,6 +102,61 @@ describe("auth", () => {
     expect(logout.status).toBe(204);
   });
 
+  it("changes the signed-in user's password", async () => {
+    const app = appWithInvite();
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join-team",
+    });
+
+    const changePassword = await request(app)
+      .post("/api/me/password")
+      .set("Cookie", signup.headers["set-cookie"])
+      .send({
+        currentPassword: "long-enough-password",
+        newPassword: "new-long-password",
+      });
+
+    expect(changePassword.status).toBe(204);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: "casey@example.com",
+      password: "long-enough-password",
+    });
+    expect(oldLogin.status).toBe(400);
+
+    const newLogin = await request(app).post("/api/auth/login").send({
+      email: "casey@example.com",
+      password: "new-long-password",
+    });
+    expect(newLogin.status).toBe(200);
+  });
+
+  it("rejects a password change with the wrong current password", async () => {
+    const app = appWithInvite();
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join-team",
+    });
+
+    const changePassword = await request(app)
+      .post("/api/me/password")
+      .set("Cookie", signup.headers["set-cookie"])
+      .send({
+        currentPassword: "wrong-password",
+        newPassword: "new-long-password",
+      });
+
+    expect(changePassword.status).toBe(400);
+    expect(changePassword.body.error).toBe("Current password is incorrect");
+  });
+
   it("creates a direct database user that can log in", async () => {
     const db = createTestDatabase();
     dbs.push(db);

@@ -4,11 +4,12 @@ import {
   LayoutDashboard,
   ListTodo,
   Settings,
+  SlidersHorizontal,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
-export const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People", "Admin"] as const;
+export const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People", "Settings", "Admin"] as const;
 
 export type AppSection = (typeof navItems)[number];
 
@@ -53,6 +54,11 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
     icon: Users,
     description: "Shared list of assignees and meeting attendees.",
     contextRows: [{ label: "Total people" }, { label: "People with open tasks" }, { label: "People in recent meetings" }],
+  },
+  Settings: {
+    icon: SlidersHorizontal,
+    description: "Manage your account password and team access.",
+    contextRows: [{ label: "Password" }, { label: "Team access" }, { label: "Personal workspace" }],
   },
   Admin: {
     icon: Settings,

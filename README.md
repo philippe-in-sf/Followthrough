@@ -208,6 +208,76 @@ Persistent site data stays under:
 /opt/web-ui-task-manager/shared
 ```
 
+### Production domain and TLS checks
+
+The current production domain is `followthrough.dev`. Namecheap owns DNS for the
+domain, but the production TLS certificate is issued on the VPS by Certbot /
+Let's Encrypt through Apache. Namecheap account-level SSL provider changes do
+not change this site's current renewal path unless we intentionally replace the
+server-managed Let's Encrypt certificate with a Namecheap-managed certificate.
+Let's not accidentally migrate certificate authority because an email had
+capital letters in it.
+
+The product and domain are Followthrough, but the currently installed production
+service identity is still `web-ui-task-manager.service` under
+`/opt/web-ui-task-manager`. Rename that only as an explicit server migration, not
+as a side effect of a TLS check.
+
+Run the repeatable public check from the repo:
+
+```bash
+npm run domain:check
+```
+
+By default, this verifies:
+
+- `followthrough.dev` resolves to `162.0.213.176`.
+- `www.followthrough.dev` is a CNAME for `followthrough.dev` and resolves to the
+  same IP.
+- `https://followthrough.dev/api/version` and
+  `https://www.followthrough.dev/api/version` respond.
+- The public certificate is issued by Let's Encrypt, includes both hostnames in
+  its SANs, and is valid for more than 30 days.
+
+Use environment overrides when checking a future domain or a planned CA change:
+
+```bash
+DOMAIN_CHECK_APEX=example.dev \
+DOMAIN_CHECK_WWW=www.example.dev \
+DOMAIN_CHECK_EXPECTED_IP=203.0.113.10 \
+DOMAIN_CHECK_EXPECTED_ISSUER="SSL.com" \
+npm run domain:check
+```
+
+The corresponding server-side renewal check is:
+
+```bash
+ssh philippe@philippe-tasks.net
+sudo certbot certificates --cert-name followthrough.dev
+sudo certbot renew --dry-run
+systemctl list-timers 'certbot*'
+sudo apache2ctl configtest
+```
+
+The Apache virtual host should cover both `followthrough.dev` and
+`www.followthrough.dev`, proxy to `127.0.0.1:3000`, and use the certificate under
+`/etc/letsencrypt/live/followthrough.dev/`. After any hostname or certificate
+change, reload Apache and rerun `npm run domain:check`.
+
+Keep the app's canonical URLs aligned with the public hostname by checking only
+the non-secret production env keys:
+
+```bash
+grep -E '^(APP_BASE_URL|GOOGLE_OAUTH_REDIRECT_URI)=' /opt/web-ui-task-manager/shared/.env
+```
+
+For production, these should be:
+
+```text
+APP_BASE_URL=https://followthrough.dev
+GOOGLE_OAUTH_REDIRECT_URI=https://followthrough.dev/api/google-calendar/oauth/callback
+```
+
 ### Add users in production
 
 Admins can add users directly from the Admin screen and assign `admin` or

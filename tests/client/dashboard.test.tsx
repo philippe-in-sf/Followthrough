@@ -69,7 +69,7 @@ function setupAppFetch(
       publicId: "T099",
       description: "Prep launch plan",
       blockers: "Waiting on finance numbers",
-      notes: "Finance owner pinged; waiting on workbook.",
+      notes: "Finance owner P001 pinged; waiting on workbook.",
       blockersClearedAt: null,
       assignee: avery,
       status: "Open",
@@ -347,6 +347,15 @@ function setupAppFetch(
 
     if (url.pathname === "/api/people" && method === "GET") return json({ people });
 
+    if (url.pathname === "/api/people/P001/records" && method === "GET") {
+      return json({
+        person: avery,
+        meetings,
+        tasks,
+        decisions,
+      });
+    }
+
     if (url.pathname === "/api/people" && method === "POST") {
       expect(body).toEqual(
         expect.objectContaining({
@@ -492,7 +501,7 @@ function setupAppFetch(
     if (url.pathname === "/api/decisions" && method === "GET") return json({ decisions });
 
     if (url.pathname === "/api/decisions" && method === "POST") {
-      const decision = {
+      const decision: DecisionDto = {
         publicId: "D100",
         decisionText: body.decisionText,
         decisionDate: body.decisionDate,
@@ -501,6 +510,33 @@ function setupAppFetch(
         tasks: [],
         archived: false,
       };
+      if (body.followUpTask) {
+        const task: TaskDto = {
+          publicId: "T101",
+          description: body.followUpTask.description,
+          blockers: body.followUpTask.blockers ?? "",
+          notes: body.followUpTask.notes ?? "",
+          blockersClearedAt: null,
+          assignee:
+            people.find((person) => person.publicId === body.followUpTask.assigneePublicId) ??
+            null,
+          status: body.followUpTask.status ?? "Open",
+          dueDate: body.followUpTask.dueDate ?? null,
+          originMeetingPublicId: body.meetingPublicId ?? null,
+          originDecisionPublicId: decision.publicId,
+          seriesPublicId: null,
+          reminderMode: "manual",
+          lastReminderSentAt: null,
+          alert: null,
+          dependencies: [],
+          private: body.followUpTask.private ?? false,
+          archived: false,
+        };
+        tasks.push(task);
+        decision.tasks.push(task);
+        const meeting = meetings.find((item) => item.publicId === body.meetingPublicId);
+        meeting?.tasks.push(task);
+      }
       decisions.push(decision);
       return json({ decision }, 201);
     }
@@ -529,7 +565,7 @@ function setupAppFetch(
         summary: body.summary,
         blockers: body.blockers ?? "",
         blockersClearedAt: body.blockersCleared && body.blockers ? "2026-06-09T12:18:00.000Z" : null,
-        notes: body.notes ?? meetings[0]?.notes ?? "",
+        notes: body.notes ?? "",
         links: body.links ?? meetings[0]?.links ?? [],
         attendees: body.attendeePublicIds
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
@@ -666,12 +702,16 @@ describe("dashboard and workspace flows", () => {
     );
   });
 
-  it("shows Google Calendar connect as the primary path with URL paste as a secondary option", async () => {
+  it("hides Google Calendar settings behind the Meetings settings control", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Google Calendar is not connected.")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Calendar shortcut URL")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     expect(await screen.findByText("Google Calendar is not connected.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Google Calendar" })).toHaveAttribute(
       "href",
@@ -685,6 +725,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     await userEvent.type(
       await screen.findByLabelText("Calendar shortcut URL"),
       "https://calendar.example.com/team",
@@ -710,6 +751,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     await userEvent.type(await screen.findByLabelText("Calendar shortcut URL"), "javascript:alert(1)");
     await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
 
@@ -727,6 +769,7 @@ describe("dashboard and workspace flows", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
     expect(await screen.findByText("Connected as editor@gmail.com")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
@@ -805,6 +848,46 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
   });
 
+  it("opens meeting and series references from task detail tags", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    let taskCard = await expandTaskCard("T010");
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open meeting M010" }));
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Meetings" })).toBeInTheDocument();
+    });
+    const meetingCard = await screen.findByLabelText("Meeting M010");
+    expect(within(meetingCard).getByRole("heading", { name: "Edit details for M010" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Tasks" }));
+    taskCard = await expandTaskCard("T010");
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open series S001" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "Project sync" })).toBeInTheDocument();
+    });
+    expect(within(screen.getByRole("main")).getByText("Previous launch notes")).toBeInTheDocument();
+  });
+
+  it("opens inline person IDs from record notes", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tasks" }));
+    const taskCard = await expandTaskCard("T099");
+
+    await userEvent.click(within(taskCard).getByRole("button", { name: "Open person P001" }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole("main")).getByRole("heading", { name: "People" })).toBeInTheDocument();
+    });
+    const related = await screen.findByRole("region", { name: "Related records for P001" });
+    expect(related).toHaveTextContent("Prep launch plan");
+  });
+
   it("collapses task description urls in collapsed task cards", async () => {
     setupAppFetch();
     render(<App />);
@@ -874,7 +957,7 @@ describe("dashboard and workspace flows", () => {
       "Waiting on finance numbers",
     );
     expect(within(taskCard).getByLabelText("Task notes for T099")).toHaveValue(
-      "Finance owner pinged; waiting on workbook.",
+      "Finance owner P001 pinged; waiting on workbook.",
     );
     expect(within(taskCard).getByText("Audit history")).toBeInTheDocument();
     expect(within(taskCard).getByText("Created task")).toBeInTheDocument();
@@ -916,6 +999,13 @@ describe("dashboard and workspace flows", () => {
     await userEvent.type(screen.getByLabelText("Decision context"), "Recurring governance");
     expect(screen.getByLabelText("Meeting ID")).toHaveTextContent("M010 - Leadership sync");
     await userEvent.selectOptions(screen.getByLabelText("Meeting ID"), "M010");
+    await userEvent.click(screen.getByLabelText("Create follow-up task"));
+    await userEvent.type(
+      screen.getByLabelText("Follow-up task description"),
+      "Schedule weekly review",
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Follow-up assignee"), "P001");
+    await userEvent.type(screen.getByLabelText("Follow-up due date"), "2026-06-17");
     await userEvent.click(screen.getByRole("button", { name: "Add decision" }));
     const decisionCreateCall = [...vi.mocked(globalThis.fetch).mock.calls]
       .reverse()
@@ -923,9 +1013,15 @@ describe("dashboard and workspace flows", () => {
     expect(JSON.parse(String(decisionCreateCall?.[1]?.body))).toEqual(
       expect.objectContaining({
         meetingPublicId: "M010",
+        followUpTask: expect.objectContaining({
+          description: "Schedule weekly review",
+          assigneePublicId: "P001",
+          dueDate: "2026-06-17",
+        }),
       }),
     );
     expect(await screen.findByText("Adopt weekly review")).toBeInTheDocument();
+    expect(await screen.findByText(/Schedule weekly review/)).toBeInTheDocument();
   });
 
   it("keeps task filters collapsed until expanded", async () => {
@@ -1122,6 +1218,70 @@ describe("dashboard and workspace flows", () => {
     ).toBe(false);
   });
 
+  it("preserves quick-created meeting notes when later assigning a recurring series", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "CM Leadership");
+    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2026-07-06T09:00");
+    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee");
+    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+
+    let meetingCard = await expandMeetingCard("M100");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Open notes for M100" }),
+    );
+
+    await userEvent.type(
+      await screen.findByLabelText("Notes for M100"),
+      "Agenda notes from today's CM Leadership meeting.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save notes" }));
+    expect(await screen.findByText("Notes saved.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    meetingCard = await screen.findByLabelText("Meeting M100");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Edit details for M100" }),
+    );
+    await userEvent.selectOptions(
+      within(meetingCard).getByLabelText("Meeting type for M100"),
+      "existing",
+    );
+    const seriesSelect = within(meetingCard).getByLabelText("Meeting series for M100");
+    await waitFor(() => expect(seriesSelect).not.toBeDisabled());
+    await userEvent.selectOptions(seriesSelect, "S001");
+    await userEvent.click(within(meetingCard).getByRole("button", { name: "Save meeting M100" }));
+
+    const meetingPatchBodies = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.filter(
+        ([input, init]) => String(input) === "/api/meetings/M100" && init?.method === "PATCH",
+      )
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    const notesPatch = meetingPatchBodies.find((body) =>
+      String(body.notes ?? "").includes("CM Leadership"),
+    );
+    const recurrencePatch = [...meetingPatchBodies]
+      .reverse()
+      .find((body) => body.meetingType === "recurring");
+
+    expect(notesPatch).toEqual(
+      expect.objectContaining({
+        notes: "Agenda notes from today's CM Leadership meeting.",
+      }),
+    );
+    expect(recurrencePatch).toEqual(
+      expect.objectContaining({
+        meetingType: "recurring",
+        seriesPublicId: "S001",
+      }),
+    );
+    expect(recurrencePatch).not.toHaveProperty("notes");
+    expect(recurrencePatch).not.toHaveProperty("links");
+  });
+
   it("shows meeting wizard progress and validates Basics before moving forward", async () => {
     setupAppFetch();
     render(<App />);
@@ -1237,7 +1397,10 @@ describe("dashboard and workspace flows", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Project sync" })).toBeInTheDocument();
-    expect(screen.getByText("S001 · Weekly")).toBeInTheDocument();
+    const seriesPublicIdLink = within(screen.getByRole("main")).getByRole("button", {
+      name: "Open series S001",
+    });
+    expect(seriesPublicIdLink.closest("p")).toHaveTextContent("S001 · Weekly");
     expect(screen.getByText("2 meetings")).toBeInTheDocument();
     expect(screen.getByText("2 notes")).toBeInTheDocument();
 
@@ -1503,7 +1666,11 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Capture action items")).toBeInTheDocument();
     expect(await screen.findByText("Need customer list")).toBeInTheDocument();
     expect(await screen.findByText("Customer list request sent.")).toBeInTheDocument();
-    expect(await screen.findByText("Added task T100")).toBeInTheDocument();
+    await waitFor(() => {
+      const auditLog = within(meetingCard).getByRole("region", { name: "Audit history" });
+      const auditTaskLink = within(auditLog).getByRole("button", { name: "Open task T100" });
+      expect(auditTaskLink.closest("strong")).toHaveTextContent("Added task T100");
+    });
 
     const refreshedMeetingCard = await screen.findByLabelText("Meeting M010");
     await userEvent.click(

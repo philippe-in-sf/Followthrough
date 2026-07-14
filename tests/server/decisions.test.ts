@@ -67,6 +67,69 @@ describe("decisions", () => {
     expect(archived.status).toBe(204);
   });
 
+  it("creates a linked follow-up task from a decision", async () => {
+    const { app, cookie } = await setup();
+
+    const person = await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Avery", email: "avery@example.com" });
+    const meeting = await request(app)
+      .post("/api/meetings")
+      .set("Cookie", cookie)
+      .send({
+        title: "Launch review",
+        startsAt: "2026-06-09T15:00:00.000Z",
+        meetingType: "single",
+        summary: "",
+        attendeePublicIds: [],
+        taskPublicIds: [],
+      });
+
+    const created = await request(app)
+      .post("/api/decisions")
+      .set("Cookie", cookie)
+      .send({
+        decisionText: "Launch with a weekly review loop",
+        decisionDate: "2026-06-09",
+        context: "The team needs a lightweight operating rhythm.",
+        meetingPublicId: meeting.body.meeting.publicId,
+        followUpTask: {
+          description: "Schedule the first weekly review",
+          assigneePublicId: person.body.person.publicId,
+          dueDate: "2026-06-12",
+        },
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.decision.tasks).toEqual([
+      expect.objectContaining({
+        publicId: "T001",
+        description: "Schedule the first weekly review",
+        dueDate: "2026-06-12",
+        originDecisionPublicId: "D001",
+        originMeetingPublicId: "M001",
+        assignee: expect.objectContaining({ publicId: "P001" }),
+      }),
+    ]);
+
+    const tasks = await request(app).get("/api/tasks").set("Cookie", cookie);
+    expect(tasks.body.tasks).toEqual([
+      expect.objectContaining({
+        publicId: "T001",
+        originDecisionPublicId: "D001",
+      }),
+    ]);
+
+    const audit = await request(app).get("/api/decisions/D001/audit").set("Cookie", cookie);
+    expect(audit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({
+        action: "task_added",
+        summary: "Added task T001",
+      }),
+    );
+  });
+
   it("lists and audits tasks spawned by a decision", async () => {
     const { app, cookie } = await setup();
 

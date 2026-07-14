@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Settings,
   Trash2,
 } from "lucide-react";
 import type {
@@ -27,7 +28,8 @@ import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blocke
 import { AuditLog } from "../../components/AuditLog";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
-import { collapseLinks, LinkedText } from "../../components/LinkedText";
+import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
+import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { comparePublicRecordNumber } from "../../recordSort";
 import { scrollRecordIntoView } from "../../recordFocus";
@@ -197,14 +199,20 @@ function linkTypeLabel(value: MeetingLinkType) {
   return meetingLinkTypes.find((type) => type.value === value)?.label ?? "Link";
 }
 
-function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
+function MeetingBlockerNote({
+  meeting,
+  onRecordOpen,
+}: {
+  meeting: MeetingDto;
+  onRecordOpen?: (target: RecordReferenceTarget) => void;
+}) {
   if (!hasBlockers(meeting)) return null;
 
   return (
     <p className={`blocker-note ${hasClearedBlockers(meeting) ? "blocker-note-cleared" : ""}`}>
       <strong>{hasClearedBlockers(meeting) ? "Cleared blocker" : "Blocker"}</strong>
       <span>
-        <LinkedText text={meeting.blockers} />
+        <LinkedText text={meeting.blockers} onRecordOpen={onRecordOpen} />
       </span>
       {meeting.blockersClearedAt ? (
         <small>Cleared {new Date(meeting.blockersClearedAt).toLocaleString()}</small>
@@ -213,7 +221,13 @@ function MeetingBlockerNote({ meeting }: { meeting: MeetingDto }) {
   );
 }
 
-function MeetingTaskLinks({ meeting }: { meeting: MeetingDto }) {
+function MeetingTaskLinks({
+  meeting,
+  onRecordOpen,
+}: {
+  meeting: MeetingDto;
+  onRecordOpen?: (target: RecordReferenceTarget) => void;
+}) {
   if (meeting.tasks.length === 0) {
     return <p className="muted meeting-empty-detail">No tasks</p>;
   }
@@ -222,20 +236,25 @@ function MeetingTaskLinks({ meeting }: { meeting: MeetingDto }) {
     <div className="task-links">
       {meeting.tasks.map((task) => (
         <span key={task.publicId}>
-          <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+          <strong>
+            <LinkedText text={task.publicId} onRecordOpen={onRecordOpen} />
+          </strong>{" "}
+          <LinkedText text={task.description} onRecordOpen={onRecordOpen} />
           {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
           {hasClearedBlockers(task) ? (
             <StatusBadge label="Blocker cleared" tone="good" />
           ) : null}
           {hasBlockers(task) ? (
             <small className="task-link-blocker">
-              <LinkedText text={task.blockers} />
+              <LinkedText text={task.blockers} onRecordOpen={onRecordOpen} />
             </small>
           ) : null}
           {(task.notes ?? "").trim() ? (
-            <small className="task-link-notes">
-              <LinkedText text={task.notes} />
-            </small>
+            <RichNoteText
+              className="task-link-notes"
+              text={task.notes}
+              onRecordOpen={onRecordOpen}
+            />
           ) : null}
         </span>
       ))}
@@ -356,16 +375,15 @@ function MeetingTaskCreateForm({
           }
         />
       </FormField>
-      <FormField label={`New task notes for ${meeting.publicId}`}>
-        <textarea
-          value={form.notes}
-          onChange={(event) =>
-            onChange({
-              notes: event.target.value,
-            })
-          }
-        />
-      </FormField>
+      <MarkdownNotesEditor
+        label={`New task notes for ${meeting.publicId}`}
+        value={form.notes}
+        onChange={(notes) =>
+          onChange({
+            notes,
+          })
+        }
+      />
       <FormField label={`New task assignee for ${meeting.publicId}`}>
         <select
           value={form.assigneePublicId}
@@ -430,23 +448,29 @@ function MeetingTaskCreateForm({
 }
 
 export function MeetingsPage({
+  focusSeriesPublicId,
   focusMeetingPublicId,
   onMeetingFocusHandled,
+  onSeriesFocusHandled,
   workCalendarUrl,
   onWorkCalendarUrlChange,
   googleCalendarConfigured = false,
   googleCalendarConnected = false,
   googleCalendarEmail = null,
   onGoogleCalendarConnectionChange,
+  onRecordReferenceOpen,
 }: {
+  focusSeriesPublicId?: string | null;
   focusMeetingPublicId?: string | null;
   onMeetingFocusHandled?: () => void;
+  onSeriesFocusHandled?: () => void;
   workCalendarUrl?: string | null;
   onWorkCalendarUrlChange?: (workCalendarUrl: string | null) => void;
   googleCalendarConfigured?: boolean;
   googleCalendarConnected?: boolean;
   googleCalendarEmail?: string | null;
   onGoogleCalendarConnectionChange?: (connected: boolean, email: string | null) => void;
+  onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
@@ -469,6 +493,7 @@ export function MeetingsPage({
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportDetails, setCalendarImportDetails] =
     useState<CalendarImportDetails | null>(null);
+  const [calendarSettingsOpen, setCalendarSettingsOpen] = useState(false);
   const [workCalendarInput, setWorkCalendarInput] = useState(workCalendarUrl ?? "");
   const [workCalendarSaving, setWorkCalendarSaving] = useState(false);
   const [workCalendarError, setWorkCalendarError] = useState("");
@@ -956,6 +981,15 @@ export function MeetingsPage({
     onMeetingFocusHandled?.();
   }, [focusMeetingPublicId, meetings, onMeetingFocusHandled]);
 
+  useEffect(() => {
+    if (!focusSeriesPublicId) return;
+    const meetingSeries = series.find((item) => item.publicId === focusSeriesPublicId);
+    if (!meetingSeries) return;
+
+    openSeriesNotes(meetingSeries.publicId);
+    onSeriesFocusHandled?.();
+  }, [focusSeriesPublicId, onSeriesFocusHandled, series]);
+
   async function submitMeetingEdit(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
     event.preventDefault();
     const attendeePublicIds = await resolveAttendeePublicIds(
@@ -973,8 +1007,6 @@ export function MeetingsPage({
       summary: meetingEditForm.summary,
       blockers: meetingEditForm.blockers,
       blockersCleared: meetingEditForm.blockersCleared,
-      notes: meeting.notes,
-      links: meeting.links.map(toMeetingLinkForm),
       attendeePublicIds,
       taskPublicIds: meetingEditForm.taskPublicIds,
       private: meetingEditForm.private,
@@ -1155,9 +1187,11 @@ export function MeetingsPage({
               Back
             </button>
             <div>
-              <h2>{activeSeriesNotes.series.title}</h2>
+              <h2>
+                <LinkedText text={activeSeriesNotes.series.title} onRecordOpen={onRecordReferenceOpen} />
+              </h2>
               <p>
-                {activeSeriesNotes.series.publicId} ·{" "}
+                <LinkedText text={activeSeriesNotes.series.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
                 {activeSeriesNotes.series.cadenceLabel || "Recurring"}
               </p>
             </div>
@@ -1192,9 +1226,12 @@ export function MeetingsPage({
                 >
                   <header className="series-note-header">
                     <div>
-                      <h3>{meeting.title}</h3>
+                      <h3>
+                        <LinkedText text={meeting.title} onRecordOpen={onRecordReferenceOpen} />
+                      </h3>
                       <span>
-                        {meeting.publicId} · {new Date(meeting.startsAt).toLocaleString()}
+                        <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
+                        {new Date(meeting.startsAt).toLocaleString()}
                       </span>
                     </div>
                     <div className="series-note-badges">
@@ -1208,13 +1245,12 @@ export function MeetingsPage({
                       ) : null}
                     </div>
                   </header>
-                  <div className={notes ? "series-note-body" : "series-note-body muted"}>
-                    {notes ? (
-                      <LinkedText text={notes} />
-                    ) : (
-                      "No notes captured for this occurrence."
-                    )}
-                  </div>
+                  <RichNoteText
+                    className="series-note-body"
+                    emptyText="No notes captured for this occurrence."
+                    text={notes}
+                    onRecordOpen={onRecordReferenceOpen}
+                  />
                 </article>
               );
             })}
@@ -1240,14 +1276,17 @@ export function MeetingsPage({
               Back
             </button>
             <div>
-              <h2>{activeNotesMeeting.title}</h2>
+              <h2>
+                <LinkedText text={activeNotesMeeting.title} onRecordOpen={onRecordReferenceOpen} />
+              </h2>
               <p>
-                {activeNotesMeeting.publicId} ·{" "}
+                <LinkedText text={activeNotesMeeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
                 {new Date(activeNotesMeeting.startsAt).toLocaleString()}
               </p>
             </div>
           </div>
           <button
+            aria-label="Save notes from header"
             className="primary-button icon-text-button"
             disabled={notesSaving}
             type="submit"
@@ -1317,17 +1356,26 @@ export function MeetingsPage({
                 {notesSaveStatus}
               </p>
             ) : null}
-            <FormField label={`Notes for ${activeNotesMeeting.publicId}`}>
-              <textarea
-                autoFocus
-                className="meeting-notes-textarea"
-                value={notesDraft}
-                onChange={(event) => {
-                  setNotesDraft(event.target.value);
-                  setNotesSaveStatus("");
-                }}
-              />
-            </FormField>
+            <MarkdownNotesEditor
+              autoFocus
+              label={`Notes for ${activeNotesMeeting.publicId}`}
+              textareaClassName="meeting-notes-textarea"
+              value={notesDraft}
+              onChange={(notes) => {
+                setNotesDraft(notes);
+                setNotesSaveStatus("");
+              }}
+            />
+            <div className="meeting-notes-editor-actions">
+              <button
+                className="primary-button icon-text-button"
+                disabled={notesSaving}
+                type="submit"
+              >
+                <Save aria-hidden="true" size={17} />
+                {notesSaving ? "Saving notes" : "Save notes"}
+              </button>
+            </div>
           </form>
 
           <aside className="meeting-notes-sidepanel">
@@ -1468,20 +1516,25 @@ export function MeetingsPage({
                 <div className="task-links">
                   {activeNotesMeeting.tasks.map((task) => (
                     <span key={task.publicId}>
-                      <strong>{task.publicId}</strong> <LinkedText text={task.description} />
+                      <strong>
+                        <LinkedText text={task.publicId} onRecordOpen={onRecordReferenceOpen} />
+                      </strong>{" "}
+                      <LinkedText text={task.description} onRecordOpen={onRecordReferenceOpen} />
                       {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
                       {hasClearedBlockers(task) ? (
                         <StatusBadge label="Blocker cleared" tone="good" />
                       ) : null}
                       {hasBlockers(task) ? (
                         <small className="task-link-blocker">
-                          <LinkedText text={task.blockers} />
+                          <LinkedText text={task.blockers} onRecordOpen={onRecordReferenceOpen} />
                         </small>
                       ) : null}
                       {(task.notes ?? "").trim() ? (
-                        <small className="task-link-notes">
-                          <LinkedText text={task.notes} />
-                        </small>
+                        <RichNoteText
+                          className="task-link-notes"
+                          text={task.notes}
+                          onRecordOpen={onRecordReferenceOpen}
+                        />
                       ) : null}
                     </span>
                   ))}
@@ -1510,111 +1563,132 @@ export function MeetingsPage({
     <main className="page">
       <header className="page-header">
         <h2>Meetings</h2>
-        <div className="record-view-toggle" role="group" aria-label="Meeting archive view">
-          <button
-            aria-pressed={meetingArchiveView === "active"}
-            className={meetingArchiveView === "active" ? "active" : ""}
-            type="button"
-            onClick={() => setMeetingArchiveView("active")}
-          >
-            Active
-          </button>
-          <button
-            aria-pressed={meetingArchiveView === "archived"}
-            className={meetingArchiveView === "archived" ? "active" : ""}
-            type="button"
-            onClick={() => setMeetingArchiveView("archived")}
-          >
-            Archived
-          </button>
+        <div className="meetings-header-actions">
+          {meetingArchiveView === "active" ? (
+            <button
+              aria-controls="calendar-settings-panel"
+              aria-expanded={calendarSettingsOpen}
+              className="secondary-button icon-text-button calendar-settings-toggle"
+              type="button"
+              onClick={() => setCalendarSettingsOpen((open) => !open)}
+            >
+              <Settings aria-hidden="true" size={17} />
+              Calendar settings
+            </button>
+          ) : null}
+          <div className="record-view-toggle" role="group" aria-label="Meeting archive view">
+            <button
+              aria-pressed={meetingArchiveView === "active"}
+              className={meetingArchiveView === "active" ? "active" : ""}
+              type="button"
+              onClick={() => setMeetingArchiveView("active")}
+            >
+              Active
+            </button>
+            <button
+              aria-pressed={meetingArchiveView === "archived"}
+              className={meetingArchiveView === "archived" ? "active" : ""}
+              type="button"
+              onClick={() => setMeetingArchiveView("archived")}
+            >
+              Archived
+            </button>
+          </div>
         </div>
       </header>
       {meetingArchiveView === "active" ? (
-      <>
-      <form
-        className="calendar-settings-panel"
-        aria-label="Calendar settings"
-        onSubmit={submitWorkCalendar}
-      >
-        <h3>Calendar settings</h3>
-        <section className="google-calendar-connection" aria-label="Google Calendar connection">
-          <div>
-            <strong>Google Calendar</strong>
-            <span>
-              {googleCalendarConnected
-                ? `Connected as ${googleCalendarEmail ?? "Google Calendar"}`
-                : googleCalendarConfigured
-                  ? "Google Calendar is not connected."
-                  : "Google Calendar connection is not available."}
-            </span>
-          </div>
-          {googleCalendarConnected ? (
-            <button
-              className="secondary-button icon-text-button"
-              type="button"
-              onClick={disconnectGoogleCalendar}
-              disabled={googleCalendarDisconnecting}
+        <>
+          {calendarSettingsOpen ? (
+            <form
+              className="calendar-settings-panel"
+              id="calendar-settings-panel"
+              aria-label="Calendar settings"
+              onSubmit={submitWorkCalendar}
             >
-              <Trash2 aria-hidden="true" size={17} />
-              {googleCalendarDisconnecting ? "Disconnecting" : "Disconnect Google Calendar"}
-            </button>
-          ) : googleCalendarConfigured ? (
-            <a className="primary-button icon-text-button" href="/api/google-calendar/connect">
-              <CalendarPlus aria-hidden="true" size={17} />
-              Connect Google Calendar
-            </a>
+              <h3>Calendar settings</h3>
+              <section
+                className="google-calendar-connection"
+                aria-label="Google Calendar connection"
+              >
+                <div>
+                  <strong>Google Calendar</strong>
+                  <span>
+                    {googleCalendarConnected
+                      ? `Connected as ${googleCalendarEmail ?? "Google Calendar"}`
+                      : googleCalendarConfigured
+                        ? "Google Calendar is not connected."
+                        : "Google Calendar connection is not available."}
+                  </span>
+                </div>
+                {googleCalendarConnected ? (
+                  <button
+                    className="secondary-button icon-text-button"
+                    type="button"
+                    onClick={disconnectGoogleCalendar}
+                    disabled={googleCalendarDisconnecting}
+                  >
+                    <Trash2 aria-hidden="true" size={17} />
+                    {googleCalendarDisconnecting ? "Disconnecting" : "Disconnect Google Calendar"}
+                  </button>
+                ) : googleCalendarConfigured ? (
+                  <a className="primary-button icon-text-button" href="/api/google-calendar/connect">
+                    <CalendarPlus aria-hidden="true" size={17} />
+                    Connect Google Calendar
+                  </a>
+                ) : null}
+              </section>
+              {googleCalendarError ? (
+                <p className="form-error" role="alert">
+                  {googleCalendarError}
+                </p>
+              ) : null}
+              {googleCalendarStatus ? (
+                <p className="form-status" role="status">
+                  {googleCalendarStatus}
+                </p>
+              ) : null}
+              <FormField label="Calendar shortcut URL">
+                <input
+                  type="url"
+                  value={workCalendarInput}
+                  onChange={(event) => setWorkCalendarInput(event.target.value)}
+                  placeholder="https://calendar.example.com/team"
+                />
+              </FormField>
+              <div className="calendar-settings-actions">
+                <button
+                  className="primary-button icon-text-button"
+                  type="submit"
+                  disabled={workCalendarSaving}
+                >
+                  <Save aria-hidden="true" size={17} />
+                  {workCalendarSaving ? "Saving" : "Save shortcut"}
+                </button>
+                <button
+                  className="secondary-button icon-text-button"
+                  type="button"
+                  onClick={clearWorkCalendar}
+                  disabled={workCalendarSaving || !workCalendarInput.trim()}
+                >
+                  <Trash2 aria-hidden="true" size={17} />
+                  Clear shortcut
+                </button>
+              </div>
+              {workCalendarError ? (
+                <p className="form-error" role="alert">
+                  {workCalendarError}
+                </p>
+              ) : null}
+              {workCalendarStatus ? (
+                <p className="form-status" role="status">
+                  {workCalendarStatus}
+                </p>
+              ) : null}
+            </form>
           ) : null}
-        </section>
-        {googleCalendarError ? (
-          <p className="form-error" role="alert">
-            {googleCalendarError}
-          </p>
-        ) : null}
-        {googleCalendarStatus ? (
-          <p className="form-status" role="status">
-            {googleCalendarStatus}
-          </p>
-        ) : null}
-        <FormField label="Calendar shortcut URL">
-          <input
-            type="url"
-            value={workCalendarInput}
-            onChange={(event) => setWorkCalendarInput(event.target.value)}
-            placeholder="https://calendar.example.com/team"
-          />
-        </FormField>
-        <div className="calendar-settings-actions">
-          <button
-            className="primary-button icon-text-button"
-            type="submit"
-            disabled={workCalendarSaving}
-          >
-            <Save aria-hidden="true" size={17} />
-            {workCalendarSaving ? "Saving" : "Save shortcut"}
-          </button>
-          <button
-            className="secondary-button icon-text-button"
-            type="button"
-            onClick={clearWorkCalendar}
-            disabled={workCalendarSaving || !workCalendarInput.trim()}
-          >
-            <Trash2 aria-hidden="true" size={17} />
-            Clear shortcut
-          </button>
-        </div>
-        {workCalendarError ? (
-          <p className="form-error" role="alert">
-            {workCalendarError}
-          </p>
-        ) : null}
-        {workCalendarStatus ? (
-          <p className="form-status" role="status">
-            {workCalendarStatus}
-          </p>
-        ) : null}
-      </form>
       <form
         className="quick-meeting-form"
+        data-tour-id="meeting-capture"
         aria-label="Quick add one-time meeting"
         onSubmit={submitQuickMeeting}
       >
@@ -1951,9 +2025,11 @@ export function MeetingsPage({
                   <div className="series-row" key={item.publicId}>
                     <div className="series-row-main">
                       <strong>
-                        <LinkedText text={item.title} />
+                        <LinkedText text={item.title} onRecordOpen={onRecordReferenceOpen} />
                       </strong>
-                      <span>{item.publicId}</span>
+                      <span>
+                        <LinkedText text={item.publicId} onRecordOpen={onRecordReferenceOpen} />
+                      </span>
                     </div>
                     <div className="series-row-actions">
                       <span className="hint-chip hint-chip-teal">
@@ -2062,13 +2138,13 @@ export function MeetingsPage({
                             <section className="meeting-detail-section">
                               <h4>Summary</h4>
                               <p>
-                                <LinkedText text={meeting.summary || "No summary"} />
+                                <LinkedText text={meeting.summary || "No summary"} onRecordOpen={onRecordReferenceOpen} />
                               </p>
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Blockers</h4>
                               {hasBlockers(meeting) ? (
-                                <MeetingBlockerNote meeting={meeting} />
+                                <MeetingBlockerNote meeting={meeting} onRecordOpen={onRecordReferenceOpen} />
                               ) : (
                                 <p className="muted meeting-empty-detail">No blockers</p>
                               )}
@@ -2079,7 +2155,7 @@ export function MeetingsPage({
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Tasks</h4>
-                              <MeetingTaskLinks meeting={meeting} />
+                              <MeetingTaskLinks meeting={meeting} onRecordOpen={onRecordReferenceOpen} />
                             </section>
                             <section className="meeting-detail-section">
                               <h4>Links</h4>
@@ -2312,7 +2388,7 @@ export function MeetingsPage({
                               onSubmit={(event) => submitMeetingTask(event, meeting)}
                             />
                           ) : null}
-                          <AuditLog events={meetingAudits[meeting.publicId] ?? []} />
+                          <AuditLog events={meetingAudits[meeting.publicId] ?? []} onRecordOpen={onRecordReferenceOpen} />
                         </div>
                       ) : null}
                     </article>

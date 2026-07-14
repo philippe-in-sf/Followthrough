@@ -10,6 +10,126 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.2.17 - 2026-07-09
+
+### Changed
+
+- Stacked task page controls in a right-side rail for create, expanded, and edit task views.
+
+## 1.2.16 - 2026-07-09
+
+### Changed
+
+- Moved the task status selector directly beneath the status chip in the task card edit layout.
+
+## 1.2.15 - 2026-07-08
+
+### Changed
+
+- Moved task status badges to the top-right corner of task cards for faster scanning.
+
+## 1.2.14 - 2026-07-07
+
+### Added
+
+- Added a Settings page for account controls, including password updates and the team-leave action.
+
+### Changed
+
+- Moved the leave-team action out of the topbar to reduce accidental clicks.
+
+## 1.2.13 - 2026-07-07
+
+### Changed
+
+- Removed the dedicated white logo treatment and kept the marketing header on the standard icon and text branding.
+
+## 1.2.12 - 2026-07-07
+
+### Changed
+
+- Replaced the built-in Followthrough mark with the new logo assets across the shell, marketing header, favicon, and notifications.
+
+## 1.2.11 - 2026-07-07
+
+### Fixed
+
+- Matched the task description and blocker field heights in the task create form.
+
+## 1.2.10 - 2026-07-07
+
+### Added
+
+- Added a second Save notes button directly beside the meeting notes editor for easier in-context saving.
+
+## 1.2.9 - 2026-07-07
+
+### Added
+
+- Added a markdown toolbar and rich rendered note display for task, meeting, series, and related-record note fields.
+
+## 1.2.8 - 2026-07-07
+
+### Added
+
+- Added optional follow-up task creation from decisions, including decision/meeting linkage and spawned-task audit history.
+
+## 1.2.7 - 2026-07-07
+
+### Added
+
+- Linked inline task, person, meeting, decision, and series tags in record notes, audit history, and related-record displays.
+
+## 1.2.6 - 2026-07-07
+
+### Fixed
+
+- Stopped new recurring meeting occurrences from copying notes out of earlier meetings in the same series.
+
+## 1.2.5 - 2026-07-07
+
+### Changed
+
+- Shifted deploy verification to rely on the required PR `Verify` workflow while keeping deploy builds focused on release artifact packaging.
+
+### Fixed
+
+- Improved parchment dashboard pulse contrast so blocker and open-task counts stay readable on light metric rows.
+
+## 1.2.4 - 2026-07-07
+
+### Changed
+
+- Collapsed the skin selector behind a compact icon menu to reduce header clutter while keeping all theme options accessible.
+
+## 1.2.3 - 2026-07-07
+
+### Added
+
+- Added a guided onboarding tour with first-run launch, relaunch controls, highlighted feature targets, and per-user completion state.
+
+## 1.2.2 - 2026-07-06
+
+### Added
+
+- Made task reference chips clickable for originating meetings, originating decisions, and meeting series.
+
+### Changed
+
+- Collapsed Meetings calendar settings behind a compact header control so meeting capture keeps the prime page space.
+
+### Fixed
+
+- Preserved meeting notes and links when changing a meeting into a recurring series.
+
+## 1.2.1 - 2026-07-04
+
+### Added
+
+- Added a repeatable production domain and TLS check for `followthrough.dev`.
+- Documented how Namecheap's SSL provider change relates to the server-managed
+  Let's Encrypt certificate renewal path.
+
 ## 1.2.0 - 2026-07-03
 
 ### Added

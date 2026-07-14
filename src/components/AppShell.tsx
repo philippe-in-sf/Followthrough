@@ -1,4 +1,4 @@
-import { Bell, BellOff, LogOut, UserMinus } from "lucide-react";
+import { Bell, BellOff, LogOut } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/types";
 import { readStoredAppSkin, storeAppSkin } from "../appSkins";
@@ -6,6 +6,7 @@ import { loadClientConfig } from "../clientConfig";
 import { BrandMark } from "./BrandMark";
 import { ContextRail } from "./ContextRail";
 import { GlobalSearch } from "./GlobalSearch";
+import { GuidedTour } from "./GuidedTour";
 import { IconRail } from "./IconRail";
 import { MobileSectionSummary } from "./MobileSectionSummary";
 import { SkinSelector } from "./SkinSelector";
@@ -18,7 +19,6 @@ export function AppShell({
   section,
   onSectionChange,
   onLogout,
-  onLeaveTeam,
   onEnableNotifications,
   notificationStatus,
   version,
@@ -29,7 +29,6 @@ export function AppShell({
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
   onLogout: () => void;
-  onLeaveTeam: () => void;
   onEnableNotifications: () => void;
   notificationStatus: "unsupported" | "disabled" | "enabled";
   version: string;
@@ -61,6 +60,7 @@ export function AppShell({
           </div>
           <GlobalSearch onOpenSection={onSectionChange} />
           <SkinSelector skin={skin} onSkinChange={setSkin} />
+          <GuidedTour section={section} onSectionChange={onSectionChange} userId={user.id} />
           <span className="team-name">{user.team.name}</span>
           <span className="user-name">{user.name}</span>
           {notificationStatus !== "unsupported" ? (
@@ -82,15 +82,6 @@ export function AppShell({
               {notificationStatus === "enabled" ? <Bell size={18} /> : <BellOff size={18} />}
             </button>
           ) : null}
-          <button
-            className="icon-button leave-team-button"
-            onClick={onLeaveTeam}
-            aria-label="Leave team"
-            title="Leave team"
-            type="button"
-          >
-            <UserMinus size={18} />
-          </button>
           <button className="icon-button sign-out-button" onClick={onLogout} aria-label="Sign out" type="button">
             <LogOut size={18} />
           </button>
