@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.5.0 - 2026-07-14
+
+### Fixed
+
+- Restored readable dark-mode styling for authenticated Settings panels, including Password and Team access.
+
 ## 1.4.0 - 2026-07-14
 
 ### Security

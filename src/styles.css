@@ -4742,7 +4742,9 @@ button:disabled {
 .app-shell[data-skin] .lane-header p,
 .app-shell[data-skin] .series-note-header span,
 .app-shell[data-skin] .person-related-header span,
-.app-shell[data-skin] .person-related-list span {
+.app-shell[data-skin] .person-related-list span,
+.app-shell[data-skin] .settings-panel .panel-heading p,
+.app-shell[data-skin] .settings-panel-copy {
   color: var(--skin-muted);
 }
 
@@ -4751,6 +4753,8 @@ button:disabled {
 .app-shell[data-skin] .dashboard-section-heading h3,
 .app-shell[data-skin] .dashboard-metric strong,
 .app-shell[data-skin] .compact-task-description,
+.app-shell[data-skin] .settings-page .page-header h1,
+.app-shell[data-skin] .settings-panel h2,
 .app-shell[data-skin] .form-field,
 .app-shell[data-skin] .checkbox-group legend {
   color: var(--skin-text);
@@ -4896,6 +4900,7 @@ button:disabled {
 .app-shell[data-skin] .record-lane,
 .app-shell[data-skin] .meeting-card,
 .app-shell[data-skin] .task-card,
+.app-shell[data-skin] .settings-panel,
 .app-shell[data-skin] .series-note-card,
 .app-shell[data-skin] .admin-panel,
 .app-shell[data-skin] .admin-add-user-form,
@@ -5158,6 +5163,17 @@ button:disabled {
 
 .app-shell[data-skin] .person-row-selected {
   border-color: var(--skin-action);
+}
+
+.app-shell[data-skin] .settings-danger-panel {
+  border-color: var(--skin-danger-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--skin-danger-bg) 34%, transparent), transparent),
+    var(--skin-surface);
+}
+
+.app-shell[data-skin] .settings-danger-panel .panel-heading svg {
+  color: var(--skin-danger-inline);
 }
 
 .app-shell[data-skin] .danger-button {
