@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.4.0 - 2026-07-14
+
+### Security
+
+- Updated Nodemailer to 9.0.3 so production installs no longer report the GHSA-p6gq-j5cr-w38f high-severity advisory.
+
 ## 1.3.0 - 2026-07-14
 
 ### Added
