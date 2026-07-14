@@ -391,9 +391,9 @@ export function AdminPage({
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>
+                      <td data-label="Name">{user.name}</td>
+                      <td data-label="Email">{user.email}</td>
+                      <td data-label="Role">
                         <select
                           aria-label={`Role for ${user.name}`}
                           disabled={user.role === "owner"}
@@ -405,7 +405,7 @@ export function AdminPage({
                           <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="admin-user-actions">
+                      <td className="admin-user-actions" data-label="Actions">
                         <form
                           className="admin-password-reset-form"
                           onSubmit={(event) => void resetPassword(event, user)}
@@ -528,13 +528,13 @@ export function AdminPage({
                 <tbody>
                   {loginEvents.map((event) => (
                     <tr key={event.id}>
-                      <td>
+                      <td data-label="User">
                         <strong>{event.userName}</strong>
                         <span>{event.userEmail}</span>
                       </td>
-                      <td>{formatLoginTime(event.createdAt)}</td>
-                      <td>{event.ipAddress ?? "Unknown"}</td>
-                      <td>{event.userAgent ?? "Unknown"}</td>
+                      <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
+                      <td data-label="IP">{event.ipAddress ?? "Unknown"}</td>
+                      <td data-label="Browser">{event.userAgent ?? "Unknown"}</td>
                     </tr>
                   ))}
                 </tbody>
