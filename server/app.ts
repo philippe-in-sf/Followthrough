@@ -12,6 +12,7 @@ import { openDatabase } from "./db/database.js";
 import { createEmailSender, type EmailSender } from "./email/mailer.js";
 import { HttpError } from "./errors.js";
 import { meetingRoutes } from "./meetings/routes.js";
+import { notesRoutes } from "./notes/routes.js";
 import { notificationRoutes } from "./notifications/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
@@ -63,6 +64,7 @@ export function createApp(deps: AppDependencies = {}) {
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db, config));
   protectedApi.use("/google-calendar", googleCalendarRoutes(db, config));
+  protectedApi.use("/me", notesRoutes(db));
   protectedApi.use("/me", preferenceRoutes(db, config));
   protectedApi.use("/meetings", meetings.meetingsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);

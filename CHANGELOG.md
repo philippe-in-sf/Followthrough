@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.3.0 - 2026-07-14
+
+### Added
+
+- Added automatic SQLite database backups with configurable schedule, retention, and manifest audit logging.
+- Added a Notes section where users can review their own meeting notes from recent or custom date ranges.
+
 ## 1.2.17 - 2026-07-09
 
 ### Changed

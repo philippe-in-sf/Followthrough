@@ -52,6 +52,10 @@ Environment variables are optional and default to the values in `.env.example`.
 ```text
 PORT=3000
 DATABASE_PATH=data/task-manager.sqlite
+BACKUP_ENABLED=true
+BACKUP_DIR=data/backups
+BACKUP_INTERVAL_MS=86400000
+BACKUP_RETENTION_COUNT=14
 SESSION_COOKIE_NAME=tm_session
 SESSION_TTL_DAYS=14
 DUE_SOON_DAYS=7
@@ -71,6 +75,8 @@ GOOGLE_OAUTH_REDIRECT_URI=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
+
+Database backups run automatically from the server process by default. Set `BACKUP_DIR` to persistent storage, `BACKUP_INTERVAL_MS` to the desired schedule, and `BACKUP_RETENTION_COUNT` to the number of snapshot files to keep. Each backup writes a SQLite snapshot plus a `manifest.jsonl` audit trail in the backup directory. Set `BACKUP_ENABLED=false` only for local development or a deployment that has an external backup system.
 
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
