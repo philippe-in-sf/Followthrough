@@ -15,6 +15,7 @@ All notable changes to Followthrough are tracked here. This file was created aft
 ### Changed
 
 - Require an explicit admin click before showing IP address and browser details in the login log.
+- Added a public privacy policy page and linked it from the signed-out footer before login.
 
 ## 1.7.0 - 2026-07-14
 

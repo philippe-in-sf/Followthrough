@@ -436,7 +436,10 @@ export function AuthPage({ onAuth }: { onAuth: (user: User) => void }) {
 
       <footer className="marketing-footer" aria-label="Site footer">
         <span>Followthrough</span>
-        <a href="/changelog">Changelog</a>
+        <span className="marketing-footer-links">
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/changelog">Changelog</a>
+        </span>
       </footer>
     </main>
   );

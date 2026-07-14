@@ -1155,6 +1155,13 @@ button:disabled {
   font-weight: 800;
 }
 
+.marketing-footer-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
 .marketing-footer a {
   color: #2563eb;
   font-weight: 700;

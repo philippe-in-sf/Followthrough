@@ -37,6 +37,10 @@ describe("auth shell", () => {
       "href",
       "/changelog",
     );
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
   });
 
   it("submits a public beta waitlist request", async () => {
