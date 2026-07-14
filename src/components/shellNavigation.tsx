@@ -1,6 +1,7 @@
 import {
   BadgeCheck,
   CalendarDays,
+  FileText,
   LayoutDashboard,
   ListTodo,
   Settings,
@@ -9,7 +10,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const navItems = ["Dashboard", "Tasks", "Meetings", "Decisions", "People", "Settings", "Admin"] as const;
+export const navItems = [
+  "Dashboard",
+  "Tasks",
+  "Meetings",
+  "Notes",
+  "Decisions",
+  "People",
+  "Settings",
+  "Admin",
+] as const;
 
 export type AppSection = (typeof navItems)[number];
 
@@ -44,6 +54,11 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
     icon: CalendarDays,
     description: "Capture meetings, attendees, linked tasks, and recurring series.",
     contextRows: [{ label: "Recent meetings" }, { label: "Recurring series" }, { label: "Meetings with open tasks" }],
+  },
+  Notes: {
+    icon: FileText,
+    description: "Review your captured meeting notes by recent or custom date ranges.",
+    contextRows: [{ label: "Last week" }, { label: "Last month" }, { label: "Custom range" }],
   },
   Decisions: {
     icon: BadgeCheck,

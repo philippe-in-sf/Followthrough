@@ -9,6 +9,7 @@ import { AdminPage } from "./features/admin/AdminPage";
 import { DashboardPage, type DashboardRecordTarget } from "./features/dashboard/DashboardPage";
 import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
+import { MeetingNotesPage } from "./features/notes/MeetingNotesPage";
 import { PeoplePage } from "./features/people/PeoplePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
@@ -107,6 +108,13 @@ function renderSection({
           googleCalendarConnected={googleCalendarConnected}
           googleCalendarEmail={googleCalendarEmail}
           onGoogleCalendarConnectionChange={onGoogleCalendarConnectionChange}
+          onRecordReferenceOpen={onRecordReferenceOpen}
+        />
+      );
+    case "Notes":
+      return (
+        <MeetingNotesPage
+          onOpenMeeting={(publicId) => onRecordReferenceOpen({ type: "meeting", publicId })}
           onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );

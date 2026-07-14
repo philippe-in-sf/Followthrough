@@ -1,6 +1,12 @@
+import path from "node:path";
+
 export type AppConfig = {
   port: number;
   databasePath: string;
+  backupEnabled: boolean;
+  backupDir: string;
+  backupIntervalMs: number;
+  backupRetentionCount: number;
   sessionCookieName: string;
   sessionTtlDays: number;
   dueSoonDays: number;
@@ -20,9 +26,15 @@ export type AppConfig = {
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const databasePath = env.DATABASE_PATH ?? "data/task-manager.sqlite";
+
   return {
     port: Number(env.PORT ?? 3000),
-    databasePath: env.DATABASE_PATH ?? "data/task-manager.sqlite",
+    databasePath,
+    backupEnabled: env.BACKUP_ENABLED !== "false",
+    backupDir: env.BACKUP_DIR ?? path.join(path.dirname(databasePath), "backups"),
+    backupIntervalMs: Number(env.BACKUP_INTERVAL_MS ?? 86_400_000),
+    backupRetentionCount: Number(env.BACKUP_RETENTION_COUNT ?? 14),
     sessionCookieName: env.SESSION_COOKIE_NAME ?? "tm_session",
     sessionTtlDays: Number(env.SESSION_TTL_DAYS ?? 14),
     dueSoonDays: Number(env.DUE_SOON_DAYS ?? 7),

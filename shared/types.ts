@@ -140,6 +140,17 @@ export type MeetingDto = {
   archived: boolean;
 };
 
+export type MeetingNoteMatchReason = "creator" | "attendee";
+
+export type MeetingNoteDto = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  notes: string;
+  matchReasons: MeetingNoteMatchReason[];
+  attendees: PersonDto[];
+};
+
 export type MeetingLinkDto = {
   id: number;
   label: string;

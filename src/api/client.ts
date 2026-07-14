@@ -5,6 +5,7 @@ import type {
   DecisionDto,
   GoogleCalendarImportEventDto,
   MeetingDto,
+  MeetingNoteDto,
   MeetingLinkType,
   MeetingSeriesDto,
   MeetingType,
@@ -134,6 +135,21 @@ type MeetingLinkInput = {
   linkType: MeetingLinkType;
 };
 
+export type MeetingNotesRange = "day" | "week" | "month" | "custom";
+
+export type MeetingNotesQuery = {
+  range: MeetingNotesRange;
+  startDate?: string;
+  endDate?: string;
+};
+
+export type MeetingNotesResponse = {
+  range: MeetingNotesRange;
+  startsAt: string;
+  endsAt: string;
+  notes: MeetingNoteDto[];
+};
+
 type MeetingSeriesInput = {
   title: string;
   cadenceLabel?: string;
@@ -214,6 +230,14 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(body),
       }),
+  },
+  meetingNotes: {
+    list: (query: MeetingNotesQuery) => {
+      const params = new URLSearchParams({ range: query.range });
+      if (query.startDate) params.set("startDate", query.startDate);
+      if (query.endDate) params.set("endDate", query.endDate);
+      return request<MeetingNotesResponse>(`/api/me/meeting-notes?${params}`);
+    },
   },
   admin: {
     team: () => request<{ team: TeamDto }>("/api/admin/team"),
