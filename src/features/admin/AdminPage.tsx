@@ -135,6 +135,7 @@ export function AdminPage({
   const [passwordResetStatus, setPasswordResetStatus] = useState("");
   const [passwordResetError, setPasswordResetError] = useState("");
   const [resettingPasswordUserId, setResettingPasswordUserId] = useState<number | null>(null);
+  const [loginDetailsVisible, setLoginDetailsVisible] = useState(false);
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
   const [handlingSignupId, setHandlingSignupId] = useState<number | null>(null);
@@ -510,7 +511,21 @@ export function AdminPage({
 
         <section className="admin-panel admin-login-log-panel">
           <div className="panel-heading">
-            <h2>Login log</h2>
+            <div>
+              <h2>Login log</h2>
+              <p className="admin-panel-note">
+                Successful sign-ins by date and time. Network details stay hidden until confirmed.
+              </p>
+            </div>
+            {loginEvents.length > 0 && !loginDetailsVisible ? (
+              <button
+                className="secondary-button"
+                onClick={() => setLoginDetailsVisible(true)}
+                type="button"
+              >
+                Show IP and browser
+              </button>
+            ) : null}
           </div>
           {loginEvents.length === 0 ? (
             <EmptyState title="No logins yet" detail="Successful team sign-ins appear here." />
@@ -533,8 +548,12 @@ export function AdminPage({
                         <span>{event.userEmail}</span>
                       </td>
                       <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
-                      <td data-label="IP">{event.ipAddress ?? "Unknown"}</td>
-                      <td data-label="Browser">{event.userAgent ?? "Unknown"}</td>
+                      <td data-label="IP">
+                        {loginDetailsVisible ? event.ipAddress ?? "Unknown" : "Hidden"}
+                      </td>
+                      <td data-label="Browser">
+                        {loginDetailsVisible ? event.userAgent ?? "Unknown" : "Hidden"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

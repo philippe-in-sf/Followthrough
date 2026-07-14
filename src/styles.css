@@ -1831,6 +1831,13 @@ button:disabled {
   margin: 0;
 }
 
+.admin-panel-note {
+  margin: 4px 0 0;
+  color: #5b6475;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -5119,6 +5126,7 @@ button:disabled {
   color: var(--skin-muted);
 }
 
+.app-shell[data-skin] .admin-panel-note,
 .app-shell[data-skin] .admin-user-table td::before,
 .app-shell[data-skin] .admin-login-table td:first-child span {
   color: var(--skin-muted);

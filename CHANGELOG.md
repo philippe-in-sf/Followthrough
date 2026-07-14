@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.8.0 - 2026-07-14
+
+### Changed
+
+- Require an explicit admin click before showing IP address and browser details in the login log.
+
 ## 1.7.0 - 2026-07-14
 
 ### Fixed

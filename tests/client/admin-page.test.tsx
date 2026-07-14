@@ -134,7 +134,11 @@ describe("admin page", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
     expect(await screen.findByText("Login log")).toBeInTheDocument();
     expect(screen.getAllByText("editor@example.com").length).toBeGreaterThan(1);
+    expect(screen.queryByText("127.0.0.1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Test Browser")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show IP and browser" }));
     expect(screen.getByText("127.0.0.1")).toBeInTheDocument();
+    expect(screen.getByText("Test Browser")).toBeInTheDocument();
 
     await userEvent.clear(await screen.findByLabelText("Team name"));
     await userEvent.type(screen.getByLabelText("Team name"), "Acme Ops");
