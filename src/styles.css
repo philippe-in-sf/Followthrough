@@ -1811,12 +1811,13 @@ button:disabled {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 0.75fr) minmax(360px, 1.25fr);
+  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
   gap: 16px;
   align-items: start;
 }
 
 .admin-panel {
+  min-width: 0;
   display: grid;
   gap: 12px;
   border: 1px solid #d9dee7;
@@ -1844,6 +1845,7 @@ button:disabled {
 .admin-user-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .admin-user-table th,
@@ -1861,13 +1863,14 @@ button:disabled {
 }
 
 .admin-user-table select {
+  width: 100%;
   min-width: 120px;
 }
 
 .admin-user-actions {
   display: grid;
   gap: 8px;
-  min-width: 220px;
+  min-width: 0;
 }
 
 .admin-password-reset-form {
@@ -1880,7 +1883,14 @@ button:disabled {
 }
 
 .admin-password-reset-form input {
-  min-width: 180px;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-user-actions button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
 }
 
 .admin-login-log-panel {
@@ -2026,6 +2036,71 @@ button:disabled {
 
 .waitlist-handled-status {
   margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-table-wrap {
+    overflow: visible;
+  }
+
+  .admin-user-table {
+    display: block;
+  }
+
+  .admin-user-table thead {
+    display: none;
+  }
+
+  .admin-user-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .admin-user-table tr {
+    display: grid;
+    gap: 10px;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .admin-user-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.36fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    border-bottom: 0;
+    padding: 0;
+  }
+
+  .admin-user-table td::before {
+    content: attr(data-label);
+    color: #5b6475;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .admin-user-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-password-reset-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .admin-password-reset-form .form-field {
+    min-width: 0;
+  }
+
+  .admin-password-reset-form button {
+    width: auto;
+  }
 }
 
 @media (max-width: 860px) {
@@ -5044,6 +5119,7 @@ button:disabled {
   color: var(--skin-muted);
 }
 
+.app-shell[data-skin] .admin-user-table td::before,
 .app-shell[data-skin] .admin-login-table td:first-child span {
   color: var(--skin-muted);
 }
@@ -5051,6 +5127,12 @@ button:disabled {
 .app-shell[data-skin] .admin-user-table th,
 .app-shell[data-skin] .admin-user-table td {
   border-bottom-color: var(--skin-border);
+}
+
+@media (max-width: 1180px) {
+  .app-shell[data-skin] .admin-user-table tr {
+    border-color: var(--skin-border);
+  }
 }
 
 .app-shell[data-skin] .waitlist-signup {
