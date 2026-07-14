@@ -6,6 +6,9 @@ import { withTransaction } from "../db/ids.js";
 import { badRequest } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import type { EmailSender } from "../email/mailer.js";
+import { recordLoginEvent } from "./loginEvents.js";
+import { requestPasswordReset, resetPasswordWithToken } from "./passwordReset.js";
 import {
   clearSessionCookie,
   createSession,
@@ -37,7 +40,25 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export function authRoutes(db: AppDatabase, config: AppConfig) {
+const passwordResetRequestSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email()
+    .transform((value) => value.toLowerCase()),
+});
+
+const passwordResetConfirmSchema = z.object({
+  token: z.string().trim().min(1),
+  newPassword: z.string().min(12),
+});
+
+function requestOrigin(req: { protocol: string; get(name: string): string | undefined }) {
+  const host = req.get("host") ?? "localhost";
+  return `${req.protocol}://${host}`;
+}
+
+export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: EmailSender | null = null) {
   const router = Router();
 
   router.post("/signup", async (req, res, next) => {
@@ -82,6 +103,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       });
 
       createSession(db, res, user.id, config);
+      recordLoginEvent(db, req, user.id, user.teamId);
       res.status(201).json({ user: authUserDto(user) });
     } catch (error) {
       next(error);
@@ -104,6 +126,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
       createSession(db, res, user.id, config);
       const authUser = getAuthUserById(db, user.id);
       if (!authUser) throw badRequest("Email or password is incorrect");
+      recordLoginEvent(db, req, authUser.id, authUser.teamId);
       res.json({ user: authUserDto(authUser) });
     } catch (error) {
       next(error);
@@ -114,6 +137,32 @@ export function authRoutes(db: AppDatabase, config: AppConfig) {
     destroySession(db, req.headers.cookie, config);
     clearSessionCookie(res, config);
     res.status(204).end();
+  });
+
+  router.post("/password-reset/request", async (req, res, next) => {
+    try {
+      const input = parseBody(req, passwordResetRequestSchema);
+      await requestPasswordReset({
+        db,
+        config,
+        emailSender,
+        email: input.email,
+        requestOrigin: requestOrigin(req),
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/password-reset/confirm", async (req, res, next) => {
+    try {
+      const input = parseBody(req, passwordResetConfirmSchema);
+      await resetPasswordWithToken(db, input.token, input.newPassword);
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get("/me", (req, res) => {

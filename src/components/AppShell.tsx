@@ -48,7 +48,7 @@ export function AppShell({
         onSectionChange={onSectionChange}
         version={version}
         workCalendarUrl={workCalendarUrl}
-        isAdmin={user.role === "admin"}
+        isAdmin={user.role === "admin" || user.role === "owner"}
         teamName={user.team.name}
         teamLogoUrl={user.team.logoUrl}
       />

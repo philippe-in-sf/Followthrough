@@ -214,6 +214,39 @@ describe("database migrations", () => {
       },
     ]);
   });
+
+  it("promotes only philippe@beaudette.me to owner access during role migration", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    applyMigrationsBefore(db, "021_owner_role.sql");
+
+    db.prepare("INSERT INTO users (name, email, password_hash, team_id, role) VALUES (?, ?, ?, ?, ?)").run(
+      "Philippe",
+      "philippe@beaudette.me",
+      "hash",
+      1,
+      "admin",
+    );
+    db.prepare("INSERT INTO users (name, email, password_hash, team_id, role) VALUES (?, ?, ?, ?, ?)").run(
+      "Other Admin",
+      "admin@example.com",
+      "hash",
+      1,
+      "admin",
+    );
+
+    migrateDatabase(db);
+
+    const rows = db.prepare("SELECT email, role FROM users ORDER BY email").all() as Array<{
+      email: string;
+      role: string;
+    }>;
+
+    expect(rows).toEqual([
+      { email: "admin@example.com", role: "admin" },
+      { email: "philippe@beaudette.me", role: "owner" },
+    ]);
+  });
 });
 
 describe("public IDs", () => {

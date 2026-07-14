@@ -4,7 +4,7 @@ export type MeetingType = "single" | "recurring";
 export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "decision" | "person";
-export type UserRole = "admin" | "member";
+export type UserRole = "owner" | "admin" | "member";
 
 export type TeamDto = {
   id: number;
@@ -19,6 +19,16 @@ export type TeamUserDto = {
   email: string;
   role: UserRole;
   teamId: number;
+};
+
+export type UserLoginEventDto = {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  createdAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
 };
 
 export type WaitlistHandledAction = "invite_code" | "direct_user";

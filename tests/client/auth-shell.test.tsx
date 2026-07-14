@@ -141,4 +141,38 @@ describe("auth shell", () => {
       "/changelog",
     );
   });
+
+  it("requests a password reset from account access", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), "http://task-manager.test");
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+
+      if (url.pathname === "/api/auth/me") {
+        return Promise.resolve({ ok: true, json: async () => ({ user: null }) } as Response);
+      }
+      if (url.pathname === "/api/auth/password-reset/request" && method === "POST") {
+        expect(body).toEqual({ email: "editor@example.com" });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }) as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Account access" }));
+    const authPanel = screen.getByRole("region", { name: "Account access" });
+    await userEvent.click(within(authPanel).getByRole("button", { name: "Reset password" }));
+    await userEvent.type(within(authPanel).getByLabelText(/^Email$/i), "editor@example.com");
+    await userEvent.click(within(authPanel).getByRole("button", { name: "Send reset link" }));
+
+    expect(
+      await within(authPanel).findByText("If that email has access, a reset link is on its way."),
+    ).toBeInTheDocument();
+  });
 });

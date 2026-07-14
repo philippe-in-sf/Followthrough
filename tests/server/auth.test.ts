@@ -2,6 +2,8 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../server/app";
 import { createUser } from "../../server/auth/userManagement";
+import { loadConfig } from "../../server/config";
+import type { EmailSender } from "../../server/email/mailer";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
@@ -157,6 +159,84 @@ describe("auth", () => {
     expect(changePassword.body.error).toBe("Current password is incorrect");
   });
 
+  it("sends a password reset link and lets the user set a new password", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    const sentEmails: Array<{ to: string; subject: string; text: string }> = [];
+    const emailSender: EmailSender = {
+      async send(message) {
+        sentEmails.push(message);
+      },
+    };
+    const app = createApp({
+      db,
+      emailSender,
+      config: {
+        ...loadConfig(),
+        appBaseUrl: "https://followthrough.test",
+      },
+    });
+
+    await createUser(db, {
+      name: "Locked User",
+      email: "locked@example.com",
+      password: "old-long-password",
+      role: "member",
+    });
+
+    const requestReset = await request(app).post("/api/auth/password-reset/request").send({
+      email: "locked@example.com",
+    });
+
+    expect(requestReset.status).toBe(200);
+    expect(requestReset.body).toEqual({ ok: true });
+    expect(sentEmails).toHaveLength(1);
+    const resetUrl = sentEmails[0].text.match(/https:\/\/followthrough\.test\/\?resetToken=([a-f0-9]+)#access/);
+    expect(resetUrl).not.toBeNull();
+
+    const confirm = await request(app).post("/api/auth/password-reset/confirm").send({
+      token: resetUrl?.[1],
+      newPassword: "new-long-password",
+    });
+    expect(confirm.status).toBe(204);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: "locked@example.com",
+      password: "old-long-password",
+    });
+    expect(oldLogin.status).toBe(400);
+
+    const newLogin = await request(app).post("/api/auth/login").send({
+      email: "locked@example.com",
+      password: "new-long-password",
+    });
+    expect(newLogin.status).toBe(200);
+  });
+
+  it("does not reveal whether a password reset email exists", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    const sentEmails: unknown[] = [];
+    const app = createApp({
+      db,
+      emailSender: {
+        async send(message) {
+          sentEmails.push(message);
+        },
+      },
+    });
+
+    const response = await request(app).post("/api/auth/password-reset/request").send({
+      email: "missing@example.com",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
+    expect(sentEmails).toEqual([]);
+  });
+
   it("creates a direct database user that can log in", async () => {
     const db = createTestDatabase();
     dbs.push(db);
@@ -207,5 +287,29 @@ describe("auth", () => {
       role: "admin",
       teamId: 1,
     });
+  });
+
+  it("reserves owner access for philippe@beaudette.me", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+
+    await expect(
+      createUser(db, {
+        name: "Not Philippe",
+        email: "not-philippe@example.com",
+        password: "long-enough-password",
+        role: "owner",
+      }),
+    ).rejects.toThrow("Owner access is reserved for philippe@beaudette.me");
+
+    const user = await createUser(db, {
+      name: "Philippe",
+      email: "philippe@beaudette.me",
+      password: "long-enough-password",
+      role: "owner",
+    });
+
+    expect(user.role).toBe("owner");
   });
 });

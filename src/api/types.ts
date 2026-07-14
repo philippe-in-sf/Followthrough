@@ -2,7 +2,7 @@ export type User = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "member";
+  role: "owner" | "admin" | "member";
   team: {
     id: number;
     name: string;
