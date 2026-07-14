@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.9.1 - 2026-07-14
+
+### Fixed
+
+- Recovered malformed Google Slides markdown links in rich task notes so leaked slide fragments no longer render beside the compact `Link` label.
+
 ## 1.9.0 - 2026-07-14
 
 ### Added
