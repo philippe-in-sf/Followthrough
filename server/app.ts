@@ -74,7 +74,7 @@ export function createApp(deps: AppDependencies = {}) {
   protectedApi.use(requireAuth(db, config));
   protectedApi.use(blockImpersonatedWrites);
   const meetings = meetingRoutes(db, config);
-  protectedApi.use("/admin", requireAdmin, adminRoutes(db, config));
+  protectedApi.use("/admin", requireAdmin, adminRoutes(db, config, emailSender));
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
   protectedApi.use("/decisions", decisionRoutes(db, config));
   protectedApi.use("/google-calendar", googleCalendarRoutes(db, config));

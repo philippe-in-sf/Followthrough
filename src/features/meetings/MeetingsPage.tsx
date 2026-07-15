@@ -2277,180 +2277,190 @@ export function MeetingsPage({
                               onSubmit={(event) => submitMeetingEdit(event, meeting)}
                             >
                               <h3>Edit details for {meeting.publicId}</h3>
-                              <FormField label={`Meeting title for ${meeting.publicId}`}>
-                                <input
-                                  value={meetingEditForm.title}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      title: event.target.value,
-                                    })
-                                  }
-                                  required
-                                />
-                              </FormField>
-                              <FormField label={`Meeting start for ${meeting.publicId}`}>
-                                <input
-                                  type="datetime-local"
-                                  value={meetingEditForm.startsAt}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      startsAt: event.target.value,
-                                    })
-                                  }
-                                  required
-                                />
-                              </FormField>
-                              <FormField label={`Meeting type for ${meeting.publicId}`}>
-                                <select
-                                  value={meetingEditForm.recurrenceMode}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      recurrenceMode:
-                                        event.target.value === "existing"
-                                          ? "existing"
-                                          : "single",
-                                      existingSeriesPublicId:
-                                        event.target.value === "existing"
-                                          ? meetingEditForm.existingSeriesPublicId
-                                          : "",
-                                    })
-                                  }
-                                >
-                                  <option value="single">Single</option>
-                                  <option value="existing">Recurring</option>
-                                </select>
-                              </FormField>
-                              <FormField label={`Meeting series for ${meeting.publicId}`}>
-                                <select
-                                  value={meetingEditForm.existingSeriesPublicId}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      existingSeriesPublicId: event.target.value,
-                                    })
-                                  }
-                                  required={meetingEditForm.recurrenceMode === "existing"}
-                                  disabled={meetingEditForm.recurrenceMode === "single"}
-                                >
-                                  <option value="">No series</option>
-                                  {series.map((item) => (
-                                    <option key={item.publicId} value={item.publicId}>
-                                      {collapseLinks(item.title)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </FormField>
-                              <FormField label={`Meeting summary for ${meeting.publicId}`}>
-                                <textarea
-                                  value={meetingEditForm.summary}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      summary: event.target.value,
-                                    })
-                                  }
-                                />
-                              </FormField>
-                              <FormField label={`Meeting blockers for ${meeting.publicId}`}>
-                                <textarea
-                                  value={meetingEditForm.blockers}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      blockers: event.target.value,
-                                      blockersCleared: event.target.value.trim()
-                                        ? meetingEditForm.blockersCleared
-                                        : false,
-                                    })
-                                  }
-                                />
-                              </FormField>
-                              <CheckboxGroup
-                                legend={`Existing attendees for ${meeting.publicId}`}
-                                options={people.map((person) => ({
-                                  publicId: person.publicId,
-                                  label: person.name,
-                                }))}
-                                selected={meetingEditForm.attendeePublicIds}
-                                onChange={(attendeePublicIds) =>
-                                  setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
-                                }
-                              />
-                              <FormField label={`Quick-add attendees for ${meeting.publicId}`}>
-                                <input
-                                  value={meetingEditForm.attendeeNames}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      attendeeNames: event.target.value,
-                                    })
-                                  }
-                                  placeholder="Morgan Lee, Taylor Park"
-                                />
-                              </FormField>
-                              <CheckboxGroup
-                                legend={`Meeting tasks for ${meeting.publicId}`}
-                                options={taskPicklistOptions.map((task) => ({
-                                  publicId: task.publicId,
-                                  label: taskOptionLabel(task),
-                                }))}
-                                selected={meetingEditForm.taskPublicIds}
-                                onChange={(taskPublicIds) =>
-                                  setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
-                                }
-                              />
-                              <label className="checkbox-line">
-                                <input
-                                  type="checkbox"
-                                  checked={meetingEditForm.private}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      private: event.target.checked,
-                                    })
+                              <div className="meeting-edit-primary-grid">
+                                <FormField label={`Meeting title for ${meeting.publicId}`}>
+                                  <input
+                                    value={meetingEditForm.title}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        title: event.target.value,
+                                      })
+                                    }
+                                    required
+                                  />
+                                </FormField>
+                                <FormField label={`Meeting start for ${meeting.publicId}`}>
+                                  <input
+                                    type="datetime-local"
+                                    value={meetingEditForm.startsAt}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        startsAt: event.target.value,
+                                      })
+                                    }
+                                    required
+                                  />
+                                </FormField>
+                                <FormField label={`Meeting type for ${meeting.publicId}`}>
+                                  <select
+                                    value={meetingEditForm.recurrenceMode}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        recurrenceMode:
+                                          event.target.value === "existing"
+                                            ? "existing"
+                                            : "single",
+                                        existingSeriesPublicId:
+                                          event.target.value === "existing"
+                                            ? meetingEditForm.existingSeriesPublicId
+                                            : "",
+                                      })
+                                    }
+                                  >
+                                    <option value="single">Single</option>
+                                    <option value="existing">Recurring</option>
+                                  </select>
+                                </FormField>
+                                <FormField label={`Meeting series for ${meeting.publicId}`}>
+                                  <select
+                                    value={meetingEditForm.existingSeriesPublicId}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        existingSeriesPublicId: event.target.value,
+                                      })
+                                    }
+                                    required={meetingEditForm.recurrenceMode === "existing"}
+                                    disabled={meetingEditForm.recurrenceMode === "single"}
+                                  >
+                                    <option value="">No series</option>
+                                    {series.map((item) => (
+                                      <option key={item.publicId} value={item.publicId}>
+                                        {collapseLinks(item.title)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </FormField>
+                                <FormField label={`Meeting summary for ${meeting.publicId}`}>
+                                  <textarea
+                                    value={meetingEditForm.summary}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        summary: event.target.value,
+                                      })
+                                    }
+                                  />
+                                </FormField>
+                                <FormField label={`Meeting blockers for ${meeting.publicId}`}>
+                                  <textarea
+                                    value={meetingEditForm.blockers}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        blockers: event.target.value,
+                                        blockersCleared: event.target.value.trim()
+                                          ? meetingEditForm.blockersCleared
+                                          : false,
+                                      })
+                                    }
+                                  />
+                                </FormField>
+                              </div>
+                              <div className="meeting-edit-selection-grid">
+                                <CheckboxGroup
+                                  legend={`Meeting tasks for ${meeting.publicId}`}
+                                  options={taskPicklistOptions.map((task) => ({
+                                    publicId: task.publicId,
+                                    label: taskOptionLabel(task),
+                                  }))}
+                                  selected={meetingEditForm.taskPublicIds}
+                                  onChange={(taskPublicIds) =>
+                                    setMeetingEditForm({ ...meetingEditForm, taskPublicIds })
                                   }
                                 />
-                                <span>Private</span>
-                              </label>
-                              <label className="checkbox-line">
-                                <input
-                                  type="checkbox"
-                                  checked={meetingEditForm.blockersCleared}
-                                  disabled={!meetingEditForm.blockers.trim()}
-                                  onChange={(event) =>
-                                    setMeetingEditForm({
-                                      ...meetingEditForm,
-                                      blockersCleared: event.target.checked,
-                                    })
-                                  }
-                                />
-                                <span>Blocker cleared</span>
-                              </label>
-                              <div className="form-actions">
-                                <button className="primary-button" type="submit">
-                                  Save meeting {meeting.publicId}
-                                </button>
-                                <button
-                                  className="secondary-button"
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingMeetingPublicId(null);
-                                    setMeetingEditForm(emptyMeetingForm);
-                                  }}
-                                >
-                                  Cancel edit {meeting.publicId}
-                                </button>
-                                <button
-                                  className="danger-button icon-text-button"
-                                  type="button"
-                                  onClick={() => archiveMeeting(meeting)}
-                                >
-                                  <Archive aria-hidden="true" size={16} />
-                                  Archive meeting {meeting.publicId}
-                                </button>
+                                <div className="meeting-edit-attendee-column">
+                                  <CheckboxGroup
+                                    legend={`Existing attendees for ${meeting.publicId}`}
+                                    options={people.map((person) => ({
+                                      publicId: person.publicId,
+                                      label: person.name,
+                                    }))}
+                                    selected={meetingEditForm.attendeePublicIds}
+                                    onChange={(attendeePublicIds) =>
+                                      setMeetingEditForm({ ...meetingEditForm, attendeePublicIds })
+                                    }
+                                  />
+                                  <FormField label={`Quick-add attendees for ${meeting.publicId}`}>
+                                    <input
+                                      value={meetingEditForm.attendeeNames}
+                                      onChange={(event) =>
+                                        setMeetingEditForm({
+                                          ...meetingEditForm,
+                                          attendeeNames: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Morgan Lee, Taylor Park"
+                                    />
+                                  </FormField>
+                                </div>
+                              </div>
+                              <div className="meeting-edit-footer">
+                                <div className="meeting-edit-flags">
+                                  <label className="checkbox-line">
+                                    <input
+                                      type="checkbox"
+                                      checked={meetingEditForm.private}
+                                      onChange={(event) =>
+                                        setMeetingEditForm({
+                                          ...meetingEditForm,
+                                          private: event.target.checked,
+                                        })
+                                      }
+                                    />
+                                    <span>Private</span>
+                                  </label>
+                                  <label className="checkbox-line">
+                                    <input
+                                      type="checkbox"
+                                      checked={meetingEditForm.blockersCleared}
+                                      disabled={!meetingEditForm.blockers.trim()}
+                                      onChange={(event) =>
+                                        setMeetingEditForm({
+                                          ...meetingEditForm,
+                                          blockersCleared: event.target.checked,
+                                        })
+                                      }
+                                    />
+                                    <span>Blocker cleared</span>
+                                  </label>
+                                </div>
+                                <div className="form-actions meeting-edit-actions">
+                                  <button className="primary-button" type="submit">
+                                    Save meeting {meeting.publicId}
+                                  </button>
+                                  <button
+                                    className="secondary-button"
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingMeetingPublicId(null);
+                                      setMeetingEditForm(emptyMeetingForm);
+                                    }}
+                                  >
+                                    Cancel edit {meeting.publicId}
+                                  </button>
+                                  <button
+                                    className="danger-button icon-text-button"
+                                    type="button"
+                                    onClick={() => archiveMeeting(meeting)}
+                                  >
+                                    <Archive aria-hidden="true" size={16} />
+                                    Archive meeting {meeting.publicId}
+                                  </button>
+                                </div>
                               </div>
                             </form>
                           ) : null}

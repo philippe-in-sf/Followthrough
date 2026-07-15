@@ -1198,6 +1198,47 @@ describe("dashboard and workspace flows", () => {
     ).toBe(true);
   });
 
+  it("groups meeting edit controls into compact sections", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    const meetingCard = await expandMeetingCard("M010");
+    await userEvent.click(
+      within(meetingCard).getByRole("button", { name: "Edit details for M010" }),
+    );
+
+    const heading = within(meetingCard).getByRole("heading", { name: "Edit details for M010" });
+    const editForm = heading.closest("form");
+    expect(editForm).toHaveClass("meeting-edit-form");
+
+    const primaryGrid = editForm?.querySelector(".meeting-edit-primary-grid");
+    const selectionGrid = editForm?.querySelector(".meeting-edit-selection-grid");
+    const attendeeColumn = editForm?.querySelector(".meeting-edit-attendee-column");
+    const footer = editForm?.querySelector(".meeting-edit-footer");
+
+    expect(primaryGrid).toBeInTheDocument();
+    expect(selectionGrid).toBeInTheDocument();
+    expect(attendeeColumn).toBeInTheDocument();
+    expect(footer).toBeInTheDocument();
+    expect(
+      within(selectionGrid as HTMLElement).getByRole("group", {
+        name: "Existing attendees for M010",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(selectionGrid as HTMLElement).getByRole("group", {
+        name: "Meeting tasks for M010",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(attendeeColumn as HTMLElement).getByLabelText("Quick-add attendees for M010"),
+    ).toBeInTheDocument();
+    expect(
+      within(footer as HTMLElement).getByRole("button", { name: "Save meeting M010" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a one-time meeting from Quick Add without advanced fields", async () => {
     setupAppFetch();
     render(<App />);

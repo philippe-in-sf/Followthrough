@@ -7,6 +7,7 @@ import { badRequest } from "../errors.js";
 import { parseBody } from "../validation.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import type { EmailSender } from "../email/mailer.js";
+import { sendWelcomeEmail } from "../email/welcome.js";
 import { recordLoginEvent } from "./loginEvents.js";
 import { requestPasswordReset, resetPasswordWithToken } from "./passwordReset.js";
 import { createAuthRateLimits } from "./rateLimits.js";
@@ -107,6 +108,12 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
 
       createSession(db, res, user.id, config);
       recordLoginEvent(db, req, user.id, user.teamId);
+      await sendWelcomeEmail({
+        config,
+        emailSender,
+        user,
+        requestOrigin: requestOrigin(req),
+      });
       res.status(201).json({ user: authUserDto(user) });
     } catch (error) {
       next(error);

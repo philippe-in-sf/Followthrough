@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { loadConfig } from "../config.js";
 import { openDatabase } from "../db/database.js";
+import { createEmailSender } from "../email/mailer.js";
+import { sendWelcomeEmail } from "../email/welcome.js";
 import { createUser } from "./userManagement.js";
 
 function argValue(name: string) {
@@ -22,7 +24,8 @@ if (!name || !email) {
   process.exit(1);
 }
 
-const db = openDatabase(loadConfig().databasePath);
+const config = loadConfig();
+const db = openDatabase(config.databasePath);
 
 try {
   const user = await createUser(db, {
@@ -32,6 +35,7 @@ try {
     role: role ?? undefined,
     teamId: teamId ? Number(teamId) : undefined,
   });
+  await sendWelcomeEmail({ config, emailSender: createEmailSender(config), user });
   console.log(`User created: ${user.email} (${user.role})`);
   if (!suppliedPassword) {
     console.log(`Temporary password: ${password}`);

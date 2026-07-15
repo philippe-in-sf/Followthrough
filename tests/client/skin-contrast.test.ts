@@ -108,6 +108,16 @@ describe("skin contrast styles", () => {
     expect(css).toContain("background: var(--skin-surface-alt)");
   });
 
+  it("keeps meeting edit panels grouped instead of sprawling across one row", () => {
+    const css = styles();
+
+    expect(css).toContain(".meeting-edit-primary-grid");
+    expect(css).toContain(".meeting-edit-selection-grid");
+    expect(css).toContain(".meeting-edit-footer");
+    expect(css).toContain("grid-template-columns: repeat(2, minmax(260px, 1fr));");
+    expect(css).toContain("align-items: start;");
+  });
+
   it("keeps admin configuration panels dark and readable inside skins", () => {
     const css = styles();
 

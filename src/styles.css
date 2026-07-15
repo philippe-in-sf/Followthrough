@@ -3666,6 +3666,67 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.meeting-edit-form {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.meeting-edit-primary-grid,
+.meeting-edit-selection-grid {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-edit-primary-grid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  align-items: end;
+}
+
+.meeting-edit-primary-grid > .form-field:nth-child(n + 5) {
+  grid-column: span 2;
+}
+
+.meeting-edit-selection-grid {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  align-items: start;
+}
+
+.meeting-edit-attendee-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-edit-selection-grid .checkbox-option-list {
+  max-height: 220px;
+}
+
+.meeting-edit-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #d9dee7;
+  padding-top: 12px;
+}
+
+.meeting-edit-flags,
+.meeting-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.meeting-edit-actions {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
 .task-edit-main-fields h3 {
   grid-column: 1 / -1;
   margin: 0;
@@ -4168,6 +4229,14 @@ button:disabled {
   .dashboard-assignee-task-panel {
     padding-left: 12px;
   }
+
+  .meeting-edit-primary-grid {
+    grid-template-columns: repeat(2, minmax(190px, 1fr));
+  }
+
+  .meeting-edit-selection-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -4556,6 +4625,24 @@ button:disabled {
   .meeting-task-form,
   .compact-list li {
     grid-template-columns: 1fr;
+  }
+
+  .meeting-edit-primary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .meeting-edit-primary-grid > .form-field:nth-child(n + 5) {
+    grid-column: auto;
+  }
+
+  .meeting-edit-footer,
+  .meeting-edit-actions {
+    align-items: stretch;
+  }
+
+  .meeting-edit-actions,
+  .meeting-edit-actions button {
+    width: 100%;
   }
 
   .meeting-summary-button {
@@ -5344,6 +5431,7 @@ button:disabled {
 .app-shell[data-skin] .person-edit-form,
 .app-shell[data-skin] .task-edit-form,
 .app-shell[data-skin] .meeting-task-form,
+.app-shell[data-skin] .meeting-edit-footer,
 .app-shell[data-skin] .person-related-records,
 .app-shell[data-skin] .task-reminder-feedback,
 .app-shell[data-skin] .task-dependency-item,
