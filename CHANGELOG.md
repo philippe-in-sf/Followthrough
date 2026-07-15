@@ -10,6 +10,15 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.10.1 - 2026-07-15
+
+### Security
+
+- Added per-IP and normalized per-email rate limits for failed login attempts, plus dedicated signup and password-reset limits.
+- Added strict same-origin enforcement for browser state changes and an explicit CORS allowlist based on the configured application URL.
+- Added Helmet baseline security headers and removed the Express technology header.
+- Updated vulnerable transitive `undici` and `form-data` dependencies; `npm audit` now reports zero vulnerabilities.
+
 ## 1.10.0 - 2026-07-15
 
 ### Added

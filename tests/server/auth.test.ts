@@ -104,6 +104,30 @@ describe("auth", () => {
     expect(logout.status).toBe(204);
   });
 
+  it("rate limits repeated login failures without revealing account existence", async () => {
+    const app = appWithInvite();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await request(app).post("/api/auth/login").send({
+        email: "missing@example.com",
+        password: "wrong-password",
+      });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "Email or password is incorrect" });
+    }
+
+    const limited = await request(app).post("/api/auth/login").send({
+      email: "MISSING@example.com",
+      password: "wrong-password",
+    });
+
+    expect(limited.status).toBe(429);
+    expect(limited.body).toEqual({
+      error: "Too many authentication attempts. Try again later.",
+    });
+    expect(limited.headers["ratelimit"]).toBeDefined();
+  });
+
   it("changes the signed-in user's password", async () => {
     const app = appWithInvite();
 

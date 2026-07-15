@@ -3,6 +3,7 @@ import path from "node:path";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../server/app";
+import { loadConfig } from "../../server/config";
 
 function packageVersion() {
   const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")) as {
@@ -18,6 +19,37 @@ describe("public status endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers["x-powered-by"]).toBeUndefined();
+  });
+
+  it("allows only the configured cross-origin caller", async () => {
+    const app = createApp({
+      config: { ...loadConfig(), appBaseUrl: "https://followthrough.example" },
+    });
+
+    const allowed = await request(app)
+      .get("/api/health")
+      .set("Origin", "https://followthrough.example");
+    const denied = await request(app).get("/api/health").set("Origin", "https://attacker.example");
+
+    expect(allowed.headers["access-control-allow-origin"]).toBe("https://followthrough.example");
+    expect(allowed.headers["access-control-allow-credentials"]).toBe("true");
+    expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("blocks cross-origin state changes", async () => {
+    const app = createApp({
+      config: { ...loadConfig(), appBaseUrl: "https://followthrough.example" },
+    });
+
+    const response = await request(app)
+      .post("/api/auth/logout")
+      .set("Origin", "https://attacker.example");
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Cross-origin request blocked" });
   });
 
   it("returns the app version", async () => {
