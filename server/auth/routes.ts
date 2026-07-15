@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from "./password.js";
 import type { EmailSender } from "../email/mailer.js";
 import { recordLoginEvent } from "./loginEvents.js";
 import { requestPasswordReset, resetPasswordWithToken } from "./passwordReset.js";
+import { createAuthRateLimits } from "./rateLimits.js";
 import {
   clearSessionCookie,
   createSession,
@@ -61,8 +62,9 @@ function requestOrigin(req: { protocol: string; get(name: string): string | unde
 
 export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: EmailSender | null = null) {
   const router = Router();
+  const rateLimits = createAuthRateLimits();
 
-  router.post("/signup", async (req, res, next) => {
+  router.post("/signup", rateLimits.signup, async (req, res, next) => {
     try {
       const input = parseBody(req, signupSchema);
       const passwordHash = await hashPassword(input.password);
@@ -111,7 +113,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
     }
   });
 
-  router.post("/login", async (req, res, next) => {
+  router.post("/login", rateLimits.loginIp, rateLimits.loginEmail, async (req, res, next) => {
     try {
       const input = parseBody(req, loginSchema);
       const user = db
@@ -150,7 +152,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
     res.json({ user: authUserDto(user) });
   });
 
-  router.post("/password-reset/request", async (req, res, next) => {
+  router.post("/password-reset/request", rateLimits.passwordResetRequest, async (req, res, next) => {
     try {
       const input = parseBody(req, passwordResetRequestSchema);
       await requestPasswordReset({
@@ -166,7 +168,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
     }
   });
 
-  router.post("/password-reset/confirm", async (req, res, next) => {
+  router.post("/password-reset/confirm", rateLimits.passwordResetConfirm, async (req, res, next) => {
     try {
       const input = parseBody(req, passwordResetConfirmSchema);
       await resetPasswordWithToken(db, input.token, input.newPassword);

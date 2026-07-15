@@ -18,6 +18,7 @@ import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
 import { renderPrivacyPolicyHtml } from "./privacy.js";
 import { searchRoutes } from "./search/routes.js";
+import { baselineSecurityHeaders, explicitCorsPolicy, requireSameOrigin } from "./security.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
 import { waitlistRoutes } from "./waitlist/routes.js";
@@ -37,7 +38,14 @@ export function createApp(deps: AppDependencies = {}) {
   app.locals.db = db;
   app.locals.config = config;
   app.locals.emailSender = emailSender;
+  // Production traffic arrives through a loopback Apache reverse proxy. Trust
+  // its forwarded client IP without trusting arbitrary external proxies.
+  app.set("trust proxy", "loopback");
+  app.disable("x-powered-by");
+  app.use(baselineSecurityHeaders(config));
+  app.use(explicitCorsPolicy(config));
   app.use(express.json());
+  app.use(requireSameOrigin(config));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
