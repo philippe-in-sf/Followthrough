@@ -77,9 +77,9 @@ function requireActiveAssigneeEmail(row: ReminderTaskRow) {
 
 function reminderSubject(row: ReminderTaskRow, config: AppConfig) {
   const alert = getTaskAlert(row.due_date, row.status, config.dueSoonDays);
-  if (alert === "overdue") return `${row.public_id} is overdue: ${row.description}`;
-  if (alert === "dueSoon") return `${row.public_id} is due soon: ${row.description}`;
-  return `Task reminder: ${row.public_id} ${row.description}`;
+  if (alert === "overdue") return `Followthrough: Task ${row.public_id} is overdue`;
+  if (alert === "dueSoon") return `Followthrough: Task ${row.public_id} is due soon`;
+  return `Followthrough: Task ${row.public_id} reminder`;
 }
 
 function appAccessUrl(config: AppConfig) {

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Followthrough: Welcome to your new account</title>
+    <style>
+      @media only screen and (max-width: 640px) {
+        .email-shell { width: 100% !important; }
+        .email-pad { padding-left: 24px !important; padding-right: 24px !important; }
+        .feature-cell { display: block !important; width: 100% !important; padding: 0 0 12px !important; }
+        .headline { font-size: 30px !important; line-height: 36px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background: #eef2f7; color: #1d2433; font-family: Arial, Helvetica, sans-serif;">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent;">
+      Your Followthrough account is ready. Sign in and start turning meetings into momentum.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #eef2f7;">
+      <tr>
+        <td align="center" style="padding: 36px 12px;">
+          <table class="email-shell" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 600px; max-width: 600px; background: #ffffff; border: 1px solid #d9dee7; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 45px rgba(17, 24, 39, 0.10);">
+            <tr>
+              <td class="email-pad" style="padding: 30px 44px 26px; background: #111827; border-bottom: 4px solid #2dd4bf;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="48" valign="middle">
+                      <img src="https://followthrough.dev/brand/followthrough-email.png" width="40" height="40" alt="" style="display: block; width: 40px; height: 40px; border: 0; border-radius: 9px;" />
+                    </td>
+                    <td valign="middle" style="color: #ffffff; font-size: 19px; font-weight: 800; letter-spacing: -0.3px;">Followthrough</td>
+                    <td align="right" valign="middle" style="color: #99f6e4; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;">Meetings → Momentum</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 44px 44px 18px;">
+                <div style="display: inline-block; margin-bottom: 18px; padding: 7px 11px; border-radius: 999px; background: #ccfbf1; color: #0f766e; font-size: 12px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase;">Your account is ready</div>
+                <h1 class="headline" style="margin: 0 0 18px; color: #111827; font-size: 38px; line-height: 44px; letter-spacing: -1.2px;">Hi {{firstName}},</h1>
+                <p style="margin: 0; color: #4b5563; font-size: 17px; line-height: 28px;">
+                  Welcome to Followthrough, the task and meeting management system that you didn’t know you wanted.
+                </p>
+                <p style="margin: 18px 0 0; color: #4b5563; font-size: 17px; line-height: 28px;">
+                  Your account has been created, and you can sign in below.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 18px 44px 28px;">
+                <p style="margin: 0 0 12px; color: #4b5563; font-size: 15px; line-height: 24px;">Your username is your email address:</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px;">
+                  <tr>
+                    <td style="padding: 22px 24px 10px; color: #64748b; font-size: 11px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase;">Your username</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0 24px 22px; color: #111827; font-size: 16px; font-weight: 700; word-break: break-word;">{{emailAddress}}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" align="center" style="padding: 0 44px 38px;">
+                <p style="margin: 0 0 14px; color: #4b5563; font-size: 15px; line-height: 24px; text-align: left;">Followthrough helps you keep track of meetings, decisions, tasks, and follow-ups in one place.</p>
+                <p style="margin: 0 0 24px; color: #4b5563; font-size: 14px; line-height: 23px; text-align: left;">
+                  If you weren’t expecting this email or need help accessing your account, contact
+                  <a href="mailto:philippe@followthrough.dev" style="color: #0f766e; font-weight: 700; text-decoration: none;">philippe@followthrough.dev</a>.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="#0f766e" style="border-radius: 10px; box-shadow: 0 7px 16px rgba(15, 118, 110, 0.24);">
+                      <a href="{{loginUrl}}" style="display: inline-block; padding: 15px 28px; color: #ffffff; font-size: 16px; font-weight: 800; line-height: 20px; text-decoration: none;">Sign in to Followthrough&nbsp; →</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 16px 0 0; color: #64748b; font-size: 12px; line-height: 19px;">
+                  Button not cooperating? Paste this into your browser:<br />
+                  <a href="{{loginUrl}}" style="color: #0f766e; text-decoration: underline; word-break: break-all;">{{loginUrl}}</a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 30px 44px 38px;">
+                <p style="margin: 0; color: #111827; font-size: 14px; line-height: 22px;">
+                  Welcome aboard,<br />
+                  <img src="https://followthrough.dev/brand/philippe-signature.png" width="180" height="116" alt="" style="display: block; width: 180px; height: 116px; margin: 10px 0 2px; border: 0;" />
+                  <strong>Philippe Beaudette</strong>
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 26px; background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f59e0b; border-radius: 12px;">
+                  <tr>
+                    <td style="padding: 18px 20px; color: #7c2d12; font-size: 13px; line-height: 21px;">
+                      <strong style="color: #9a3412;">P.S.</strong> When you log in, you may notice that there are already meetings, notes, and tasks. Followthrough is different, and those are all shared with your team unless you check the <strong>Private</strong> button!
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-pad" style="padding: 30px 44px; background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 18px; color: #111827; font-size: 15px; font-weight: 800;">One place to keep the work moving</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td class="feature-cell" width="33.33%" valign="top" style="padding-right: 8px;">
+                      <div style="padding: 16px; border-radius: 11px; background: #ffffff; border: 1px solid #e2e8f0;">
+                        <div style="margin-bottom: 8px; color: #0f766e; font-size: 18px;">✓</div>
+                        <div style="color: #334155; font-size: 13px; font-weight: 700; line-height: 19px;">Capture decisions</div>
+                      </div>
+                    </td>
+                    <td class="feature-cell" width="33.33%" valign="top" style="padding: 0 4px;">
+                      <div style="padding: 16px; border-radius: 11px; background: #ffffff; border: 1px solid #e2e8f0;">
+                        <div style="margin-bottom: 8px; color: #0f766e; font-size: 18px;">↗</div>
+                        <div style="color: #334155; font-size: 13px; font-weight: 700; line-height: 19px;">Assign next steps</div>
+                      </div>
+                    </td>
+                    <td class="feature-cell" width="33.33%" valign="top" style="padding-left: 8px;">
+                      <div style="padding: 16px; border-radius: 11px; background: #ffffff; border: 1px solid #e2e8f0;">
+                        <div style="margin-bottom: 8px; color: #0f766e; font-size: 18px;">◎</div>
+                        <div style="color: #334155; font-size: 13px; font-weight: 700; line-height: 19px;">Close the loop</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin: 18px auto 0; max-width: 540px; color: #7c8799; font-size: 11px; line-height: 18px; text-align: center;">
+            <p style="margin: 0 0 8px;">
+              You’re receiving this transactional email because a Followthrough account was created for {{emailAddress}}.
+            </p>
+            <p style="margin: 0;">
+              Followthrough · Philippe Beaudette<br />
+              Liberty Tower Ste 22E<br />
+              1502 S Boulder Avenue<br />
+              Tulsa, OK 74119<br />
+              Questions? <a href="mailto:philippe@followthrough.dev" style="color: #64748b; text-decoration: underline;">Contact philippe@followthrough.dev</a>.
+            </p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
