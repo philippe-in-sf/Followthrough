@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -687,6 +687,7 @@ function setupAppFetch(
 }
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
 });
