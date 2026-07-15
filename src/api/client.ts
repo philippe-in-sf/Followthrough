@@ -225,6 +225,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+  stopImpersonation: () =>
+    request<{ user: User }>("/api/auth/impersonation/stop", { method: "POST" }),
   changePassword: (body: { currentPassword: string; newPassword: string }) =>
     request<void>("/api/me/password", {
       method: "POST",
@@ -290,6 +292,10 @@ export const api = {
       request<void>(`/api/admin/users/${userId}/password`, {
         method: "POST",
         body: JSON.stringify({ password }),
+      }),
+    impersonateUser: (userId: number) =>
+      request<{ user: User }>(`/api/admin/users/${userId}/impersonate`, {
+        method: "POST",
       }),
     removeUserFromTeam: (userId: number) =>
       request<{ user: TeamUserDto }>(`/api/admin/users/${userId}/remove`, {

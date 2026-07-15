@@ -5,6 +5,13 @@ import type { AppDatabase } from "../db/database.js";
 
 export type UserRole = "owner" | "admin" | "member";
 
+type ImpersonationActor = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+};
+
 export type AuthUser = {
   id: number;
   name: string;
@@ -14,6 +21,9 @@ export type AuthUser = {
   teamName: string;
   teamLogoUrl: string | null;
   teamWorkCalendarUrl: string | null;
+  impersonation?: {
+    actor: ImpersonationActor;
+  } | null;
 };
 
 export function authUserDto(row: AuthUser) {
@@ -28,10 +38,17 @@ export function authUserDto(row: AuthUser) {
       logoUrl: row.teamLogoUrl,
       workCalendarUrl: row.teamWorkCalendarUrl,
     },
+    impersonation: row.impersonation
+      ? {
+          actor: row.impersonation.actor,
+        }
+      : null,
   };
 }
 
-type SessionUserRow = AuthUser & {
+type SessionRow = {
+  userId: number;
+  impersonatedUserId: number | null;
   expiresAt: string;
 };
 
@@ -79,46 +96,65 @@ export function clearSessionCookie(res: Response, config: AppConfig) {
   res.clearCookie(config.sessionCookieName, { path: "/" });
 }
 
-export function getSessionUser(
+function getSessionRow(
   db: AppDatabase,
   cookieHeader: string | undefined,
   config: AppConfig,
-): AuthUser | null {
+): { tokenHash: string; row: SessionRow } | null {
   const token = parseCookies(cookieHeader)[config.sessionCookieName];
   if (!token) return null;
+  const tokenHash = hashToken(token);
 
   const row = db
     .prepare(
-      `SELECT users.id,
-              users.name,
-              users.email,
-              users.role,
-              users.team_id AS teamId,
-              teams.name AS teamName,
-              teams.logo_url AS teamLogoUrl,
-              teams.work_calendar_url AS teamWorkCalendarUrl,
+      `SELECT sessions.user_id AS userId,
+              sessions.impersonated_user_id AS impersonatedUserId,
               sessions.expires_at AS expiresAt
        FROM sessions
-       JOIN users ON users.id = sessions.user_id
-       JOIN teams ON teams.id = users.team_id
        WHERE sessions.token_hash = ?`,
     )
-    .get(hashToken(token)) as SessionUserRow | undefined;
+    .get(tokenHash) as SessionRow | undefined;
 
   if (!row) return null;
 
   const expiresAt = Date.parse(row.expiresAt);
   if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
 
+  return { tokenHash, row };
+}
+
+function canImpersonate(actor: AuthUser, target: AuthUser) {
+  if (target.role !== "member") return false;
+  if (actor.role === "owner") return true;
+  return actor.role === "admin" && actor.teamId === target.teamId;
+}
+
+export function getSessionUser(
+  db: AppDatabase,
+  cookieHeader: string | undefined,
+  config: AppConfig,
+): AuthUser | null {
+  const session = getSessionRow(db, cookieHeader, config);
+  if (!session) return null;
+
+  const actor = getAuthUserById(db, session.row.userId);
+  if (!actor) return null;
+
+  if (!session.row.impersonatedUserId) return actor;
+
+  const target = getAuthUserById(db, session.row.impersonatedUserId);
+  if (!target || !canImpersonate(actor, target)) return actor;
+
   return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    role: row.role,
-    teamId: row.teamId,
-    teamName: row.teamName,
-    teamLogoUrl: row.teamLogoUrl,
-    teamWorkCalendarUrl: row.teamWorkCalendarUrl,
+    ...target,
+    impersonation: {
+      actor: {
+        id: actor.id,
+        name: actor.name,
+        email: actor.email,
+        role: actor.role,
+      },
+    },
   };
 }
 
@@ -152,6 +188,45 @@ export function destroySession(
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hashToken(token));
 }
 
+export function startSessionImpersonation(
+  db: AppDatabase,
+  cookieHeader: string | undefined,
+  config: AppConfig,
+  targetUserId: number,
+) {
+  const session = getSessionRow(db, cookieHeader, config);
+  if (!session) return null;
+
+  db.prepare("UPDATE sessions SET impersonated_user_id = ? WHERE token_hash = ?").run(
+    targetUserId,
+    session.tokenHash,
+  );
+
+  return getSessionUser(db, cookieHeader, config);
+}
+
+export function stopSessionImpersonation(
+  db: AppDatabase,
+  cookieHeader: string | undefined,
+  config: AppConfig,
+) {
+  const session = getSessionRow(db, cookieHeader, config);
+  if (!session) return null;
+
+  db.prepare("UPDATE sessions SET impersonated_user_id = NULL WHERE token_hash = ?").run(
+    session.tokenHash,
+  );
+
+  return getSessionUser(db, cookieHeader, config);
+}
+
+export function clearImpersonationsForUser(db: AppDatabase, userId: number) {
+  db.prepare("UPDATE sessions SET impersonated_user_id = NULL WHERE impersonated_user_id = ?").run(
+    userId,
+  );
+}
+
 export function destroySessionsForUser(db: AppDatabase, userId: number) {
+  clearImpersonationsForUser(db, userId);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
 }

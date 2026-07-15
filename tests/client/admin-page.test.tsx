@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
 import type { TeamDto, TeamUserDto, WaitlistSignupDto } from "../../shared/types";
+import type { User } from "../../src/api/types";
 
 const originalFetch = globalThis.fetch;
 
@@ -21,6 +22,102 @@ afterEach(() => {
 });
 
 describe("admin page", () => {
+  it("lets admins view the app as a member and return to admin mode", async () => {
+    const team: TeamDto = {
+      id: 1,
+      name: "Default Team",
+      logoUrl: null,
+      workCalendarUrl: null,
+    };
+    const adminUser: User = {
+      id: 1,
+      name: "Editor",
+      email: "editor@example.com",
+      role: "admin",
+      team,
+      impersonation: null,
+    };
+    const memberUser: User = {
+      id: 2,
+      name: "Member",
+      email: "member@example.com",
+      role: "member",
+      team,
+      impersonation: {
+        actor: {
+          id: 1,
+          name: "Editor",
+          email: "editor@example.com",
+          role: "admin",
+        },
+      },
+    };
+    const users: TeamUserDto[] = [
+      { id: 1, name: "Editor", email: "editor@example.com", role: "admin", teamId: 1 },
+      { id: 2, name: "Member", email: "member@example.com", role: "member", teamId: 1 },
+    ];
+    let currentUser: User = adminUser;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), "http://task-manager.test");
+      const method = init?.method ?? "GET";
+
+      if (url.pathname === "/api/auth/me") return json({ user: currentUser });
+      if (url.pathname === "/api/me/preferences") {
+        return json({
+          workCalendarUrl: null,
+          googleCalendarConfigured: false,
+          googleCalendarConnected: false,
+          googleCalendarEmail: null,
+        });
+      }
+      if (url.pathname === "/api/dashboard") {
+        return json({
+          alerts: { overdue: [], dueSoon: [] },
+          openTasksByAssignee: [],
+          activeBlockers: { tasks: [], meetings: [] },
+          recentMeetings: [],
+          recentDecisions: [],
+          activeSeries: [],
+        });
+      }
+      if (url.pathname === "/api/admin/team" && method === "GET") return json({ team });
+      if (url.pathname === "/api/admin/users" && method === "GET") return json({ users });
+      if (url.pathname === "/api/admin/login-events" && method === "GET") {
+        return json({ loginEvents: [] });
+      }
+      if (url.pathname === "/api/admin/waitlist" && method === "GET") {
+        return json({ signups: [] });
+      }
+      if (url.pathname === "/api/admin/users/2/impersonate" && method === "POST") {
+        currentUser = memberUser;
+        return json({ user: memberUser });
+      }
+      if (url.pathname === "/api/auth/impersonation/stop" && method === "POST") {
+        currentUser = adminUser;
+        return json({ user: adminUser });
+      }
+
+      return json({});
+    }) as typeof fetch;
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
+    const memberRow = await screen.findByRole("row", { name: /member@example.com/i });
+    await userEvent.click(within(memberRow).getByRole("button", { name: "View as user" }));
+
+    const banner = await screen.findByRole("status");
+    expect(within(banner).getByText(/Viewing as/)).toBeInTheDocument();
+    expect(within(banner).getByText("Member")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Stop viewing as user" }));
+
+    expect(await screen.findByRole("button", { name: "Admin" })).toBeInTheDocument();
+  });
+
   it("lets admins update team settings, add users, and change roles", async () => {
     let team: TeamDto = {
       id: 1,

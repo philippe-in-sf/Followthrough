@@ -1,7 +1,7 @@
 import type { AppDatabase } from "../db/database.js";
 import { withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
-import { getAuthUserById, type AuthUser } from "./sessions.js";
+import { clearImpersonationsForUser, getAuthUserById, type AuthUser } from "./sessions.js";
 
 type UserTeamRow = {
   id: number;
@@ -53,6 +53,7 @@ export function moveUserToPersonalTeam(
     );
 
     if (options.revokeSessions) {
+      clearImpersonationsForUser(db, user.id);
       db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
     }
 

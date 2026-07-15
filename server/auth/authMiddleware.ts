@@ -33,3 +33,17 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
 
   next();
 }
+
+export function blockImpersonatedWrites(req: Request, _res: Response, next: NextFunction) {
+  if (
+    req.user?.impersonation &&
+    req.method !== "GET" &&
+    req.method !== "HEAD" &&
+    req.method !== "OPTIONS"
+  ) {
+    next(forbidden("Stop viewing as user before making changes"));
+    return;
+  }
+
+  next();
+}
