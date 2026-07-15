@@ -9,6 +9,7 @@ describe("deployment releases", () => {
       "package-lock.json",
       "scripts",
       "CHANGELOG.md",
+      "docs/email-templates",
     ]);
   });
 

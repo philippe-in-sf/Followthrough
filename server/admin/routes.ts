@@ -17,6 +17,8 @@ import { resetUserPassword } from "../auth/passwordReset.js";
 import { createUser, insertUserWithPasswordHash } from "../auth/userManagement.js";
 import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
 import { authUserDto, startSessionImpersonation } from "../auth/sessions.js";
+import type { EmailSender } from "../email/mailer.js";
+import { sendWelcomeEmail } from "../email/welcome.js";
 
 type TeamRow = {
   id: number;
@@ -252,7 +254,11 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
-export function adminRoutes(db: AppDatabase, config: AppConfig) {
+export function adminRoutes(
+  db: AppDatabase,
+  config: AppConfig,
+  emailSender: EmailSender | null = null,
+) {
   const router = Router();
 
   router.get("/team", (req, res, next) => {
@@ -445,6 +451,8 @@ export function adminRoutes(db: AppDatabase, config: AppConfig) {
         };
       });
 
+      await sendWelcomeEmail({ config, emailSender, user: result.user });
+
       res.status(201).json({
         user: userDto({
           id: result.user.id,
@@ -467,6 +475,8 @@ export function adminRoutes(db: AppDatabase, config: AppConfig) {
         ...input,
         teamId: req.user?.teamId ?? 0,
       });
+
+      await sendWelcomeEmail({ config, emailSender, user });
 
       res.status(201).json({
         user: userDto({

@@ -36,6 +36,7 @@ async function setup(options: { personEmail?: string } = {}) {
     .post("/api/people")
     .set("Cookie", cookie)
     .send({ name: "Avery", email: options.personEmail ?? "" });
+  sentEmails.length = 0;
   return {
     app,
     db,

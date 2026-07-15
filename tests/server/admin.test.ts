@@ -2,7 +2,9 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../server/app";
 import { createUser } from "../../server/auth/userManagement";
+import { loadConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
+import type { EmailMessage } from "../../server/email/mailer";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
 
@@ -44,6 +46,64 @@ afterEach(() => {
 });
 
 describe("admin API", () => {
+  it("sends welcome emails for admin-created and waitlist-converted users", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    const sentEmails: EmailMessage[] = [];
+    const app = createApp({
+      db,
+      config: { ...loadConfig(), appBaseUrl: "https://followthrough.test" },
+      emailSender: {
+        async send(message) {
+          sentEmails.push(message);
+        },
+      },
+    });
+    await createUser(db, {
+      name: "Admin",
+      email: "admin@example.com",
+      password: "long-enough-password",
+      role: "admin",
+    });
+    const login = await request(app).post("/api/auth/login").send({
+      email: "admin@example.com",
+      password: "long-enough-password",
+    });
+    const adminCookie = login.headers["set-cookie"];
+
+    const created = await request(app)
+      .post("/api/admin/users")
+      .set("Cookie", adminCookie)
+      .send({
+        name: "Second Admin",
+        email: "second@example.com",
+        password: "long-enough-password",
+        role: "admin",
+      });
+    expect(created.status).toBe(201);
+
+    const signup = db
+      .prepare("INSERT INTO waitlist_signups (name, email) VALUES (?, ?)")
+      .run("Riley Chen", "riley@example.com");
+    const converted = await request(app)
+      .post(`/api/admin/waitlist/${Number(signup.lastInsertRowid)}/direct-user`)
+      .set("Cookie", adminCookie)
+      .send({ password: "long-enough-password", role: "member" });
+    expect(converted.status).toBe(201);
+
+    expect(sentEmails.map(({ to, subject }) => ({ to, subject }))).toEqual([
+      {
+        to: "second@example.com",
+        subject: "Followthrough: Welcome to your new account",
+      },
+      {
+        to: "riley@example.com",
+        subject: "Followthrough: Welcome to your new account",
+      },
+    ]);
+  });
+
   it("lets admins read and update team settings", async () => {
     const { app, adminCookie } = await setup();
 
