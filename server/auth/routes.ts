@@ -16,6 +16,7 @@ import {
   getAuthUserById,
   getSessionUser,
   authUserDto,
+  stopSessionImpersonation,
   type UserRole,
 } from "./sessions.js";
 import { getDefaultTeamId, insertUserWithPasswordHash } from "./userManagement.js";
@@ -137,6 +138,16 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
     destroySession(db, req.headers.cookie, config);
     clearSessionCookie(res, config);
     res.status(204).end();
+  });
+
+  router.post("/impersonation/stop", (req, res) => {
+    const user = stopSessionImpersonation(db, req.headers.cookie, config);
+    if (!user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
+    res.json({ user: authUserDto(user) });
   });
 
   router.post("/password-reset/request", async (req, res, next) => {

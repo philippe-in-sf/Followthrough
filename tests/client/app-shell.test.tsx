@@ -40,6 +40,7 @@ function renderShell(
   const onSectionChange = vi.fn();
   const onLogout = vi.fn();
   const onEnableNotifications = vi.fn();
+  const onStopImpersonation = vi.fn();
 
   const result = render(
     <AppShell
@@ -48,6 +49,7 @@ function renderShell(
       onSectionChange={onSectionChange}
       onLogout={onLogout}
       onEnableNotifications={onEnableNotifications}
+      onStopImpersonation={onStopImpersonation}
       notificationStatus="disabled"
       version="1.0.1"
       workCalendarUrl={options.workCalendarUrl}
@@ -58,7 +60,13 @@ function renderShell(
     </AppShell>,
   );
 
-  return { onSectionChange, onLogout, onEnableNotifications, container: result.container };
+  return {
+    onSectionChange,
+    onLogout,
+    onEnableNotifications,
+    onStopImpersonation,
+    container: result.container,
+  };
 }
 
 async function openSkinSelector() {
@@ -205,6 +213,35 @@ describe("AppShell split context rail", () => {
     });
 
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
+  it("shows an exit banner while impersonating a member", async () => {
+    const { onStopImpersonation } = renderShell("Dashboard", {
+      user: {
+        ...user,
+        id: 2,
+        name: "Member",
+        email: "member@example.com",
+        role: "member",
+        impersonation: {
+          actor: {
+            id: 1,
+            name: "Editor",
+            email: "editor@example.com",
+            role: "admin",
+          },
+        },
+      },
+    });
+
+    const banner = screen.getByRole("status");
+    expect(within(banner).getByText(/Viewing as/)).toBeInTheDocument();
+    expect(within(banner).getByText("Member")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Stop viewing as user" }));
+
+    expect(onStopImpersonation).toHaveBeenCalledOnce();
   });
 
   it("renders team branding in the shell", () => {

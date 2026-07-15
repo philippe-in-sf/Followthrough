@@ -10,6 +10,18 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.10.0 - 2026-07-15
+
+### Added
+
+- Added admin-controlled member impersonation for reviewing the app from a user's perspective.
+- Added a persistent impersonation banner with a clear return-to-admin action.
+
+### Security
+
+- Limited impersonation to visible member accounts, preserving team scoping for admins and owner-level visibility rules.
+- Blocked write actions while impersonating so review sessions cannot create member-attributed changes.
+
 ## 1.9.1 - 2026-07-14
 
 ### Fixed

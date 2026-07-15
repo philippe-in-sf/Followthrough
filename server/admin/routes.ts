@@ -8,6 +8,7 @@ import type {
   WaitlistSignupDto,
 } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
+import type { AppConfig } from "../config.js";
 import { withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
@@ -15,6 +16,7 @@ import { hashPassword } from "../auth/password.js";
 import { resetUserPassword } from "../auth/passwordReset.js";
 import { createUser, insertUserWithPasswordHash } from "../auth/userManagement.js";
 import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
+import { authUserDto, startSessionImpersonation } from "../auth/sessions.js";
 
 type TeamRow = {
   id: number;
@@ -250,7 +252,7 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
-export function adminRoutes(db: AppDatabase) {
+export function adminRoutes(db: AppDatabase, config: AppConfig) {
   const router = Router();
 
   router.get("/team", (req, res, next) => {
@@ -516,6 +518,28 @@ export function adminRoutes(db: AppDatabase) {
       await resetUserPassword(db, userId, input.password);
 
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/users/:userId/impersonate", (req, res, next) => {
+    try {
+      const userId = Number(req.params.userId);
+      if (!Number.isInteger(userId) || userId < 1) throw notFound("User not found");
+      if (userId === req.user?.id) {
+        throw badRequest("Choose another user to impersonate");
+      }
+
+      const target = getVisibleUser(db, req, userId);
+      if (target.role !== "member") {
+        throw badRequest("Only members can be impersonated");
+      }
+
+      const user = startSessionImpersonation(db, req.headers.cookie, config, target.id);
+      if (!user) throw badRequest("Session is no longer available");
+
+      res.json({ user: authUserDto(user) });
     } catch (error) {
       next(error);
     }

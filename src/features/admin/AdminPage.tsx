@@ -7,6 +7,7 @@ import type {
   WaitlistSignupDto,
 } from "../../../shared/types";
 import { api, ApiError } from "../../api/client";
+import type { User } from "../../api/types";
 import { EmptyState } from "../../components/EmptyState";
 import { FormField } from "../../components/FormField";
 import { PaginatedItems } from "../../components/PaginatedItems";
@@ -106,9 +107,11 @@ function formatLoginTime(value: string) {
 
 export function AdminPage({
   currentUserId,
+  onImpersonate,
   onTeamChange,
 }: {
   currentUserId: number;
+  onImpersonate: (user: User) => void;
   onTeamChange: (team: TeamDto) => void;
 }) {
   const [teamForm, setTeamForm] = useState<TeamFormState>({
@@ -136,6 +139,9 @@ export function AdminPage({
   const [passwordResetStatus, setPasswordResetStatus] = useState("");
   const [passwordResetError, setPasswordResetError] = useState("");
   const [resettingPasswordUserId, setResettingPasswordUserId] = useState<number | null>(null);
+  const [impersonationStatus, setImpersonationStatus] = useState("");
+  const [impersonationError, setImpersonationError] = useState("");
+  const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null);
   const [loginDetailsVisible, setLoginDetailsVisible] = useState(false);
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
@@ -305,6 +311,27 @@ export function AdminPage({
     }
   }
 
+  async function impersonateUser(user: TeamUserDto) {
+    const confirmed = window.confirm(
+      `View the app as ${user.name}? Admin controls will be hidden and changes will be disabled until you stop viewing as this user.`,
+    );
+    if (!confirmed) return;
+
+    setImpersonationStatus("");
+    setImpersonationError("");
+    setImpersonatingUserId(user.id);
+
+    try {
+      const result = await api.admin.impersonateUser(user.id);
+      setImpersonationStatus(`Viewing as ${user.name}`);
+      onImpersonate(result.user);
+    } catch (error) {
+      setImpersonationError(errorMessage(error));
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  }
+
   async function removeUserFromTeam(user: TeamUserDto) {
     const confirmed = window.confirm(
       `Remove ${user.name} from this team? They will lose access to this team's tasks, meetings, decisions, and people records.`,
@@ -415,6 +442,16 @@ export function AdminPage({
                             </select>
                           </td>
                           <td className="admin-user-actions" data-label="Actions">
+                            {user.role === "member" && user.id !== currentUserId ? (
+                              <button
+                                className="secondary-button"
+                                disabled={impersonatingUserId === user.id}
+                                onClick={() => void impersonateUser(user)}
+                                type="button"
+                              >
+                                {impersonatingUserId === user.id ? "Opening view..." : "View as user"}
+                              </button>
+                            ) : null}
                             <form
                               className="admin-password-reset-form"
                               onSubmit={(event) => void resetPassword(event, user)}
@@ -462,6 +499,8 @@ export function AdminPage({
             </PaginatedItems>
           )}
           {roleError ? <p className="form-error">{roleError}</p> : null}
+          {impersonationError ? <p className="form-error">{impersonationError}</p> : null}
+          {impersonationStatus ? <p className="form-status">{impersonationStatus}</p> : null}
           {passwordResetError ? <p className="form-error">{passwordResetError}</p> : null}
           {passwordResetStatus ? <p className="form-status">{passwordResetStatus}</p> : null}
           {removeError ? <p className="form-error">{removeError}</p> : null}

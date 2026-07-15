@@ -348,6 +348,100 @@ describe("admin API", () => {
     );
   });
 
+  it("lets admins impersonate visible members and return to their admin session", async () => {
+    const { app, adminCookie } = await setup();
+
+    const users = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
+    const member = users.body.users.find(
+      (user: { email: string }) => user.email === "member@example.com",
+    );
+
+    const started = await request(app)
+      .post(`/api/admin/users/${member.id}/impersonate`)
+      .set("Cookie", adminCookie);
+
+    expect(started.status).toBe(200);
+    expect(started.body.user).toMatchObject({
+      id: member.id,
+      email: "member@example.com",
+      role: "member",
+      impersonation: {
+        actor: {
+          email: "admin@example.com",
+          role: "admin",
+        },
+      },
+    });
+
+    const me = await request(app).get("/api/auth/me").set("Cookie", adminCookie);
+    expect(me.body.user).toMatchObject({
+      email: "member@example.com",
+      role: "member",
+      impersonation: {
+        actor: {
+          email: "admin@example.com",
+        },
+      },
+    });
+
+    const adminDuringImpersonation = await request(app)
+      .get("/api/admin/team")
+      .set("Cookie", adminCookie);
+    expect(adminDuringImpersonation.status).toBe(403);
+
+    const writeDuringImpersonation = await request(app)
+      .post("/api/tasks")
+      .set("Cookie", adminCookie)
+      .send({ description: "Accidental impersonated write", status: "Open" });
+    expect(writeDuringImpersonation.status).toBe(403);
+    expect(writeDuringImpersonation.body.error).toBe("Stop viewing as user before making changes");
+
+    const stopped = await request(app)
+      .post("/api/auth/impersonation/stop")
+      .set("Cookie", adminCookie);
+
+    expect(stopped.status).toBe(200);
+    expect(stopped.body.user).toMatchObject({
+      email: "admin@example.com",
+      role: "admin",
+      impersonation: null,
+    });
+
+    const adminAfterStop = await request(app).get("/api/admin/team").set("Cookie", adminCookie);
+    expect(adminAfterStop.status).toBe(200);
+  });
+
+  it("rejects impersonating admins or users outside the admin's visible team", async () => {
+    const { app, db, adminCookie } = await setup();
+    const secondAdmin = await createUser(db, {
+      name: "Second Admin",
+      email: "second-admin@example.com",
+      password: "long-enough-password",
+      role: "admin",
+      teamId: 1,
+    });
+    const otherTeam = db.prepare("INSERT INTO teams (name) VALUES (?)").run("Other Team");
+    const otherTeamId = Number(otherTeam.lastInsertRowid);
+    const otherMember = await createUser(db, {
+      name: "Other Member",
+      email: "other-member@example.com",
+      password: "long-enough-password",
+      role: "member",
+      teamId: otherTeamId,
+    });
+
+    const adminTarget = await request(app)
+      .post(`/api/admin/users/${secondAdmin.id}/impersonate`)
+      .set("Cookie", adminCookie);
+    expect(adminTarget.status).toBe(400);
+    expect(adminTarget.body.error).toBe("Only members can be impersonated");
+
+    const outsideTeam = await request(app)
+      .post(`/api/admin/users/${otherMember.id}/impersonate`)
+      .set("Cookie", adminCookie);
+    expect(outsideTeam.status).toBe(404);
+  });
+
   it("lets admins reset a team user's password and revoke old sessions", async () => {
     const { app, adminCookie, memberCookie } = await setup();
 

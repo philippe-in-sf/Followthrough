@@ -66,6 +66,7 @@ function renderSection({
   user,
   onTeamChange,
   currentUserId,
+  onImpersonate,
   onLeaveTeam,
 }: {
   section: AppSection;
@@ -82,6 +83,7 @@ function renderSection({
   user: User;
   onTeamChange: (team: TeamDto) => void;
   currentUserId: number;
+  onImpersonate: (user: User) => void;
   onLeaveTeam: () => Promise<void>;
 }) {
   switch (section) {
@@ -138,7 +140,11 @@ function renderSection({
       return <SettingsPage user={user} onLeaveTeam={onLeaveTeam} />;
     case "Admin":
       return user.role === "admin" || user.role === "owner" ? (
-        <AdminPage currentUserId={currentUserId} onTeamChange={onTeamChange} />
+        <AdminPage
+          currentUserId={currentUserId}
+          onImpersonate={onImpersonate}
+          onTeamChange={onTeamChange}
+        />
       ) : null;
   }
 }
@@ -257,6 +263,16 @@ export function App() {
     setUser((current) => (current ? { ...current, team } : current));
   }, []);
 
+  const startImpersonation = useCallback(
+    (nextUser: User) => {
+      setUser(nextUser);
+      setSection("Dashboard");
+      setFocusedRecord(null);
+      void loadPreferences();
+    },
+    [loadPreferences],
+  );
+
   const { notificationStatus, enableNotifications } = useTaskAssignmentNotifications(Boolean(user));
 
   if (user === undefined) return <main className="loading">Loading...</main>;
@@ -267,6 +283,14 @@ export function App() {
     await api.logout();
     setUser(null);
     setPreferences(fallbackPreferences);
+  }
+
+  async function stopImpersonation() {
+    const result = await api.stopImpersonation();
+    setUser(result.user);
+    setSection("Admin");
+    setFocusedRecord(null);
+    void loadPreferences();
   }
 
   async function leaveTeam() {
@@ -292,6 +316,7 @@ export function App() {
       onLogout={logout}
       onEnableNotifications={enableNotifications}
       notificationStatus={notificationStatus}
+      onStopImpersonation={stopImpersonation}
       version={appVersion}
       workCalendarUrl={calendarShortcutUrl}
     >
@@ -310,6 +335,7 @@ export function App() {
         user: currentUser,
         onTeamChange: setTeam,
         currentUserId: currentUser.id,
+        onImpersonate: startImpersonation,
         onLeaveTeam: leaveTeam,
       })}
     </AppShell>

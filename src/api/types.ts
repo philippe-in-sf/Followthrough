@@ -9,6 +9,14 @@ export type User = {
     logoUrl: string | null;
     workCalendarUrl: string | null;
   };
+  impersonation?: {
+    actor: {
+      id: number;
+      name: string;
+      email: string;
+      role: "owner" | "admin" | "member";
+    };
+  } | null;
 };
 
 export type SearchResult = {

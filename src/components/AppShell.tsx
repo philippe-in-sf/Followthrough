@@ -20,6 +20,7 @@ export function AppShell({
   onSectionChange,
   onLogout,
   onEnableNotifications,
+  onStopImpersonation,
   notificationStatus,
   version,
   workCalendarUrl = loadClientConfig().workCalendarUrl,
@@ -30,6 +31,7 @@ export function AppShell({
   onSectionChange: (section: AppSection) => void;
   onLogout: () => void;
   onEnableNotifications: () => void;
+  onStopImpersonation: () => void;
   notificationStatus: "unsupported" | "disabled" | "enabled";
   version: string;
   workCalendarUrl?: string | null;
@@ -86,6 +88,16 @@ export function AppShell({
             <LogOut size={18} />
           </button>
         </header>
+        {user.impersonation ? (
+          <div className="impersonation-banner" role="status">
+            <span>
+              Viewing as <strong>{user.name}</strong>. Changes are disabled.
+            </span>
+            <button className="secondary-button" onClick={onStopImpersonation} type="button">
+              Stop viewing as user
+            </button>
+          </div>
+        ) : null}
         <MobileSectionSummary section={section} />
         {children}
       </div>
