@@ -10,6 +10,16 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.10.2 - 2026-07-15
+
+### Added
+
+- Added a branded HTML welcome-email template using the Followthrough logo, a responsive sign-in layout, onboarding guidance, the sender signature, and a compliant transactional footer.
+
+### Changed
+
+- Prefixed password-reset and task-reminder email subjects with `Followthrough` so transactional messages are immediately identifiable.
+
 ## 1.10.1 - 2026-07-15
 
 ### Security

@@ -216,6 +216,7 @@ describe("auth", () => {
     expect(requestReset.status).toBe(200);
     expect(requestReset.body).toEqual({ ok: true });
     expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].subject).toBe("Followthrough: Reset your password");
     const resetUrl = sentEmails[0].text.match(/https:\/\/followthrough\.test\/\?resetToken=([a-f0-9]+)#access/);
     expect(resetUrl).not.toBeNull();
 
