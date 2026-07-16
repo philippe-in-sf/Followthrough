@@ -141,6 +141,37 @@ describe("tasks", () => {
     ).toContain("T001");
   });
 
+  it("filters tasks assigned to the signed-in user's matching person record", async () => {
+    const { app, cookie, personPublicId } = await setup({ personEmail: "EDITOR@example.com" });
+    const otherPerson = await request(app)
+      .post("/api/people")
+      .set("Cookie", cookie)
+      .send({ name: "Blake", email: "blake@example.com" });
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "My follow-up",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+    });
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Someone else's follow-up",
+      assigneePublicId: otherPerson.body.person.publicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+    });
+
+    const assignedToMe = await request(app)
+      .get("/api/tasks?assignedToMe=true")
+      .set("Cookie", cookie);
+
+    expect(assignedToMe.status).toBe(200);
+    expect(assignedToMe.body.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
+      "T001",
+    ]);
+  });
+
   it("tracks task dependencies and rejects invalid dependency graphs", async () => {
     const { app, cookie, personPublicId } = await setup();
 

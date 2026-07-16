@@ -130,6 +130,60 @@ describe("decisions", () => {
     );
   });
 
+  it("tracks when a decision is superseded by a later decision", async () => {
+    const { app, cookie } = await setup();
+
+    await request(app).post("/api/decisions").set("Cookie", cookie).send({
+      decisionText: "Use manual exports",
+      decisionDate: "2026-06-09",
+      context: "Fastest path for launch.",
+    });
+
+    await request(app).post("/api/decisions").set("Cookie", cookie).send({
+      decisionText: "Use automated exports",
+      decisionDate: "2026-06-16",
+      context: "Manual exports are too error-prone.",
+    });
+
+    const updated = await request(app).patch("/api/decisions/D001").set("Cookie", cookie).send({
+      decisionText: "Use manual exports",
+      decisionDate: "2026-06-09",
+      context: "Superseded after the launch workflow changed.",
+      supersededByDecisionPublicId: "D002",
+    });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.decision.supersededByDecisionPublicId).toBe("D002");
+
+    const list = await request(app).get("/api/decisions").set("Cookie", cookie);
+    expect(
+      list.body.decisions.find((decision: { publicId: string }) => decision.publicId === "D001")
+        .supersededByDecisionPublicId,
+    ).toBe("D002");
+
+    const audit = await request(app).get("/api/decisions/D001/audit").set("Cookie", cookie);
+    expect(audit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({
+        action: "updated",
+        summary: "Updated decision details",
+      }),
+    );
+    expect(audit.body.auditEvents[0].changes.before.supersededByDecisionPublicId).toBeNull();
+    expect(audit.body.auditEvents[0].changes.after.supersededByDecisionPublicId).toBe("D002");
+
+    const selfSupersede = await request(app)
+      .patch("/api/decisions/D001")
+      .set("Cookie", cookie)
+      .send({
+        decisionText: "Use manual exports",
+        decisionDate: "2026-06-09",
+        context: "Still old.",
+        supersededByDecisionPublicId: "D001",
+      });
+
+    expect(selfSupersede.status).toBe(400);
+  });
+
   it("lists and audits tasks spawned by a decision", async () => {
     const { app, cookie } = await setup();
 

@@ -10,6 +10,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.11.0 - 2026-07-16
+
+### Added
+
+- Generated recurring-meeting check-in notes from open tasks assigned to attendees and linked those tasks into the next occurrence.
+- Added a Tasks page `My tasks` lens based on the signed-in user's matching Person email.
+- Added decision supersession history with visible `Superseded by` links and decision update audit events.
+
 ## 1.10.3 - 2026-07-15
 
 ### Added

@@ -343,6 +343,11 @@ export function taskRoutes(
       params.push(req.query.assigneePublicId);
     }
 
+    if (req.query.assignedToMe === "true") {
+      conditions.push("lower(people.email) = lower(?)");
+      params.push(req.user?.email ?? "");
+    }
+
     if (typeof req.query.status === "string" && req.query.status) {
       conditions.push("tasks.status = ?");
       params.push(req.query.status);

@@ -175,6 +175,7 @@ type DecisionInput = {
   decisionDate: string;
   context: string;
   meetingPublicId?: string | null;
+  supersededByDecisionPublicId?: string | null;
   followUpTask?: {
     description: string;
     blockers?: string;

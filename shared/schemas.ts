@@ -118,5 +118,6 @@ export const decisionInputSchema = z.object({
   decisionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   context: z.string().trim().default(""),
   meetingPublicId: publicIdSchema.optional().nullable(),
+  supersededByDecisionPublicId: publicIdSchema.optional().nullable(),
   followUpTask: decisionFollowUpTaskInputSchema.optional().nullable(),
 });
