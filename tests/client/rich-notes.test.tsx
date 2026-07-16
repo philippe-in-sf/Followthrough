@@ -73,6 +73,28 @@ describe("RichNotes", () => {
     expect(container).not.toHaveTextContent("3a00");
   });
 
+  it("collapses T031 notes from the live Google Slides URL", () => {
+    const deckUrl =
+      "https://docs.google.com/presentation/d/1OG6c5X9jCxhsqT8WSy31Wj9-JDWPjdG6IH5ywC0L7dg/edit?slide=id.g3e977fce53a_0_0#slide=id.g3e977fce53a_0_0";
+    const { container } = render(<RichNoteText text={deckUrl} />);
+
+    expect(screen.getByRole("link", { name: "Link" })).toHaveAttribute("href", deckUrl);
+    expect(container).toHaveTextContent("Link");
+    expect(container).not.toHaveTextContent("slide=id");
+    expect(container).not.toHaveTextContent("00#");
+  });
+
+  it("collapses T032 notes from the live Google Slides URL", () => {
+    const deckUrl =
+      "https://docs.google.com/presentation/d/1RZZhvhCx5fFjwAaJ5m3GV2BR7-Ue7FEDtoWh5G7ftRo/edit?slide=id.g3f42a77656e_0_2454#slide=id.g3f42a77656e_0_2454";
+    const { container } = render(<RichNoteText text={deckUrl} />);
+
+    expect(screen.getByRole("link", { name: "Link" })).toHaveAttribute("href", deckUrl);
+    expect(container).toHaveTextContent("Link");
+    expect(container).not.toHaveTextContent("slide=id");
+    expect(container).not.toHaveTextContent("00#");
+  });
+
   it("inserts markdown syntax from the notes toolbar", async () => {
     render(<MarkdownEditorHarness />);
 

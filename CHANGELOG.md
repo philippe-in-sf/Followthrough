@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.14.0 - 2026-07-16
+
+### Fixed
+
+- Fixed Google Slides URLs with underscore-delimited slide IDs in rich notes so `_0_` is not interpreted as italic markdown and T031/T032 render as a single compact `Link`.
+
 ## 1.13.0 - 2026-07-16
 
 ### Added
