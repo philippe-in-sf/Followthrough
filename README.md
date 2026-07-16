@@ -258,7 +258,7 @@ npm run domain:check
 The corresponding server-side renewal check is:
 
 ```bash
-ssh philippe@philippe-tasks.net
+ssh philippe@followthrough.dev
 sudo certbot certificates --cert-name followthrough.dev
 sudo certbot renew --dry-run
 systemctl list-timers 'certbot*'

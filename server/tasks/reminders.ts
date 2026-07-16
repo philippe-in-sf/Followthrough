@@ -83,7 +83,7 @@ function reminderSubject(row: ReminderTaskRow, config: AppConfig) {
 }
 
 function appAccessUrl(config: AppConfig) {
-  const baseUrl = config.appBaseUrl || "https://philippe-tasks.net";
+  const baseUrl = config.appBaseUrl || "https://followthrough.dev";
 
   try {
     return new URL(baseUrl).toString().replace(/\/$/, "");

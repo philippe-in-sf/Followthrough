@@ -66,5 +66,5 @@ Show the current app version in the authenticated UI, expose it through a lightw
    - After merge, deploy with the existing SSH deployment path and verify:
 
    ```sh
-   curl --fail --silent --show-error https://philippe-tasks.net/api/version
+   curl --fail --silent --show-error https://followthrough.dev/api/version
    ```

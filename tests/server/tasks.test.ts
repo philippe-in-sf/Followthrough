@@ -23,7 +23,7 @@ async function setup(options: { personEmail?: string } = {}) {
   const app = createApp({
     db,
     emailSender,
-    config: { ...loadConfig(), appBaseUrl: "https://philippe-tasks.net", sessionTtlDays: 3650 },
+    config: { ...loadConfig(), appBaseUrl: "https://followthrough.dev", sessionTtlDays: 3650 },
   });
   const signup = await request(app).post("/api/auth/signup").send({
     name: "Editor",
@@ -415,7 +415,7 @@ describe("tasks", () => {
           "",
           "If you have any questions, please see Philippe.",
           "",
-          "To manually manage tasks, ask for access to https://philippe-tasks.net.",
+          "To manually manage tasks, ask for access to https://followthrough.dev.",
         ].join("\n"),
       }),
     ]);
