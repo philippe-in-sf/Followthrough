@@ -63,7 +63,7 @@ export async function requestPasswordReset({
 
   await emailSender.send({
     to: user.email,
-    subject: "Reset your Followthrough password",
+    subject: "Followthrough: Reset your password",
     text: [
       `Hi ${user.name},`,
       "",

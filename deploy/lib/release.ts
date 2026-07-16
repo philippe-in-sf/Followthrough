@@ -4,6 +4,7 @@ export const runtimePaths = [
   "package-lock.json",
   "scripts",
   "CHANGELOG.md",
+  "docs/email-templates",
 ] as const;
 
 function timestampPart(date: Date) {

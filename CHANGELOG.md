@@ -10,6 +10,39 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.10.3 - 2026-07-15
+
+### Added
+
+- Sent branded welcome emails when users sign up, are created by admins, are converted from the waitlist, or are created from the CLI.
+
+### Changed
+
+- Grouped meeting edit controls into compact sections so task, attendee, detail, and action fields no longer sprawl across one row.
+
+### Fixed
+
+- Resolved the welcome email template from packaged release assets so server tests and deployments can render it reliably.
+
+## 1.10.2 - 2026-07-15
+
+### Added
+
+- Added a branded HTML welcome-email template using the Followthrough logo, a responsive sign-in layout, onboarding guidance, the sender signature, and a compliant transactional footer.
+
+### Changed
+
+- Prefixed password-reset and task-reminder email subjects with `Followthrough` so transactional messages are immediately identifiable.
+
+## 1.10.1 - 2026-07-15
+
+### Security
+
+- Added per-IP and normalized per-email rate limits for failed login attempts, plus dedicated signup and password-reset limits.
+- Added strict same-origin enforcement for browser state changes and an explicit CORS allowlist based on the configured application URL.
+- Added Helmet baseline security headers and removed the Express technology header.
+- Updated vulnerable transitive `undici` and `form-data` dependencies; `npm audit` now reports zero vulnerabilities.
+
 ## 1.10.0 - 2026-07-15
 
 ### Added

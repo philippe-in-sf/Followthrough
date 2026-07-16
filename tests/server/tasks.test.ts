@@ -36,6 +36,7 @@ async function setup(options: { personEmail?: string } = {}) {
     .post("/api/people")
     .set("Cookie", cookie)
     .send({ name: "Avery", email: options.personEmail ?? "" });
+  sentEmails.length = 0;
   return {
     app,
     db,
@@ -406,7 +407,7 @@ describe("tasks", () => {
     expect(sentEmails).toEqual([
       expect.objectContaining({
         to: "avery@example.com",
-        subject: "T001 is due soon: Send notes",
+        subject: "Followthrough: Task T001 is due soon",
         text: [
           "Hi Avery,",
           "",
@@ -460,7 +461,7 @@ describe("tasks", () => {
 
     expect(firstRun.sent.map((item) => item.taskPublicId)).toEqual(["T001"]);
     expect(sentEmails).toHaveLength(1);
-    expect(sentEmails[0].subject).toBe("T001 is due soon: Automatic task");
+    expect(sentEmails[0].subject).toBe("Followthrough: Task T001 is due soon");
 
     const secondRun = await sendAutomaticTaskReminders(
       db,

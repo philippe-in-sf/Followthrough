@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../server/app";
 import { createUser } from "../../server/auth/userManagement";
 import { loadConfig } from "../../server/config";
-import type { EmailSender } from "../../server/email/mailer";
+import type { EmailMessage, EmailSender } from "../../server/email/mailer";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
@@ -25,6 +25,38 @@ afterEach(() => {
 });
 
 describe("auth", () => {
+  it("sends the welcome email after invite signup", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    db.prepare("INSERT INTO invite_codes (code, usage_limit) VALUES (?, ?)").run("join", 1);
+    const sentEmails: EmailMessage[] = [];
+    const app = createApp({
+      db,
+      config: { ...loadConfig(), appBaseUrl: "https://followthrough.test" },
+      emailSender: {
+        async send(message) {
+          sentEmails.push(message);
+        },
+      },
+    });
+
+    const response = await request(app).post("/api/auth/signup").send({
+      name: "Avery Stone",
+      email: "avery@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+
+    expect(response.status).toBe(201);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]).toMatchObject({
+      to: "avery@example.com",
+      subject: "Followthrough: Welcome to your new account",
+    });
+    expect(sentEmails[0].html).toContain("Hi Avery,");
+  });
+
   it("signs up with an active invite code and returns the current user", async () => {
     const app = appWithInvite();
 
@@ -102,6 +134,30 @@ describe("auth", () => {
       .set("Cookie", login.headers["set-cookie"]);
 
     expect(logout.status).toBe(204);
+  });
+
+  it("rate limits repeated login failures without revealing account existence", async () => {
+    const app = appWithInvite();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await request(app).post("/api/auth/login").send({
+        email: "missing@example.com",
+        password: "wrong-password",
+      });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "Email or password is incorrect" });
+    }
+
+    const limited = await request(app).post("/api/auth/login").send({
+      email: "MISSING@example.com",
+      password: "wrong-password",
+    });
+
+    expect(limited.status).toBe(429);
+    expect(limited.body).toEqual({
+      error: "Too many authentication attempts. Try again later.",
+    });
+    expect(limited.headers["ratelimit"]).toBeDefined();
   });
 
   it("changes the signed-in user's password", async () => {
@@ -192,6 +248,7 @@ describe("auth", () => {
     expect(requestReset.status).toBe(200);
     expect(requestReset.body).toEqual({ ok: true });
     expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].subject).toBe("Followthrough: Reset your password");
     const resetUrl = sentEmails[0].text.match(/https:\/\/followthrough\.test\/\?resetToken=([a-f0-9]+)#access/);
     expect(resetUrl).not.toBeNull();
 
