@@ -132,6 +132,7 @@ function setupAppFetch(
       decisionDate: "2026-06-09",
       context: "Single server",
       meetingPublicId: "M010",
+      supersededByDecisionPublicId: null,
       tasks: [],
       archived: false,
     },
@@ -507,6 +508,7 @@ function setupAppFetch(
         decisionDate: body.decisionDate,
         context: body.context,
         meetingPublicId: body.meetingPublicId,
+        supersededByDecisionPublicId: body.supersededByDecisionPublicId ?? null,
         tasks: [],
         archived: false,
       };
