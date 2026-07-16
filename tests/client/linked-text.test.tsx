@@ -66,4 +66,12 @@ describe("LinkedText", () => {
       ),
     ).toBe("Read the deck (Link).");
   });
+
+  it("collapses markdown links to text for non-linkable controls", () => {
+    expect(
+      collapseLinks(
+        "Read the deck ([Link](https://docs.google.com/presentation/d/example/edit?slide=id.g1)00#slide=id.g100).",
+      ),
+    ).toBe("Read the deck (Link).");
+  });
 });

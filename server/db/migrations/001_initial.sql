@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   public_id TEXT NOT NULL UNIQUE,
   description TEXT NOT NULL,
   assignee_person_id INTEGER REFERENCES people(id),
-  status TEXT NOT NULL CHECK (status IN ('Open', 'In Progress', 'Blocked', 'Done')),
+  status TEXT NOT NULL CHECK (status IN ('Open', 'In Progress', 'Blocked', 'Done', 'Won''t Fix')),
   due_date TEXT,
   origin_meeting_id INTEGER REFERENCES meetings(id),
   series_id INTEGER REFERENCES meeting_series(id),

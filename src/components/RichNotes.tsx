@@ -36,8 +36,18 @@ type RichNoteTextProps = {
 };
 
 const inlineMarkdownPattern =
-  /(`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?:(?:00|\s)*#[^\s)]+(?:00|\s)*)?|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|_([^_\n]+)_)/g;
-const leakedMarkdownFragmentPattern = /^(?:00|\s)*(#[^\s)]+?)(?:00|\s)*$/;
+  /(`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?:(?:00|\s)*#[^)]*?00)?|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|_([^_\n]+)_)/g;
+const leakedMarkdownFragmentPattern = /^(?:00|\s)*(#[\s\S]*?)(?:00|\s)*$/;
+const splitLeakedSlideFragmentPattern =
+  /(\]\(https?:\/\/[^\s)]+\))(?:00|\s)*#slide=([A-Za-z0-9._-]+)\s+([A-Za-z0-9._-]*?)00(?=\s|$|[).,;!?])/g;
+
+function normalizeLeakedMarkdownFragments(text: string) {
+  return text.replace(
+    splitLeakedSlideFragmentPattern,
+    (_match, linkEnd: string, fragmentStart: string, fragmentEnd: string) =>
+      `${linkEnd}00#slide=${fragmentStart}${fragmentEnd}00`,
+  );
+}
 
 function parseNoteBlocks(text: string) {
   const blocks: RichNoteBlock[] = [];
@@ -69,7 +79,7 @@ function parseNoteBlocks(text: string) {
     flushQuote();
   }
 
-  for (const rawLine of text.replace(/\r\n/g, "\n").split("\n")) {
+  for (const rawLine of normalizeLeakedMarkdownFragments(text).replace(/\r\n/g, "\n").split("\n")) {
     const line = rawLine.trimEnd();
 
     if (!line.trim()) {
@@ -138,13 +148,15 @@ function renderLinkedText(
 }
 
 function recoverMarkdownHref(rawMarkdownLink: string, href: string) {
-  const marker = `](${href})`;
-  const markerIndex = rawMarkdownLink.indexOf(marker);
-  if (markerIndex === -1) return href;
+  const hrefIndex = rawMarkdownLink.indexOf(href);
+  if (hrefIndex === -1) return href;
 
-  const suffix = rawMarkdownLink.slice(markerIndex + marker.length);
+  const hrefClosingIndex = rawMarkdownLink.indexOf(")", hrefIndex + href.length);
+  if (hrefClosingIndex === -1) return href;
+
+  const suffix = rawMarkdownLink.slice(hrefClosingIndex + 1);
   const leakedFragment = leakedMarkdownFragmentPattern.exec(suffix);
-  return leakedFragment ? `${href}${leakedFragment[1]}` : href;
+  return leakedFragment ? `${href}${leakedFragment[1].replace(/\s+/g, "")}` : href;
 }
 
 function renderInlineMarkdown(

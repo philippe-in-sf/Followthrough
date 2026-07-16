@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { formatPersonName, parsePersonName } from "./personName.js";
+import { taskStatuses } from "./types.js";
 
-export const taskStatusSchema = z.enum(["Open", "In Progress", "Blocked", "Done"]);
+export const taskStatusSchema = z.enum(taskStatuses);
 export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
 export const meetingLinkTypeSchema = z.enum(["agenda", "work", "reference", "other"]);
 

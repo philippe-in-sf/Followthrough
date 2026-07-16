@@ -172,6 +172,43 @@ describe("tasks", () => {
     ]);
   });
 
+  it("treats won't fix tasks as closed work", async () => {
+    const { app, db, config, cookie, personPublicId, emailSender } = await setup({
+      personEmail: "avery@example.com",
+    });
+
+    const created = await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Do not pursue",
+      assigneePublicId: personPublicId,
+      status: "Won't Fix",
+      dueDate: "2026-06-01",
+      reminderMode: "automatic",
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.task.status).toBe("Won't Fix");
+    expect(created.body.task.alert).toBeNull();
+
+    const filtered = await request(app)
+      .get("/api/tasks?status=Won%27t%20Fix")
+      .set("Cookie", cookie);
+    expect(filtered.body.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
+      "T001",
+    ]);
+
+    const reminder = await request(app).post("/api/tasks/T001/reminders").set("Cookie", cookie);
+    expect(reminder.status).toBe(404);
+
+    const automaticRun = await sendAutomaticTaskReminders(
+      db,
+      config,
+      emailSender,
+      new Date("2026-06-09T12:00:00Z"),
+    );
+    expect(automaticRun.sent).toEqual([]);
+    expect(automaticRun.skipped).toEqual([]);
+  });
+
   it("tracks task dependencies and rejects invalid dependency graphs", async () => {
     const { app, cookie, personPublicId } = await setup();
 

@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ChevronDown, Mail, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { isClosedTaskStatus, taskStatuses } from "../../../shared/types";
 import type {
   AuditLogDto,
   PersonDto,
@@ -19,7 +20,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { scrollRecordIntoView } from "../../recordFocus";
 import { comparePublicRecordNumber } from "../../recordSort";
 
-const statuses: TaskStatus[] = ["Open", "In Progress", "Blocked", "Done"];
+const statuses: TaskStatus[] = [...taskStatuses];
 
 type TaskLane = {
   key: string;
@@ -83,7 +84,7 @@ function dependencyOptionLabel(task: TaskDependencyDto) {
 
 function taskHasOpenDependencies(task: TaskDto) {
   return (task.dependencies ?? []).some(
-    (dependency) => dependency.status !== "Done" && !dependency.archived,
+    (dependency) => !isClosedTaskStatus(dependency.status) && !dependency.archived,
   );
 }
 
@@ -165,6 +166,7 @@ function taskCardTone(task: TaskDto) {
   if (task.alert === "overdue") return "record-card-bad";
   if (task.alert === "dueSoon") return "record-card-warn";
   if (task.status === "Done") return "record-card-good";
+  if (task.status === "Won't Fix") return "record-card-neutral";
   return "record-card-info";
 }
 
@@ -224,10 +226,13 @@ export function TasksPage({
     const overdue = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "overdue");
     const dueSoon = tasks.filter((task) => !hasActiveBlockers(task) && task.alert === "dueSoon");
     const active = tasks.filter(
-      (task) => !hasActiveBlockers(task) && !task.alert && task.status !== "Done",
+      (task) => !hasActiveBlockers(task) && !task.alert && !isClosedTaskStatus(task.status),
     );
     const done = tasks.filter(
       (task) => !hasActiveBlockers(task) && !task.alert && task.status === "Done",
+    );
+    const wontFix = tasks.filter(
+      (task) => !hasActiveBlockers(task) && !task.alert && task.status === "Won't Fix",
     );
 
     const lanes: TaskLane[] = [
@@ -265,6 +270,13 @@ export function TasksPage({
         ariaLabel: "Done tasks",
         tone: "good",
         tasks: done,
+      },
+      {
+        key: "wont-fix",
+        title: "Won't fix",
+        ariaLabel: "Tasks marked won't fix",
+        tone: "neutral",
+        tasks: wontFix,
       },
     ];
 
@@ -1089,7 +1101,7 @@ export function TasksPage({
                                           <span className="task-dependency-status">
                                             <StatusBadge
                                               label={dependency.status}
-                                              tone={dependency.status === "Done" ? "good" : "warn"}
+                                              tone={isClosedTaskStatus(dependency.status) ? "good" : "warn"}
                                             />
                                             {dependency.archived ? (
                                               <StatusBadge label="Archived" />
@@ -1138,7 +1150,7 @@ export function TasksPage({
                                   onClick={() => sendReminder(task)}
                                   aria-label={`Send reminder for ${task.publicId}`}
                                   disabled={
-                                    task.status === "Done" ||
+                                    isClosedTaskStatus(task.status) ||
                                     !task.assignee?.email ||
                                     pendingReminderPublicId === task.publicId
                                   }

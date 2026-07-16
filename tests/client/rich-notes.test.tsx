@@ -57,6 +57,22 @@ describe("RichNotes", () => {
     expect(container).not.toHaveTextContent("[Link](");
   });
 
+  it("does not leak split Google Slides fragments from auto-created links", () => {
+    const deckUrl =
+      "https://docs.google.com/presentation/d/1OG6c5X9jCxhsqT8WSy31Wj9-JDWPjdG6IH5ywC0L7dg/edit?slide=id.g3e977fce53a#slide=id.g3e977fce53a";
+    const [hrefBeforeFragment] = deckUrl.split("#");
+    const { container } = render(
+      <RichNoteText
+        text={`[Link](${hrefBeforeFragment})00#slide=id.g3e977fce5\n3a00`}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Link" })).toHaveAttribute("href", deckUrl);
+    expect(container).toHaveTextContent("Link");
+    expect(container).not.toHaveTextContent("00#slide=id.g3e977fce");
+    expect(container).not.toHaveTextContent("3a00");
+  });
+
   it("inserts markdown syntax from the notes toolbar", async () => {
     render(<MarkdownEditorHarness />);
 

@@ -48,7 +48,13 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
   Tasks: {
     icon: ListTodo,
     description: "Track open work, owners, due dates, and blocked items.",
-    contextRows: [{ label: "Overdue" }, { label: "Due soon" }, { label: "Active" }, { label: "Done" }],
+    contextRows: [
+      { label: "Overdue" },
+      { label: "Due soon" },
+      { label: "Active" },
+      { label: "Done" },
+      { label: "Won't fix" },
+    ],
   },
   Meetings: {
     icon: CalendarDays,

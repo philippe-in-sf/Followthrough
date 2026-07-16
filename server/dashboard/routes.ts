@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { TaskStatus } from "../../shared/types.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { getTaskAlert } from "../tasks/alerts.js";
@@ -8,7 +9,7 @@ type DashboardTaskRow = {
   description: string;
   blockers: string;
   blockers_cleared_at: string | null;
-  status: "Open" | "In Progress" | "Blocked" | "Done";
+  status: TaskStatus;
   due_date: string | null;
   private: number;
   assignee_public_id: string | null;
@@ -46,7 +47,7 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
          LEFT JOIN people ON people.id = tasks.assignee_person_id
          WHERE tasks.archived_at IS NULL
          AND tasks.team_id = ?
-         AND tasks.status <> 'Done'
+         AND tasks.status NOT IN ('Done', 'Won''t Fix')
          AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
          ORDER BY tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
       )
