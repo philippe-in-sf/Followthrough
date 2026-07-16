@@ -30,6 +30,7 @@ type TaskLane = {
 };
 
 type TaskArchiveView = "active" | "archived";
+type TaskScope = "all" | "mine";
 
 export type TaskReferenceTarget = {
   publicId: string;
@@ -179,6 +180,7 @@ export function TasksPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
   const [assigneePublicId, setAssigneePublicId] = useState("");
+  const [taskScope, setTaskScope] = useState<TaskScope>("all");
   const [status, setStatus] = useState("");
   const [alert, setAlert] = useState("");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -195,12 +197,13 @@ export function TasksPage({
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (taskArchiveView === "archived") params.set("archived", "true");
-    if (assigneePublicId) params.set("assigneePublicId", assigneePublicId);
+    if (taskScope === "mine") params.set("assignedToMe", "true");
+    if (taskScope === "all" && assigneePublicId) params.set("assigneePublicId", assigneePublicId);
     if (status) params.set("status", status);
     if (alert) params.set("alert", alert);
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [assigneePublicId, status, alert, taskArchiveView]);
+  }, [assigneePublicId, status, alert, taskArchiveView, taskScope]);
 
   const taskLanes = useMemo<TaskLane[]>(() => {
     if (taskArchiveView === "archived") {
@@ -275,11 +278,12 @@ export function TasksPage({
       alert === "dueSoon" ? "Due soon" : alert === "overdue" ? "Overdue" : "";
 
     return [
+      taskScope === "mine" ? "Scope: My tasks" : null,
       assigneePublicId ? `Assignee: ${assigneeName}` : null,
       status ? `Status: ${status}` : null,
       alertLabel ? `Due date: ${alertLabel}` : null,
     ].filter((label): label is string => Boolean(label));
-  }, [alert, assigneePublicId, people, status]);
+  }, [alert, assigneePublicId, people, status, taskScope]);
   const createDependencyOptions = useMemo(() => buildDependencyOptions(tasks), [tasks]);
   const selectedCreateDependencies = useMemo(
     () => selectedDependencyOptions(form.dependencyPublicIds, createDependencyOptions),
@@ -287,6 +291,7 @@ export function TasksPage({
   );
 
   function clearTaskFilters() {
+    setTaskScope("all");
     setAssigneePublicId("");
     setStatus("");
     setAlert("");
@@ -468,6 +473,27 @@ export function TasksPage({
             onClick={() => setTaskArchiveView("archived")}
           >
             Archived
+          </button>
+        </div>
+        <div className="record-view-toggle" role="group" aria-label="Task scope">
+          <button
+            aria-pressed={taskScope === "all"}
+            className={taskScope === "all" ? "active" : ""}
+            type="button"
+            onClick={() => setTaskScope("all")}
+          >
+            All
+          </button>
+          <button
+            aria-pressed={taskScope === "mine"}
+            className={taskScope === "mine" ? "active" : ""}
+            type="button"
+            onClick={() => {
+              setTaskScope("mine");
+              setAssigneePublicId("");
+            }}
+          >
+            My tasks
           </button>
         </div>
       </header>
@@ -653,10 +679,13 @@ export function TasksPage({
           <div className="filter-bar task-filter-fields" id="task-filter-fields">
             <select
               aria-label="Filter assignee"
+              disabled={taskScope === "mine"}
               value={assigneePublicId}
               onChange={(event) => setAssigneePublicId(event.target.value)}
             >
-              <option value="">All assignees</option>
+              <option value="">
+                {taskScope === "mine" ? "Matched to your Person record" : "All assignees"}
+              </option>
               {people.map((person) => (
                 <option key={person.publicId} value={person.publicId}>
                   {person.name}

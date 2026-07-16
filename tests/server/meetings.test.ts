@@ -231,6 +231,14 @@ describe("meetings", () => {
       originMeetingPublicId: firstMeeting.body.meeting.publicId,
     });
 
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Private owner follow-up",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-16",
+      private: true,
+    });
+
     const selectedTask = await request(app).post("/api/tasks").set("Cookie", cookie).send({
       description: "Bring metrics dashboard",
       assigneePublicId: personPublicId,
@@ -259,9 +267,16 @@ describe("meetings", () => {
     expect(next.body.meeting.publicId).toBe("M002");
     expect(next.body.meeting.tasks.map((task: { publicId: string }) => task.publicId)).toEqual([
       "T001",
-      "T003",
+      "T004",
     ]);
-    expect(next.body.meeting.notes).toBe("");
+    expect(next.body.meeting.notes).toBe(
+      [
+        "## Things to check in on",
+        "- Morgan: T001 Prepare follow-up, due 2026-06-16",
+        "- Morgan: T004 Bring metrics dashboard, due 2026-06-16",
+      ].join("\n"),
+    );
+    expect(next.body.meeting.notes).not.toContain("Private owner follow-up");
     expect(next.body.meeting.links).toEqual([
       expect.objectContaining({
         label: "Standing agenda",

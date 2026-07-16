@@ -203,6 +203,7 @@ export type DecisionDto = {
   decisionDate: string;
   context: string;
   meetingPublicId: string | null;
+  supersededByDecisionPublicId: string | null;
   tasks: TaskDto[];
   archived: boolean;
 };

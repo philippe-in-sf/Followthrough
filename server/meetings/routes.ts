@@ -17,6 +17,9 @@ import { badRequest, notFound } from "../errors.js";
 import { mapTaskRows, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
 import {
+  buildAttendeeTaskAgendaNotes,
+  getOpenAttendeeTasks,
+  linkOpenAttendeeTasksToMeeting,
   getLatestSeriesMeetingContext,
   linkOpenSeriesTasksToMeeting,
   mergeCarriedLinks,
@@ -512,6 +515,14 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           userId,
         );
         const links = mergeCarriedLinks(carriedContext.links, input.links);
+        const attendeeTasks = getOpenAttendeeTasks(
+          db,
+          input.attendeePublicIds,
+          userId,
+          teamId,
+          input.private,
+        );
+        const notes = buildAttendeeTaskAgendaNotes(input.notes, attendeeTasks);
 
         const publicId = nextPublicId(db, "M");
         const blockersClearedAt = resolveBlockerClearedAt({
@@ -530,7 +541,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           input.summary,
           input.blockers,
           blockersClearedAt,
-          input.notes,
+          notes,
           input.private ? 1 : 0,
           userId,
           teamId,
@@ -548,6 +559,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         );
         replaceStructuredMeetingLinks(db, row.id, links);
         linkOpenSeriesTasksToMeeting(db, series.id, row.id, userId);
+        linkOpenAttendeeTasksToMeeting(db, row.id, attendeeTasks);
         const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);
         recordAuditEvent(db, {
           entityType: "meeting",

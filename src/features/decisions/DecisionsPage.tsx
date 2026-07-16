@@ -13,6 +13,7 @@ type DecisionFormState = {
   decisionDate: string;
   context: string;
   meetingPublicId: string;
+  supersededByDecisionPublicId: string;
   createFollowUpTask: boolean;
   followUpTaskDescription: string;
   followUpTaskAssigneePublicId: string;
@@ -26,6 +27,7 @@ const emptyDecisionForm: DecisionFormState = {
   decisionDate: "",
   context: "",
   meetingPublicId: "",
+  supersededByDecisionPublicId: "",
   createFollowUpTask: false,
   followUpTaskDescription: "",
   followUpTaskAssigneePublicId: "",
@@ -88,6 +90,7 @@ export function DecisionsPage({
       decisionDate: form.decisionDate,
       context: form.context,
       meetingPublicId: form.meetingPublicId || null,
+      supersededByDecisionPublicId: form.supersededByDecisionPublicId || null,
       followUpTask: form.createFollowUpTask
         ? {
             description: form.followUpTaskDescription,
@@ -112,6 +115,7 @@ export function DecisionsPage({
       decisionDate: decision.decisionDate,
       context: decision.context,
       meetingPublicId: decision.meetingPublicId ?? "",
+      supersededByDecisionPublicId: decision.supersededByDecisionPublicId ?? "",
       createFollowUpTask: false,
       followUpTaskDescription: "",
       followUpTaskAssigneePublicId: "",
@@ -175,6 +179,31 @@ export function DecisionsPage({
                 {new Date(meeting.startsAt).toLocaleDateString()}
               </option>
             ))}
+          </select>
+        </FormField>
+        <FormField label="Superseded by decision">
+          <select
+            value={form.supersededByDecisionPublicId}
+            onChange={(event) =>
+              setForm({ ...form, supersededByDecisionPublicId: event.target.value })
+            }
+          >
+            <option value="">Not superseded</option>
+            {form.supersededByDecisionPublicId &&
+            !decisions.some(
+              (decision) => decision.publicId === form.supersededByDecisionPublicId,
+            ) ? (
+              <option value={form.supersededByDecisionPublicId}>
+                {form.supersededByDecisionPublicId} - linked decision unavailable
+              </option>
+            ) : null}
+            {decisions
+              .filter((decision) => decision.publicId !== form.publicId)
+              .map((decision) => (
+                <option key={decision.publicId} value={decision.publicId}>
+                  {decision.publicId} - {collapseLinks(decision.decisionText)}
+                </option>
+              ))}
           </select>
         </FormField>
         <label className="checkbox-line">
@@ -292,6 +321,15 @@ export function DecisionsPage({
                   </span>
                   <span>{decision.decisionDate}</span>
                   <div className="decision-task-links">
+                    {decision.supersededByDecisionPublicId ? (
+                      <span className="hint-chip">
+                        Superseded by{" "}
+                        <LinkedText
+                          text={decision.supersededByDecisionPublicId}
+                          onRecordOpen={onRecordReferenceOpen}
+                        />
+                      </span>
+                    ) : null}
                     {decision.tasks.length ? (
                       decision.tasks.map((task) => (
                         <span className="hint-chip" key={task.publicId}>

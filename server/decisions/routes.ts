@@ -5,7 +5,7 @@ import type { DecisionDto } from "../../shared/types.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
-import { getAuditEvents } from "../audit/auditLog.js";
+import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import { badRequest, notFound } from "../errors.js";
 import { createTaskRecord } from "../tasks/routes.js";
 import { mapTaskRows, taskSelect, type TaskRow } from "../tasks/taskRows.js";
@@ -19,6 +19,7 @@ type DecisionRow = {
   decision_date: string;
   context: string;
   meeting_public_id: string | null;
+  superseded_by_decision_public_id: string | null;
   archived_at: string | null;
 };
 
@@ -56,6 +57,7 @@ function toDecision(
     decisionDate: row.decision_date,
     context: row.context,
     meetingPublicId: row.meeting_public_id,
+    supersededByDecisionPublicId: row.superseded_by_decision_public_id,
     tasks: getDecisionTasks(db, config, row.public_id, userId, teamId),
     archived: row.archived_at !== null,
   };
@@ -65,9 +67,12 @@ function decisionSelect() {
   return `
     SELECT decisions.public_id, decisions.decision_text, decisions.decision_date,
            decisions.context, meetings.public_id AS meeting_public_id,
+           superseding_decisions.public_id AS superseded_by_decision_public_id,
            decisions.archived_at
     FROM decisions
     LEFT JOIN meetings ON meetings.id = decisions.meeting_id
+    LEFT JOIN decisions AS superseding_decisions
+      ON superseding_decisions.id = decisions.superseded_by_decision_id
   `;
 }
 
@@ -101,6 +106,31 @@ function resolveMeetingId(db: AppDatabase, teamId: number, meetingPublicId?: str
 
   if (!meeting) throw badRequest("Meeting not found");
   return meeting.id;
+}
+
+function resolveSupersededByDecisionId(
+  db: AppDatabase,
+  teamId: number,
+  currentDecisionPublicId: string | null,
+  supersededByDecisionPublicId?: string | null,
+) {
+  if (!supersededByDecisionPublicId) return null;
+  if (currentDecisionPublicId === supersededByDecisionPublicId) {
+    throw badRequest("A decision cannot supersede itself");
+  }
+
+  const decision = db
+    .prepare(
+      `SELECT id
+       FROM decisions
+       WHERE public_id = ?
+       AND team_id = ?
+       AND archived_at IS NULL`,
+    )
+    .get(supersededByDecisionPublicId, teamId) as { id: number } | undefined;
+
+  if (!decision) throw badRequest("Superseding decision not found");
+  return decision.id;
 }
 
 function createFollowUpTaskFromDecision(
@@ -163,11 +193,26 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
         const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
         const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
+        const supersededByDecisionId = resolveSupersededByDecisionId(
+          db,
+          teamId,
+          null,
+          input.supersededByDecisionPublicId,
+        );
         const publicId = nextPublicId(db, "D");
         db.prepare(
-          `INSERT INTO decisions (public_id, decision_text, decision_date, context, meeting_id, team_id)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        ).run(publicId, input.decisionText, input.decisionDate, input.context, meetingId, teamId);
+          `INSERT INTO decisions
+           (public_id, decision_text, decision_date, context, meeting_id, superseded_by_decision_id, team_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          publicId,
+          input.decisionText,
+          input.decisionDate,
+          input.context,
+          meetingId,
+          supersededByDecisionId,
+          teamId,
+        );
         createFollowUpTaskFromDecision(
           db,
           config,
@@ -209,12 +254,19 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
       const decision = withTransaction(db, () => {
         const userId = req.user?.id ?? 0;
         const teamId = req.user?.teamId ?? 0;
+        const before = getDecisionByPublicId(db, config, req.params.publicId, userId, teamId);
         const meetingId = resolveMeetingId(db, teamId, input.meetingPublicId);
+        const supersededByDecisionId = resolveSupersededByDecisionId(
+          db,
+          teamId,
+          req.params.publicId,
+          input.supersededByDecisionPublicId,
+        );
         const result = db
           .prepare(
             `UPDATE decisions
              SET decision_text = ?, decision_date = ?, context = ?,
-                 meeting_id = ?, updated_at = CURRENT_TIMESTAMP
+                 meeting_id = ?, superseded_by_decision_id = ?, updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ? AND team_id = ? AND archived_at IS NULL`,
           )
           .run(
@@ -222,6 +274,7 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
             input.decisionDate,
             input.context,
             meetingId,
+            supersededByDecisionId,
             req.params.publicId,
             teamId,
           );
@@ -236,7 +289,16 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           userId,
           teamId,
         );
-        return getDecisionByPublicId(db, config, req.params.publicId, userId, teamId);
+        const updated = getDecisionByPublicId(db, config, req.params.publicId, userId, teamId);
+        recordAuditEvent(db, {
+          entityType: "decision",
+          entityPublicId: updated.publicId,
+          action: "updated",
+          userId,
+          summary: "Updated decision details",
+          changes: { before, after: updated },
+        });
+        return updated;
       });
 
       res.json({ decision });
