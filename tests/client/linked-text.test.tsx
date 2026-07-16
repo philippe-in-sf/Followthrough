@@ -67,6 +67,14 @@ describe("LinkedText", () => {
     ).toBe("Read the deck (Link).");
   });
 
+  it("collapses the T031 title link without leaking slide fragments", () => {
+    expect(
+      collapseLinks(
+        "Do Managers+ deck (https://docs.google.com/presentation/d/1OG6c5X9jCxhsqT8WSy31Wj9-JDWPjdG6IH5ywC0L7dg/edit?slide=id.g3e977fce53a_0_0#slide=id.g3e977fce53a_0_0)",
+      ),
+    ).toBe("Do Managers+ deck (Link)");
+  });
+
   it("collapses markdown links to text for non-linkable controls", () => {
     expect(
       collapseLinks(
