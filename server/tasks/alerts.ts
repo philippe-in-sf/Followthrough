@@ -1,4 +1,4 @@
-import type { AlertState, TaskStatus } from "../../shared/types.js";
+import { isClosedTaskStatus, type AlertState, type TaskStatus } from "../../shared/types.js";
 
 function startOfToday(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -10,7 +10,7 @@ export function getTaskAlert(
   dueSoonDays: number,
   now = new Date(),
 ): AlertState | null {
-  if (!dueDate || status === "Done") return null;
+  if (!dueDate || isClosedTaskStatus(status)) return null;
 
   const today = startOfToday(now);
   const due = new Date(`${dueDate}T00:00:00`);

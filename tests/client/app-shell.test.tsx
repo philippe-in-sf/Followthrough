@@ -287,6 +287,7 @@ describe("AppShell split context rail", () => {
     ).toBeInTheDocument();
     expect(within(contextRail).getByText("Active")).toBeInTheDocument();
     expect(within(contextRail).getByText("Done")).toBeInTheDocument();
+    expect(within(contextRail).getByText("Won't fix")).toBeInTheDocument();
   });
 
   it("renders a mobile section summary from the active section metadata", () => {

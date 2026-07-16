@@ -10,6 +10,20 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.13.0 - 2026-07-16
+
+### Added
+
+- Added `Won't Fix` as a first-class task status with filtering, editing, task-lane, validation, and database migration support.
+
+### Changed
+
+- Treat `Done` and `Won't Fix` as closed statuses for reminders, due-date alerts, dependency warnings, dashboard open-work queries, and recurring-meeting agenda carry-over.
+
+### Fixed
+
+- Fixed split Google Slides fragments leaking after collapsed markdown links in task titles and rich notes.
+
 ## 1.12.0 - 2026-07-16
 
 ### Changed

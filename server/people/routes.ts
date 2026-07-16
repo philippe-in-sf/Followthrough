@@ -210,7 +210,7 @@ export function peopleRoutes(db: AppDatabase) {
            AND tasks.team_id = ?
            AND tasks.archived_at IS NULL
            AND ${visibleTaskCondition()}
-           ORDER BY tasks.status = 'Done',
+           ORDER BY tasks.status IN ('Done', 'Won''t Fix'),
                     tasks.due_date IS NULL,
                     tasks.due_date ASC,
                     tasks.created_at ASC`,

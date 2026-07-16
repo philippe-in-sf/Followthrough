@@ -31,7 +31,7 @@ export function linkOpenSeriesTasksToMeeting(
        FROM tasks
        WHERE series_id = ?
        AND (private = 0 OR created_by_user_id = ?)
-       AND status <> 'Done'
+       AND status NOT IN ('Done', 'Won''t Fix')
        AND archived_at IS NULL
        ORDER BY created_at ASC, id ASC`,
     )
@@ -70,7 +70,7 @@ export function getOpenAttendeeTasks(
        AND people.archived_at IS NULL
        AND tasks.team_id = ?
        AND (tasks.private = 0 OR (? = 1 AND tasks.created_by_user_id = ?))
-       AND tasks.status <> 'Done'
+       AND tasks.status NOT IN ('Done', 'Won''t Fix')
        AND tasks.archived_at IS NULL
        ORDER BY people.name COLLATE NOCASE,
                 tasks.status = 'Blocked' DESC,

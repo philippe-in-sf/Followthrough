@@ -122,7 +122,7 @@ export function getTaskDependencyMap(
        WHERE task_dependencies.task_id IN (${placeholders})
        AND dependency_tasks.team_id = parent_tasks.team_id
        AND (dependency_tasks.private = 0 OR dependency_tasks.created_by_user_id = ?)
-       ORDER BY dependency_tasks.status = 'Done',
+       ORDER BY dependency_tasks.status IN ('Done', 'Won''t Fix'),
                 dependency_tasks.archived_at IS NOT NULL,
                 dependency_tasks.due_date IS NULL,
                 dependency_tasks.due_date ASC,

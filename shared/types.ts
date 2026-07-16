@@ -1,4 +1,10 @@
-export type TaskStatus = "Open" | "In Progress" | "Blocked" | "Done";
+export const taskStatuses = ["Open", "In Progress", "Blocked", "Done", "Won't Fix"] as const;
+export type TaskStatus = (typeof taskStatuses)[number];
+export const closedTaskStatuses = ["Done", "Won't Fix"] as const;
+
+export function isClosedTaskStatus(status: TaskStatus) {
+  return (closedTaskStatuses as readonly TaskStatus[]).includes(status);
+}
 export type TaskReminderMode = "automatic" | "manual";
 export type MeetingType = "single" | "recurring";
 export type MeetingLinkType = "agenda" | "work" | "reference" | "other";

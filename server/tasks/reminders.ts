@@ -59,7 +59,7 @@ function getOutstandingTaskForReminder(db: AppDatabase, publicId: string) {
       `${reminderTaskSelect}
        WHERE tasks.public_id = ?
        AND tasks.archived_at IS NULL
-       AND tasks.status <> 'Done'`,
+       AND tasks.status NOT IN ('Done', 'Won''t Fix')`,
     )
     .get(publicId) as ReminderTaskRow | undefined;
 
@@ -183,7 +183,7 @@ export async function sendAutomaticTaskReminders(
     .prepare(
       `${reminderTaskSelect}
        WHERE tasks.archived_at IS NULL
-       AND tasks.status <> 'Done'
+       AND tasks.status NOT IN ('Done', 'Won''t Fix')
        AND tasks.reminder_mode = 'automatic'
        AND tasks.due_date IS NOT NULL
        AND people.email IS NOT NULL

@@ -37,7 +37,7 @@ function getDecisionTasks(
        AND tasks.team_id = ?
        AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
        AND tasks.archived_at IS NULL
-       ORDER BY tasks.status = 'Done', tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
+       ORDER BY tasks.status IN ('Done', 'Won''t Fix'), tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC`,
     )
     .all(decisionPublicId, teamId, userId) as TaskRow[];
 

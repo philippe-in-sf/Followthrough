@@ -1,5 +1,7 @@
 const urlPattern = /https?:\/\/[^\s<>"']+/gi;
 const inlineTokenPattern = /https?:\/\/[^\s<>"']+|\b[TPMDS]\d{3,}\b/g;
+const markdownLinkPattern =
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)(?:(?:00|\s)*#[^)]*?00)?/gi;
 
 export type RecordReferenceType = "task" | "meeting" | "person" | "decision" | "series";
 
@@ -58,16 +60,17 @@ export function recordReferenceForPublicId(publicId: string): RecordReferenceTar
 }
 
 export function collapseLinks(text: string) {
+  const markdownCollapsed = text.replace(markdownLinkPattern, (_match, label: string) => label);
   const parts: string[] = [];
   let cursor = 0;
 
-  for (const match of text.matchAll(urlPattern)) {
+  for (const match of markdownCollapsed.matchAll(urlPattern)) {
     const rawUrl = match[0];
     const index = match.index ?? 0;
     const { trailing } = splitUrl(rawUrl);
 
     if (index > cursor) {
-      parts.push(text.slice(cursor, index));
+      parts.push(markdownCollapsed.slice(cursor, index));
     }
 
     parts.push("Link");
@@ -79,11 +82,11 @@ export function collapseLinks(text: string) {
     cursor = index + rawUrl.length;
   }
 
-  if (cursor < text.length) {
-    parts.push(text.slice(cursor));
+  if (cursor < markdownCollapsed.length) {
+    parts.push(markdownCollapsed.slice(cursor));
   }
 
-  return parts.length > 0 ? parts.join("") : text;
+  return parts.length > 0 ? parts.join("") : markdownCollapsed;
 }
 
 export function LinkedText({
