@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.12.0 - 2026-07-16
+
+### Changed
+
+- Replaced remaining legacy production-domain references with `followthrough.dev` in documentation, reminder email fallbacks, and tests.
+
 ## 1.11.0 - 2026-07-16
 
 ### Added
