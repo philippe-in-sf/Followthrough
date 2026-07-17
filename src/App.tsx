@@ -154,6 +154,7 @@ export function App() {
   const fallbackPreferences = useMemo<UserPreferencesDto>(
     () => ({
       workCalendarUrl: fallbackWorkCalendarUrl,
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,

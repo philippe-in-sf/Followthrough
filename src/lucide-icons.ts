@@ -16,7 +16,9 @@ export { default as CalendarPlus } from "lucide-react/dist/esm/icons/calendar-pl
 export { default as Check } from "lucide-react/dist/esm/icons/check.mjs";
 export { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down.mjs";
 export { default as CircleCheckBig } from "lucide-react/dist/esm/icons/circle-check-big.mjs";
+export { default as ClipboardCopy } from "lucide-react/dist/esm/icons/clipboard-copy.mjs";
 export { default as Code } from "lucide-react/dist/esm/icons/code.mjs";
+export { default as Download } from "lucide-react/dist/esm/icons/download.mjs";
 export { default as ExternalLink } from "lucide-react/dist/esm/icons/external-link.mjs";
 export { default as Eye } from "lucide-react/dist/esm/icons/eye.mjs";
 export { default as FileText } from "lucide-react/dist/esm/icons/file-text.mjs";
@@ -44,6 +46,7 @@ export { default as Search } from "lucide-react/dist/esm/icons/search.mjs";
 export { default as Settings } from "lucide-react/dist/esm/icons/settings.mjs";
 export { default as SlidersHorizontal } from "lucide-react/dist/esm/icons/sliders-horizontal.mjs";
 export { default as Trash2 } from "lucide-react/dist/esm/icons/trash-2.mjs";
+export { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up.mjs";
 export { default as UserMinus } from "lucide-react/dist/esm/icons/user-minus.mjs";
 export { default as Users } from "lucide-react/dist/esm/icons/users.mjs";
 export { default as UsersRound } from "lucide-react/dist/esm/icons/users-round.mjs";

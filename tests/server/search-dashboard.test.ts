@@ -58,7 +58,7 @@ async function setup() {
     context: "Enough review time.",
     meetingPublicId: "M001",
   });
-  return { app, cookie, personPublicId: person.body.person.publicId };
+  return { app, cookie, db, personPublicId: person.body.person.publicId };
 }
 
 afterEach(() => {
@@ -128,7 +128,16 @@ describe("search and dashboard", () => {
   });
 
   it("returns dashboard summaries and alerts", async () => {
-    const { app, cookie } = await setup();
+    const { app, cookie, db } = await setup();
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Close launch checklist",
+      status: "Done",
+      dueDate: "2026-06-08",
+    });
+    db.prepare("UPDATE tasks SET updated_at = ? WHERE public_id = ?").run(
+      "2026-06-09T12:00:00.000Z",
+      "T002",
+    );
 
     const response = await request(app).get("/api/dashboard").set("Cookie", cookie);
 
@@ -150,6 +159,27 @@ describe("search and dashboard", () => {
     );
     expect(response.body.openTasksByAssignee[0].assignee.name).toBe("Taylor");
     expect(response.body.recentDecisions[0].publicId).toBe("D001");
+    expect(response.body.trends).toEqual({
+      tasksCompletedThisWeek: 1,
+      tasksCompletedThisMonth: 1,
+      decisionsMadeThisMonth: 1,
+      meetingsHeldThisMonth: 1,
+    });
+  });
+
+  it("exports a markdown workspace summary", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app)
+      .get("/api/dashboard/export?format=markdown")
+      .set("Cookie", cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/markdown");
+    expect(response.text).toContain("# Followthrough weekly digest");
+    expect(response.text).toContain("## Open tasks");
+    expect(response.text).toContain("T001: Prepare board packet");
+    expect(response.text).toContain("D001: Send packet Friday");
   });
 
   it("excludes another user's private tasks and meetings from search and dashboard", async () => {

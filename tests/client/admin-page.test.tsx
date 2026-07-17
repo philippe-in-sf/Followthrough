@@ -67,6 +67,7 @@ describe("admin page", () => {
       if (url.pathname === "/api/me/preferences") {
         return json({
           workCalendarUrl: null,
+          weeklyDigestEnabled: false,
           googleCalendarConfigured: false,
           googleCalendarConnected: false,
           googleCalendarEmail: null,
@@ -80,6 +81,12 @@ describe("admin page", () => {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         });
       }
       if (url.pathname === "/api/admin/team" && method === "GET") return json({ team });
@@ -150,6 +157,7 @@ describe("admin page", () => {
       if (url.pathname === "/api/me/preferences") {
         return json({
           workCalendarUrl: null,
+          weeklyDigestEnabled: false,
           googleCalendarConfigured: false,
           googleCalendarConnected: false,
           googleCalendarEmail: null,
@@ -163,6 +171,12 @@ describe("admin page", () => {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         });
       }
       if (url.pathname === "/api/admin/team" && method === "GET") {
@@ -308,6 +322,7 @@ describe("admin page", () => {
       if (url.pathname === "/api/me/preferences") {
         return json({
           workCalendarUrl: null,
+          weeklyDigestEnabled: false,
           googleCalendarConfigured: false,
           googleCalendarConnected: false,
           googleCalendarEmail: null,
@@ -321,6 +336,12 @@ describe("admin page", () => {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         });
       }
       if (url.pathname === "/api/admin/team") return json({ team });
@@ -404,6 +425,7 @@ describe("admin page", () => {
       if (url.pathname === "/api/me/preferences") {
         return json({
           workCalendarUrl: null,
+          weeklyDigestEnabled: false,
           googleCalendarConfigured: false,
           googleCalendarConnected: false,
           googleCalendarEmail: null,
@@ -417,6 +439,12 @@ describe("admin page", () => {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         });
       }
       if (url.pathname === "/api/admin/team") return json({ team });

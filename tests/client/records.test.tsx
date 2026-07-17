@@ -63,6 +63,12 @@ function mockLoggedInFetch() {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         }),
       } as Response);
     }
@@ -190,7 +196,13 @@ describe("record pages", () => {
           activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
             recentDecisions: [],
-            activeSeries: [],
+          activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
           }),
         } as Response);
       }
@@ -254,7 +266,13 @@ describe("record pages", () => {
           activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
             recentDecisions: [],
-            activeSeries: [],
+          activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
           }),
         } as Response);
       }
@@ -348,7 +366,13 @@ describe("record pages", () => {
           activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
             recentDecisions: [],
-            activeSeries: [],
+          activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
           }),
         } as Response);
       }
@@ -408,7 +432,13 @@ describe("record pages", () => {
           activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
             recentDecisions: [],
-            activeSeries: [],
+          activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
           }),
         } as Response);
       }
@@ -474,7 +504,13 @@ describe("record pages", () => {
           activeBlockers: { tasks: [], meetings: [] },
           recentMeetings: [],
             recentDecisions: [],
-            activeSeries: [],
+          activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
           }),
         } as Response);
       }

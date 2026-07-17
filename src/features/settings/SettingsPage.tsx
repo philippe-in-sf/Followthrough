@@ -1,5 +1,5 @@
-import { KeyRound, UserMinus } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { KeyRound, Mail, UserMinus } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api } from "../../api/client";
 import type { User } from "../../api/types";
 import { FormField } from "../../components/FormField";
@@ -23,6 +23,35 @@ export function SettingsPage({
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [teamError, setTeamError] = useState("");
   const [teamSubmitting, setTeamSubmitting] = useState(false);
+  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(false);
+  const [workCalendarUrl, setWorkCalendarUrl] = useState<string | null>(null);
+  const [digestLoading, setDigestLoading] = useState(true);
+  const [digestSaving, setDigestSaving] = useState(false);
+  const [digestError, setDigestError] = useState("");
+  const [digestStatus, setDigestStatus] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPreferences() {
+      try {
+        const preferences = await api.preferences.get();
+        if (!active) return;
+        setWeeklyDigestEnabled(preferences.weeklyDigestEnabled);
+        setWorkCalendarUrl(preferences.workCalendarUrl);
+      } catch (error) {
+        if (!active) return;
+        setDigestError(errorMessage(error));
+      } finally {
+        if (active) setDigestLoading(false);
+      }
+    }
+
+    void loadPreferences();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,6 +86,27 @@ export function SettingsPage({
       setTeamError(errorMessage(error));
     } finally {
       setTeamSubmitting(false);
+    }
+  }
+
+  async function updateDigestPreference(enabled: boolean) {
+    setWeeklyDigestEnabled(enabled);
+    setDigestSaving(true);
+    setDigestError("");
+    setDigestStatus("");
+    try {
+      const preferences = await api.preferences.update({
+        workCalendarUrl,
+        weeklyDigestEnabled: enabled,
+      });
+      setWeeklyDigestEnabled(preferences.weeklyDigestEnabled);
+      setWorkCalendarUrl(preferences.workCalendarUrl);
+      setDigestStatus(preferences.weeklyDigestEnabled ? "Weekly digest enabled" : "Weekly digest off");
+    } catch (error) {
+      setWeeklyDigestEnabled((current) => !current);
+      setDigestError(errorMessage(error));
+    } finally {
+      setDigestSaving(false);
     }
   }
 
@@ -116,6 +166,27 @@ export function SettingsPage({
             {passwordSubmitting ? "Updating..." : "Update password"}
           </button>
         </form>
+
+        <section className="settings-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Weekly digest</h2>
+              <p>Receive a weekly email with completed work, open tasks, meetings, and decisions.</p>
+            </div>
+            <Mail aria-hidden="true" size={20} />
+          </div>
+          <label className="checkbox-line">
+            <input
+              checked={weeklyDigestEnabled}
+              disabled={digestLoading || digestSaving}
+              onChange={(event) => void updateDigestPreference(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Email me the weekly workspace digest</span>
+          </label>
+          {digestError ? <p className="form-error">{digestError}</p> : null}
+          {digestStatus ? <p className="form-status">{digestStatus}</p> : null}
+        </section>
 
         <section className="settings-panel settings-danger-panel">
           <div className="panel-heading">

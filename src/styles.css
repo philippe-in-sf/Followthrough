@@ -1453,6 +1453,33 @@ button:disabled {
   color: #0f766e;
 }
 
+.dashboard-momentum {
+  gap: 16px;
+}
+
+.dashboard-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-momentum .dashboard-metric {
+  box-shadow: none;
+}
+
+.dashboard-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-export-actions .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.8fr);
@@ -4153,7 +4180,8 @@ button:disabled {
     transform: translateX(16%) rotate(-1.5deg);
   }
 
-  .dashboard-metrics {
+  .dashboard-metrics,
+  .dashboard-trend-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4532,6 +4560,7 @@ button:disabled {
   }
 
   .dashboard-metrics,
+  .dashboard-trend-grid,
   .dashboard-task-columns {
     grid-template-columns: 1fr;
   }

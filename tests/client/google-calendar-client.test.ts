@@ -21,6 +21,7 @@ describe("calendar client preferences", () => {
     globalThis.fetch = vi.fn(() =>
       json({
         workCalendarUrl: "https://calendar.example.com/team",
+        weeklyDigestEnabled: false,
         googleCalendarConfigured: true,
         googleCalendarConnected: true,
         googleCalendarEmail: "editor@gmail.com",
@@ -29,6 +30,7 @@ describe("calendar client preferences", () => {
 
     await expect(api.preferences.get()).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: true,
       googleCalendarConnected: true,
       googleCalendarEmail: "editor@gmail.com",
@@ -44,6 +46,7 @@ describe("calendar client preferences", () => {
     globalThis.fetch = vi.fn(() =>
       json({
         workCalendarUrl: "https://calendar.example.com/team",
+        weeklyDigestEnabled: false,
         googleCalendarConfigured: true,
         googleCalendarConnected: false,
         googleCalendarEmail: null,
@@ -54,6 +57,7 @@ describe("calendar client preferences", () => {
       api.preferences.update({ workCalendarUrl: "https://calendar.example.com/team" }),
     ).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: true,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
