@@ -103,6 +103,7 @@ describe("auth shell", () => {
           ok: true,
           json: async () => ({
             workCalendarUrl: null,
+            weeklyDigestEnabled: false,
             googleCalendarConfigured: true,
             googleCalendarConnected: false,
             googleCalendarEmail: null,
@@ -119,6 +120,12 @@ describe("auth shell", () => {
           recentMeetings: [],
           recentDecisions: [],
           activeSeries: [],
+          trends: {
+            tasksCompletedThisWeek: 0,
+            tasksCompletedThisMonth: 0,
+            decisionsMadeThisMonth: 0,
+            meetingsHeldThisMonth: 0,
+          },
         }),
         } as Response);
       }

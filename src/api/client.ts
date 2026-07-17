@@ -53,6 +53,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestText(path: string, options: RequestInit = {}): Promise<string> {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    headers: {
+      ...(options.headers ?? {}),
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Request failed" }));
+    throw new ApiError(response.status, body.error ?? "Request failed");
+  }
+
+  return response.text();
+}
+
 export type DashboardTask = {
   publicId: string;
   description: string;
@@ -80,6 +97,12 @@ export type DashboardResponse = {
   recentMeetings: DashboardMeeting[];
   recentDecisions: Array<{ publicId: string; decisionText: string; decisionDate: string }>;
   activeSeries: Array<{ publicId: string; title: string; cadenceLabel: string | null }>;
+  trends: {
+    tasksCompletedThisWeek: number;
+    tasksCompletedThisMonth: number;
+    decisionsMadeThisMonth: number;
+    meetingsHeldThisMonth: number;
+  };
 };
 
 export type SearchResult = {
@@ -235,11 +258,13 @@ export const api = {
     }),
   leaveTeam: () => request<{ user: User }>("/api/me/team/leave", { method: "POST" }),
   dashboard: () => request<DashboardResponse>("/api/dashboard"),
+  dashboardExport: (format: "markdown" | "text" = "markdown") =>
+    requestText(`/api/dashboard/export?${new URLSearchParams({ format })}`),
   search: (query: string) =>
     request<{ results: SearchResult[] }>(`/api/search?${new URLSearchParams({ q: query })}`),
   preferences: {
     get: () => request<UserPreferencesDto>("/api/me/preferences"),
-    update: (body: { workCalendarUrl: string | null }) =>
+    update: (body: { workCalendarUrl: string | null; weeklyDigestEnabled?: boolean }) =>
       request<UserPreferencesDto>("/api/me/preferences", {
         method: "PUT",
         body: JSON.stringify(body),

@@ -243,6 +243,7 @@ function setupAppFetch(
     if (url.pathname === "/api/me/preferences" && method === "GET") {
       return json({
         workCalendarUrl,
+        weeklyDigestEnabled: false,
         googleCalendarConfigured,
         googleCalendarConnected,
         googleCalendarEmail,
@@ -264,6 +265,7 @@ function setupAppFetch(
       workCalendarUrl = nextUrl || null;
       return json({
         workCalendarUrl,
+        weeklyDigestEnabled: Boolean(body.weeklyDigestEnabled),
         googleCalendarConfigured,
         googleCalendarConnected,
         googleCalendarEmail,
@@ -330,7 +332,21 @@ function setupAppFetch(
           decisionDate: decision.decisionDate,
         })),
         activeSeries: series,
+        trends: {
+          tasksCompletedThisWeek: 1,
+          tasksCompletedThisMonth: 3,
+          decisionsMadeThisMonth: decisions.length,
+          meetingsHeldThisMonth: meetings.length,
+        },
       });
+    }
+
+    if (url.pathname === "/api/dashboard/export") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: async () => "# Followthrough weekly digest\n\n## Open tasks\n- T001: Draft launch notes",
+      } as Response);
     }
 
     if (url.pathname === "/api/search") {

@@ -54,6 +54,7 @@ describe("user preferences", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       workCalendarUrl: null,
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -90,6 +91,7 @@ describe("user preferences", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       workCalendarUrl: null,
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: true,
       googleCalendarConnected: true,
       googleCalendarEmail: "editor@gmail.com",
@@ -123,6 +125,7 @@ describe("user preferences", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       workCalendarUrl: null,
+      weeklyDigestEnabled: false,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -144,6 +147,38 @@ describe("user preferences", () => {
 
     const saved = await request(app).get("/api/me/preferences").set("Cookie", cookie);
     expect(saved.body.workCalendarUrl).toBe("https://calendar.google.com/calendar/u/0/r/week");
+  });
+
+  it("saves weekly digest opt-in without requiring a calendar shortcut", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app)
+      .put("/api/me/preferences")
+      .set("Cookie", cookie)
+      .send({ workCalendarUrl: null, weeklyDigestEnabled: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body.weeklyDigestEnabled).toBe(true);
+
+    const saved = await request(app).get("/api/me/preferences").set("Cookie", cookie);
+    expect(saved.body.weeklyDigestEnabled).toBe(true);
+  });
+
+  it("preserves weekly digest opt-in when saving only the calendar shortcut", async () => {
+    const { app, cookie } = await setup();
+    await request(app)
+      .put("/api/me/preferences")
+      .set("Cookie", cookie)
+      .send({ workCalendarUrl: null, weeklyDigestEnabled: true });
+
+    const response = await request(app)
+      .put("/api/me/preferences")
+      .set("Cookie", cookie)
+      .send({ workCalendarUrl: "https://calendar.example.com/team" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.weeklyDigestEnabled).toBe(true);
+    expect(response.body.workCalendarUrl).toBe("https://calendar.example.com/team");
   });
 
   it("clears the calendar shortcut URL", async () => {

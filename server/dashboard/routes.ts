@@ -3,6 +3,7 @@ import type { TaskStatus } from "../../shared/types.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { getTaskAlert } from "../tasks/alerts.js";
+import { buildWorkspaceDigestMarkdown, getDashboardTrendCounts } from "./report.js";
 
 type DashboardTaskRow = {
   public_id: string;
@@ -150,7 +151,21 @@ export function dashboardRoutes(db: AppDatabase, config: AppConfig) {
       recentMeetings,
       recentDecisions,
       activeSeries: series,
+      trends: getDashboardTrendCounts(db, userId, teamId),
     });
+  });
+
+  router.get("/export", (req, res) => {
+    const userId = req.user?.id ?? 0;
+    const teamId = req.user?.teamId ?? 0;
+    const format = req.query.format === "text" ? "text" : "markdown";
+    const report = buildWorkspaceDigestMarkdown(db, config, {
+      userId,
+      teamId,
+      userName: req.user?.name,
+    });
+
+    res.type(format === "text" ? "text/plain" : "text/markdown").send(report);
   });
 
   return router;

@@ -10,6 +10,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.15.0 - 2026-07-17
+
+### Added
+
+- Added dashboard momentum metrics for completed tasks, monthly decisions, and monthly meetings.
+- Added copy/download Markdown export for workspace status summaries.
+- Added per-user opt-in weekly workspace digest emails, defaulting off and throttled to one send per user per week.
+
 ## 1.14.0 - 2026-07-16
 
 ### Fixed

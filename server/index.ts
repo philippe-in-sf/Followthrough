@@ -5,6 +5,7 @@ import { createApp } from "./app.js";
 import type { AppDatabase } from "./db/database.js";
 import type { EmailSender } from "./email/mailer.js";
 import { loadConfig } from "./config.js";
+import { startWorkspaceDigestJob } from "./dashboard/digestJob.js";
 import { startDatabaseBackupJob } from "./db/backups.js";
 import { startAutomaticTaskReminderJob } from "./tasks/reminderJob.js";
 import { attachViteDevServer } from "./vite-dev.js";
@@ -13,6 +14,11 @@ const config = loadConfig();
 const app = createApp({ config });
 const backupJob = startDatabaseBackupJob(app.locals.db as AppDatabase, config);
 const reminderJob = startAutomaticTaskReminderJob(
+  app.locals.db as AppDatabase,
+  config,
+  app.locals.emailSender as EmailSender | null,
+);
+const digestJob = startWorkspaceDigestJob(
   app.locals.db as AppDatabase,
   config,
   app.locals.emailSender as EmailSender | null,
@@ -34,5 +40,6 @@ const server = app.listen(config.port, () => {
 process.on("SIGTERM", () => {
   backupJob.stop();
   reminderJob.stop();
+  digestJob.stop();
   server.close(() => process.exit(0));
 });

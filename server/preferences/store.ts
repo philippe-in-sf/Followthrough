@@ -9,11 +9,13 @@ export class InvalidWorkCalendarUrlError extends Error {
 export type UserPreferences = {
   userId: number;
   workCalendarUrl: string | null;
+  weeklyDigestEnabled: boolean;
 };
 
 type UserPreferencesRow = {
   user_id: number;
   work_calendar_url: string;
+  weekly_digest_enabled: number;
 };
 
 export function parseWorkCalendarUrl(value: string | null) {
@@ -38,7 +40,7 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
   const row = db
     .prepare(
       `
-        SELECT user_id, work_calendar_url
+        SELECT user_id, work_calendar_url, weekly_digest_enabled
         FROM user_preferences
         WHERE user_id = ?
       `,
@@ -48,12 +50,13 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
   return {
     userId,
     workCalendarUrl: row?.work_calendar_url ? row.work_calendar_url : null,
+    weeklyDigestEnabled: row?.weekly_digest_enabled === 1,
   };
 }
 
 export function upsertUserPreferences(
   db: AppDatabase,
-  input: { userId: number; workCalendarUrl: string | null },
+  input: { userId: number; workCalendarUrl: string | null; weeklyDigestEnabled: boolean },
 ): UserPreferences {
   const workCalendarUrl = parseWorkCalendarUrl(input.workCalendarUrl);
 
@@ -62,13 +65,15 @@ export function upsertUserPreferences(
       INSERT INTO user_preferences (
         user_id,
         work_calendar_url,
+        weekly_digest_enabled,
         updated_at
-      ) VALUES (?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET
         work_calendar_url = excluded.work_calendar_url,
+        weekly_digest_enabled = excluded.weekly_digest_enabled,
         updated_at = CURRENT_TIMESTAMP
     `,
-  ).run(input.userId, workCalendarUrl ?? "");
+  ).run(input.userId, workCalendarUrl ?? "", input.weeklyDigestEnabled ? 1 : 0);
 
   return getUserPreferences(db, input.userId);
 }

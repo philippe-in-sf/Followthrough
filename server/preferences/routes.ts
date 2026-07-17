@@ -18,6 +18,7 @@ import {
 
 const preferencesSchema = z.object({
   workCalendarUrl: z.string().nullable(),
+  weeklyDigestEnabled: z.boolean().optional(),
 });
 
 const passwordSchema = z.object({
@@ -33,6 +34,7 @@ function toUserPreferencesDto(
   const googleCalendar = getGoogleCalendarConnectionStatus(db, config, preferences.userId);
   return {
     workCalendarUrl: preferences.workCalendarUrl,
+    weeklyDigestEnabled: preferences.weeklyDigestEnabled,
     ...googleCalendar,
   };
 }
@@ -53,9 +55,11 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
     try {
       const userId = req.user?.id ?? 0;
       const input = parseBody(req, preferencesSchema);
+      const current = getUserPreferences(db, userId);
       const preferences = upsertUserPreferences(db, {
         userId,
         workCalendarUrl: input.workCalendarUrl,
+        weeklyDigestEnabled: input.weeklyDigestEnabled ?? current.weeklyDigestEnabled,
       });
       res.json(toUserPreferencesDto(preferences, db, config));
     } catch (error) {

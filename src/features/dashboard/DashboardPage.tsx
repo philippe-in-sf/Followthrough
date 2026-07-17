@@ -4,8 +4,11 @@ import {
   CalendarClock,
   ChevronDown,
   CircleCheckBig,
+  ClipboardCopy,
+  Download,
   Gauge,
   ListChecks,
+  TrendingUp,
   UsersRound,
 } from "lucide-react";
 import { api, type DashboardMeeting, type DashboardTask } from "../../api/client";
@@ -51,6 +54,16 @@ function focusLine(summary: DashboardSummary) {
     } due soon.`;
   }
   return "No urgent work is flagged right now.";
+}
+
+function triggerTextDownload(filename: string, text: string, type: string) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function DashboardMetric({
@@ -193,6 +206,7 @@ export function DashboardPage({
 }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [expandedAssigneeKey, setExpandedAssigneeKey] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState("");
   const blockerTaskCount = summary?.activeBlockers.tasks.length ?? 0;
   const blockerMeetingCount = summary?.activeBlockers.meetings.length ?? 0;
   const blockerCount = blockerTaskCount + blockerMeetingCount;
@@ -208,6 +222,28 @@ export function DashboardPage({
   useEffect(() => {
     void api.dashboard().then(setSummary);
   }, []);
+
+  async function copySummary() {
+    setExportStatus("");
+    try {
+      const report = await api.dashboardExport("markdown");
+      await navigator.clipboard.writeText(report);
+      setExportStatus("Summary copied");
+    } catch {
+      setExportStatus("Unable to copy summary");
+    }
+  }
+
+  async function downloadSummary() {
+    setExportStatus("");
+    try {
+      const report = await api.dashboardExport("markdown");
+      triggerTextDownload("followthrough-summary.md", report, "text/markdown");
+      setExportStatus("Summary downloaded");
+    } catch {
+      setExportStatus("Unable to download summary");
+    }
+  }
 
   return (
     <main className="page dashboard-page">
@@ -270,6 +306,56 @@ export function DashboardPage({
           tone="neutral"
         />
       </div>
+
+      {summary ? (
+        <section className="dashboard-section dashboard-momentum" aria-labelledby="momentum-heading">
+          <div>
+            <p className="dashboard-section-kicker">Momentum</p>
+            <h3 id="momentum-heading">Recent movement</h3>
+          </div>
+          <div className="dashboard-trend-grid">
+            <DashboardMetric
+              label="Done this week"
+              value={summary.trends.tasksCompletedThisWeek}
+              detail="Closed tasks"
+              icon={<TrendingUp size={18} />}
+              tone="good"
+            />
+            <DashboardMetric
+              label="Done this month"
+              value={summary.trends.tasksCompletedThisMonth}
+              detail="Closed tasks"
+              icon={<CircleCheckBig size={18} />}
+              tone="good"
+            />
+            <DashboardMetric
+              label="Decisions"
+              value={summary.trends.decisionsMadeThisMonth}
+              detail="This month"
+              icon={<ListChecks size={18} />}
+              tone="neutral"
+            />
+            <DashboardMetric
+              label="Meetings"
+              value={summary.trends.meetingsHeldThisMonth}
+              detail="This month"
+              icon={<CalendarClock size={18} />}
+              tone="neutral"
+            />
+          </div>
+          <div className="dashboard-export-actions">
+            <button className="secondary-button" type="button" onClick={copySummary}>
+              <ClipboardCopy aria-hidden="true" size={16} />
+              Copy summary
+            </button>
+            <button className="secondary-button" type="button" onClick={downloadSummary}>
+              <Download aria-hidden="true" size={16} />
+              Download Markdown
+            </button>
+            {exportStatus ? <span className="form-status">{exportStatus}</span> : null}
+          </div>
+        </section>
+      ) : null}
 
       {summary ? (
         <div className="dashboard-layout">

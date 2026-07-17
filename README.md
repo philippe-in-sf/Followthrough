@@ -64,6 +64,7 @@ VITE_WORK_CALENDAR_URL=
 TASK_REMINDER_EMAIL_FROM=
 TASK_REMINDER_AUTO_ENABLED=false
 TASK_REMINDER_AUTO_INTERVAL_MS=86400000
+WORKSPACE_DIGEST_INTERVAL_MS=86400000
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -79,6 +80,8 @@ GOOGLE_OAUTH_REDIRECT_URI=
 Database backups run automatically from the server process by default. Set `BACKUP_DIR` to persistent storage, `BACKUP_INTERVAL_MS` to the desired schedule, and `BACKUP_RETENTION_COUNT` to the number of snapshot files to keep. Each backup writes a SQLite snapshot plus a `manifest.jsonl` audit trail in the backup directory. Set `BACKUP_ENABLED=false` only for local development or a deployment that has an external backup system.
 
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
+
+Weekly workspace digests also use the SMTP settings and are off by default for each user. Users can opt in from Settings. `WORKSPACE_DIGEST_INTERVAL_MS` controls how often the server checks for opted-in users; each user receives at most one digest per week.
 
 The shared calendar shortcut URL is configured by admins in the Admin screen. Per-user calendar shortcut preferences remain available as a fallback, and `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
 

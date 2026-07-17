@@ -190,6 +190,7 @@ export type GoogleCalendarImportEventDto = {
 
 export type UserPreferencesDto = {
   workCalendarUrl: string | null;
+  weeklyDigestEnabled: boolean;
   googleCalendarConfigured: boolean;
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;
