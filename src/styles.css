@@ -5225,6 +5225,7 @@ button:disabled {
 .app-shell[data-skin] .empty-state,
 .app-shell[data-skin] .dashboard-metric,
 .app-shell[data-skin] .dashboard-section,
+.app-shell[data-skin] .task-filter-panel,
 .app-shell[data-skin] .calendar-settings-panel,
 .app-shell[data-skin] .calendar-import-panel,
 .app-shell[data-skin] .calendar-import-preview,
@@ -5260,6 +5261,31 @@ button:disabled {
 .app-shell[data-skin] .compact-record-button,
 .app-shell[data-skin] .dashboard-assignee-meter {
   background: var(--skin-surface-alt);
+}
+
+.app-shell[data-skin] .task-filter-toggle {
+  background: var(--skin-secondary-bg);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .task-filter-toggle:hover,
+.app-shell[data-skin] .task-filter-toggle:focus-visible,
+.app-shell[data-skin] .task-filter-toggle[aria-expanded="true"] {
+  background: var(--skin-surface-raised);
+}
+
+.app-shell[data-skin] .task-filter-count,
+.app-shell[data-skin] .task-filter-empty {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .task-filter-chip {
+  background: var(--skin-accent-soft);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .task-filter-fields {
+  border-top-color: var(--skin-border);
 }
 
 .app-shell[data-skin] .dashboard-assignee-task-panel {

@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.0 - 2026-07-18
+
+### Fixed
+
+- Fixed the Tasks filter row so it follows the selected skin instead of rendering as a white strip in dark mode.
+
 ## 1.15.0 - 2026-07-17
 
 ### Added
