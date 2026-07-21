@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.1 - 2026-07-21
+
+### Changed
+
+- Replaced the separate quick-add and three-step meeting wizard with one compact meeting form, inline series search/creation, and a prefilled `New meeting` action on recurring-series rows.
+- Moved public record IDs ahead of titles and descriptions across people, tasks, meetings, recurring series, and decisions for faster scanning.
+
 ## 1.16.0 - 2026-07-18
 
 ### Fixed

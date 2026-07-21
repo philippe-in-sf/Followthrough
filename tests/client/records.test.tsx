@@ -133,6 +133,22 @@ function mockLoggedInFetch() {
         }),
       } as Response);
     }
+    if (url.endsWith("/api/meeting-series")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          series: [
+            {
+              publicId: "S001",
+              title: "Weekly planning",
+              cadenceLabel: "Weekly",
+              active: true,
+              archived: false,
+            },
+          ],
+        }),
+      } as Response);
+    }
     if (url.endsWith("/api/decisions")) {
       return Promise.resolve({
         ok: true,
@@ -155,22 +171,51 @@ function mockLoggedInFetch() {
   }) as typeof fetch;
 }
 
+function expectTextOrder(element: HTMLElement, ...values: string[]) {
+  const content = element.textContent ?? "";
+  let previousIndex = -1;
+
+  for (const value of values) {
+    const index = content.indexOf(value);
+    expect(index).toBeGreaterThan(previousIndex);
+    previousIndex = index;
+  }
+}
+
 describe("record pages", () => {
-  it("shows people, tasks with alert badges, and decisions", async () => {
+  it("leads primary record rows with their public IDs", async () => {
     mockLoggedInFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "People" }));
     expect(await screen.findByText("Avery")).toBeInTheDocument();
+    expectTextOrder(screen.getByLabelText("Person P001"), "P001", "Avery", "No email");
 
     await userEvent.click(screen.getByRole("button", { name: "Tasks" }));
     expect(await screen.findByText("Send notes")).toBeInTheDocument();
-    expect(
-      within(screen.getByLabelText("Task T001")).getByText("Due soon"),
-    ).toBeInTheDocument();
+    const taskCard = screen.getByLabelText("Task T001");
+    expect(within(taskCard).getByText("Due soon")).toBeInTheDocument();
+    expectTextOrder(taskCard, "T001", "Send notes");
+
+    await userEvent.click(screen.getByRole("button", { name: "Meetings" }));
+    const meetingCard = await screen.findByLabelText("Meeting M001");
+    expectTextOrder(meetingCard, "M001", "Planning");
+    const seriesId = screen.getByText("S001");
+    const seriesRow = seriesId.closest(".series-row");
+    expect(seriesRow).not.toBeNull();
+    expectTextOrder(seriesRow as HTMLElement, "S001", "Weekly planning");
 
     await userEvent.click(screen.getByRole("button", { name: "Decisions" }));
     expect(await screen.findByText("Use SQLite")).toBeInTheDocument();
+    expectTextOrder(
+      screen.getByLabelText("Decision D001"),
+      "D001",
+      "Use SQLite",
+      "Single server",
+      "2026-06-09",
+      "No spawned tasks",
+      "Edit",
+    );
   });
 
   it("adds people from the shared people form", async () => {

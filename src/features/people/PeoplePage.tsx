@@ -293,11 +293,11 @@ export function PeoplePage({
                   type="button"
                   onClick={() => void selectPerson(person)}
                 >
-                  <div>
+                  <span className="record-summary-id">{person.publicId}</span>
+                  <div className="person-row-copy">
                     <strong>{person.name}</strong>
-                    <span>{person.email || "No email"}</span>
+                    <span className="record-summary-context">{person.email || "No email"}</span>
                   </div>
-                  <span>{person.publicId}</span>
                 </button>
                 <button
                   className="secondary-button person-row-edit"

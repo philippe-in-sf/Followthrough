@@ -16,7 +16,7 @@ describe("skin contrast styles", () => {
     expect(css).toContain("background: var(--skin-surface)");
     expect(css).toContain("color: var(--skin-text)");
     expect(css).toContain(
-      ".app-shell[data-skin] .meeting-summary-title > span:last-child,\n.app-shell[data-skin] .meeting-summary-date,\n.app-shell[data-skin] .meeting-summary-counts,\n.app-shell[data-skin] .task-summary-title > span:last-child,\n.app-shell[data-skin] .task-summary-meta > span:not(.status-badge)",
+      ".app-shell[data-skin] .record-summary-id,\n.app-shell[data-skin] .meeting-summary-date,\n.app-shell[data-skin] .meeting-summary-counts,\n.app-shell[data-skin] .task-summary-meta > span:not(.status-badge)",
     );
   });
 
@@ -55,15 +55,14 @@ describe("skin contrast styles", () => {
     expect(css).toContain("border-bottom-color: var(--skin-border)");
   });
 
-  it("keeps quick add and meeting wizard surfaces dark and readable inside skins", () => {
+  it("keeps compact meeting creation surfaces dark and readable inside skins", () => {
     const css = styles();
 
     expect(css).toContain(
-      ".app-shell[data-skin] .quick-meeting-form,\n.app-shell[data-skin] .meeting-wizard-panel,\n.app-shell[data-skin] .meeting-wizard-stepper button",
+      ".app-shell[data-skin] .meeting-create-section,\n.app-shell[data-skin] .meeting-create-section-content",
     );
-    expect(css).toContain(".app-shell[data-skin] .meeting-wizard-stepper button.active");
-    expect(css).toContain(".app-shell[data-skin] .quick-meeting-heading span");
-    expect(css).toContain(".app-shell[data-skin] .meeting-wizard-progress");
+    expect(css).toContain(".app-shell[data-skin] .form-help");
+    expect(css).toContain(".app-shell[data-skin] .meeting-create-section > summary small");
   });
 
   it("lets meeting setup controls wrap without overlapping when rails are present", () => {
@@ -80,15 +79,10 @@ describe("skin contrast styles", () => {
       ".calendar-settings-panel > .form-field {\n  flex: 1 1 260px;\n  min-width: min(100%, 260px);\n}",
     );
     expect(css).toContain(
-      ".quick-meeting-form {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: flex-end;",
+      ".meeting-create-primary-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(190px, 1fr));",
     );
-    expect(css).toContain(
-      ".quick-meeting-form > .form-field {\n  flex: 1 1 220px;\n  min-width: min(100%, 220px);\n}",
-    );
-    expect(css).toContain(
-      ".quick-meeting-form > .form-field input {\n  min-width: 0;\n}",
-    );
-    expect(tabletMedia).not.toContain(".quick-meeting-form {");
+    expect(css).toContain(".meeting-create-section-content");
+    expect(tabletMedia).not.toContain(".meeting-create-primary-grid {");
   });
 
   it("keeps meeting checkbox option rows dark and readable inside skins", () => {

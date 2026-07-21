@@ -304,41 +304,47 @@ export function DecisionsPage({
               {visibleDecisions.map((decision) => (
                 <article
                   aria-label={`Decision ${decision.publicId}`}
-                  className="record-row"
+                  className="record-row decision-row"
                   id={`decision-${decision.publicId}`}
                   key={decision.publicId}
                 >
-                  <div>
-                    <strong>
-                      <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
-                    </strong>
-                    <span>
-                      <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
+                  <div className="decision-row-main">
+                    <span className="record-summary-id">
+                      <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
                     </span>
-                  </div>
-                  <span>
-                    <LinkedText text={decision.publicId} onRecordOpen={onRecordReferenceOpen} />
-                  </span>
-                  <span>{decision.decisionDate}</span>
-                  <div className="decision-task-links">
-                    {decision.supersededByDecisionPublicId ? (
-                      <span className="hint-chip">
-                        Superseded by{" "}
-                        <LinkedText
-                          text={decision.supersededByDecisionPublicId}
-                          onRecordOpen={onRecordReferenceOpen}
-                        />
-                      </span>
-                    ) : null}
-                    {decision.tasks.length ? (
-                      decision.tasks.map((task) => (
-                        <span className="hint-chip" key={task.publicId}>
-                          <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
+                    <div className="decision-row-copy">
+                      <strong>
+                        <LinkedText text={decision.decisionText} onRecordOpen={onRecordReferenceOpen} />
+                      </strong>
+                      {decision.context ? (
+                        <span className="record-summary-context">
+                          <LinkedText text={decision.context} onRecordOpen={onRecordReferenceOpen} />
                         </span>
-                      ))
-                    ) : (
-                      <span className="muted-text">No spawned tasks</span>
-                    )}
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="decision-row-meta">
+                    <span className="decision-row-date">{decision.decisionDate}</span>
+                    <div className="decision-task-links">
+                      {decision.supersededByDecisionPublicId ? (
+                        <span className="hint-chip">
+                          Superseded by{" "}
+                          <LinkedText
+                            text={decision.supersededByDecisionPublicId}
+                            onRecordOpen={onRecordReferenceOpen}
+                          />
+                        </span>
+                      ) : null}
+                      {decision.tasks.length ? (
+                        decision.tasks.map((task) => (
+                          <span className="hint-chip" key={task.publicId}>
+                            <LinkedText text={`${task.publicId} - ${task.description}`} onRecordOpen={onRecordReferenceOpen} />
+                          </span>
+                        ))
+                      ) : (
+                        <span className="muted-text">No spawned tasks</span>
+                      )}
+                    </div>
                   </div>
                   <button
                     className="secondary-button"
