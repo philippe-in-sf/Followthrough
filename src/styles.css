@@ -2541,129 +2541,67 @@ button:disabled {
   padding: 10px 12px;
 }
 
-.quick-meeting-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
-  margin-bottom: 18px;
-  border: 1px solid #c8d0dc;
-  border-radius: 8px;
-  background: #f8fafc;
-  padding: 12px;
-}
-
-.quick-meeting-heading {
-  display: grid;
-  flex: 1 1 180px;
-  gap: 3px;
-  min-width: min(100%, 180px);
-}
-
-.quick-meeting-heading h3 {
-  margin: 0;
-}
-
-.quick-meeting-heading span,
-.meeting-wizard-progress {
-  color: #5b6475;
-  font-size: 0.88rem;
-}
-
-.quick-meeting-form > .form-field {
-  flex: 1 1 220px;
-  min-width: min(100%, 220px);
-}
-
-.quick-meeting-form > .form-field input {
-  min-width: 0;
-}
-
-.quick-meeting-form > .primary-button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.quick-meeting-form .form-error {
-  flex: 1 0 100%;
-}
-
-.meeting-wizard-stepper,
-.meeting-wizard-progress,
-.meeting-wizard-panel,
-.meeting-wizard-actions,
+.meeting-create-primary-grid,
+.meeting-create-section,
+.meeting-create-actions,
 .editor-form .form-error {
   grid-column: 1 / -1;
 }
 
-.meeting-wizard-stepper {
+.meeting-create-primary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
-.meeting-wizard-stepper button {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 8px;
-  align-items: center;
-  min-width: 0;
+.form-help {
+  color: #5b6475;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.meeting-create-section {
   border: 1px solid #d9dee7;
   border-radius: 8px;
   background: #f8fafc;
   color: #1d2433;
-  cursor: pointer;
-  padding: 10px;
-  text-align: left;
 }
 
-.meeting-wizard-stepper button span {
-  display: inline-flex;
+.meeting-create-section > summary {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1e40af;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
   font-weight: 700;
+  padding: 11px 12px;
 }
 
-.meeting-wizard-stepper button strong,
-.meeting-wizard-stepper button small {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.meeting-wizard-stepper button small {
-  grid-column: 2;
+.meeting-create-section > summary small {
   color: #5b6475;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
-.meeting-wizard-stepper button.active {
-  border-color: #2563eb;
-  background: #eff6ff;
-}
-
-.meeting-wizard-panel {
+.meeting-create-section-content {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   align-items: start;
-  border: 1px solid #d9dee7;
-  border-radius: 8px;
+  border-top: 1px solid #d9dee7;
   background: #ffffff;
   padding: 12px;
 }
 
-.meeting-wizard-panel textarea {
+.meeting-create-details-grid textarea {
   min-height: 92px;
 }
 
-.meeting-wizard-actions {
+.meeting-create-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
 }
 
 .editor-form textarea {
@@ -2784,7 +2722,7 @@ button:disabled {
 
 .person-record-trigger {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto;
+  grid-template-columns: auto minmax(180px, 1fr);
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -3085,12 +3023,22 @@ button:disabled {
   white-space: nowrap;
 }
 
-.meeting-summary-title > span:last-child,
+.record-summary-id,
 .meeting-summary-date,
 .meeting-summary-counts {
   color: #5b6475;
   font-size: 0.86rem;
   white-space: nowrap;
+}
+
+.record-summary-id {
+  flex: 0 0 auto;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.record-summary-id .inline-text-link {
+  color: inherit;
 }
 
 .meeting-expand-icon {
@@ -3245,7 +3193,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-.task-summary-title > span:last-child,
 .task-summary-meta > span:not(.status-badge) {
   color: #5b6475;
   font-size: 0.86rem;
@@ -3454,11 +3401,51 @@ button:disabled {
   color: #5b6475;
 }
 
-.decision-task-links {
+.decision-row {
+  grid-template-columns: minmax(260px, 1.2fr) minmax(240px, 1fr) auto;
+}
+
+.record-row .decision-row-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.record-row .decision-row-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.decision-row-copy strong,
+.record-summary-context {
+  overflow-wrap: anywhere;
+}
+
+.record-summary-context {
+  line-height: 1.4;
+}
+
+.record-row .decision-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.decision-row-date {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.record-row .decision-task-links {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-width: 360px;
+  min-width: 0;
 }
 
 .decision-follow-up-fields {
@@ -3608,6 +3595,10 @@ button:disabled {
   gap: 8px;
 }
 
+.series-record {
+  min-width: 0;
+}
+
 .series-row {
   display: flex;
   align-items: center;
@@ -3621,19 +3612,22 @@ button:disabled {
 }
 
 .series-row-main {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: start;
+  gap: 10px;
   min-width: 0;
 }
 
+.series-row-copy,
 .series-row-main strong,
 .series-row-main span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.series-row-main span {
-  color: #5b6475;
+.series-row-copy {
+  display: grid;
+  gap: 3px;
 }
 
 .series-row-actions {
@@ -3643,6 +3637,63 @@ button:disabled {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.series-row-expanded {
+  border-radius: 8px 8px 0 0;
+}
+
+.series-task-panel {
+  border: 1px solid #d9dee7;
+  border-top: 0;
+  border-left: 6px solid #0f766e;
+  border-radius: 0 0 8px 8px;
+  background: #f8fafc;
+  padding: 10px 12px 12px;
+}
+
+.series-task-panel > .muted {
+  margin: 0;
+}
+
+.series-task-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.series-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 7px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.series-task-summary,
+.series-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.series-task-summary > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.series-task-meta {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  color: #596273;
+  font-size: 0.86rem;
 }
 
 .hint-chip-teal {
@@ -4363,22 +4414,14 @@ button:disabled {
     display: block;
   }
 
-  .meeting-wizard-stepper {
+  .meeting-create-primary-grid {
     grid-template-columns: 1fr;
   }
 
-  .quick-meeting-form > .primary-button,
+  .meeting-create-actions .primary-button,
   .calendar-settings-actions,
   .calendar-settings-actions .icon-text-button {
     width: 100%;
-  }
-
-  .meeting-wizard-actions {
-    justify-content: stretch;
-  }
-
-  .meeting-wizard-actions button {
-    flex: 1;
   }
 
   .icon-rail {
@@ -4718,7 +4761,7 @@ button:disabled {
   }
 
   .person-record-trigger {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .people-admin-form {
@@ -4747,6 +4790,17 @@ button:disabled {
 
   .series-row-actions,
   .series-note-badges {
+    justify-content: flex-start;
+  }
+
+  .series-task-item,
+  .series-task-summary,
+  .series-task-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .series-task-meta {
     justify-content: flex-start;
   }
 
@@ -5242,6 +5296,8 @@ button:disabled {
 .app-shell[data-skin] .admin-add-user-form,
 .app-shell[data-skin] .record-row,
 .app-shell[data-skin] .series-row,
+.app-shell[data-skin] .series-task-panel,
+.app-shell[data-skin] .series-task-item,
 .app-shell[data-skin] .checkbox-group,
 .app-shell[data-skin] .person-related-list li {
   border-color: var(--skin-border);
@@ -5322,22 +5378,15 @@ button:disabled {
   color: var(--skin-action);
 }
 
-.app-shell[data-skin] .quick-meeting-form,
-.app-shell[data-skin] .meeting-wizard-panel,
-.app-shell[data-skin] .meeting-wizard-stepper button {
+.app-shell[data-skin] .meeting-create-section,
+.app-shell[data-skin] .meeting-create-section-content {
   border-color: var(--skin-border);
   background: var(--skin-surface);
   color: var(--skin-text);
 }
 
-.app-shell[data-skin] .meeting-wizard-stepper button.active {
-  border-color: var(--skin-accent);
-  background: var(--skin-surface-raised);
-}
-
-.app-shell[data-skin] .quick-meeting-heading span,
-.app-shell[data-skin] .meeting-wizard-progress,
-.app-shell[data-skin] .meeting-wizard-stepper button small {
+.app-shell[data-skin] .form-help,
+.app-shell[data-skin] .meeting-create-section > summary small {
   color: var(--skin-muted);
 }
 
@@ -5441,10 +5490,9 @@ button:disabled {
   color: var(--skin-text);
 }
 
-.app-shell[data-skin] .meeting-summary-title > span:last-child,
+.app-shell[data-skin] .record-summary-id,
 .app-shell[data-skin] .meeting-summary-date,
 .app-shell[data-skin] .meeting-summary-counts,
-.app-shell[data-skin] .task-summary-title > span:last-child,
 .app-shell[data-skin] .task-summary-meta > span:not(.status-badge) {
   color: var(--skin-muted);
 }
@@ -5537,6 +5585,7 @@ button:disabled {
 }
 
 .app-shell[data-skin] .series-row,
+.app-shell[data-skin] .series-task-panel,
 .app-shell[data-skin] .record-lane-meeting .lane-header,
 .app-shell[data-skin] .series-note-card,
 .app-shell[data-skin] .record-card-meeting {

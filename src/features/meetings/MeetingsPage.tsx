@@ -55,14 +55,6 @@ type MeetingFormState = {
 
 type RecurrenceMode = "single" | "existing" | "new";
 
-type MeetingWizardStep = "basics" | "people" | "details";
-
-type QuickMeetingFormState = {
-  title: string;
-  startsAt: string;
-  attendeeNames: string;
-};
-
 type MeetingCreateOptions = {
   calendarDetails?: CalendarImportDetails | null;
   forceSingle?: boolean;
@@ -119,22 +111,6 @@ const emptyMeetingForm: MeetingFormState = {
   taskPublicIds: [],
   private: false,
 };
-
-const emptyQuickMeetingForm: QuickMeetingFormState = {
-  title: "",
-  startsAt: "",
-  attendeeNames: "",
-};
-
-const meetingWizardSteps: Array<{ key: MeetingWizardStep; label: string }> = [
-  { key: "basics", label: "Basics" },
-  { key: "people", label: "People & Work" },
-  { key: "details", label: "Details" },
-];
-
-function meetingWizardStepNumber(step: MeetingWizardStep) {
-  return meetingWizardSteps.findIndex((item) => item.key === step) + 1;
-}
 
 const emptyMeetingTaskForm: MeetingTaskFormState = {
   description: "",
@@ -506,12 +482,8 @@ export function MeetingsPage({
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
-  const [quickMeetingForm, setQuickMeetingForm] =
-    useState<QuickMeetingFormState>(emptyQuickMeetingForm);
-  const [quickMeetingError, setQuickMeetingError] = useState("");
   const [meetingFormError, setMeetingFormError] = useState("");
   const [meetingFormStatus, setMeetingFormStatus] = useState("");
-  const [meetingWizardStep, setMeetingWizardStep] = useState<MeetingWizardStep>("basics");
   const [calendarImportOpen, setCalendarImportOpen] = useState(false);
   const [calendarImportQuery, setCalendarImportQuery] = useState("");
   const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
@@ -538,6 +510,9 @@ export function MeetingsPage({
   const [meetingAudits, setMeetingAudits] = useState<Record<string, AuditLogDto[]>>({});
   const [activeNotesMeetingPublicId, setActiveNotesMeetingPublicId] = useState<string | null>(null);
   const [activeSeriesNotesPublicId, setActiveSeriesNotesPublicId] = useState<string | null>(null);
+  const [expandedSeriesTaskPublicIds, setExpandedSeriesTaskPublicIds] = useState<
+    Record<string, boolean>
+  >({});
   const [blockersDraft, setBlockersDraft] = useState("");
   const [blockersClearedDraft, setBlockersClearedDraft] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
@@ -639,6 +614,32 @@ export function MeetingsPage({
       noteCount: seriesMeetings.filter((meeting) => meeting.notes.trim()).length,
     };
   }, [activeSeriesNotesPublicId, meetings, series]);
+
+  const tasksBySeriesPublicId = useMemo(() => {
+    const taskMaps = new Map<string, Map<string, TaskDto>>();
+
+    function addTask(seriesPublicId: string, task: TaskDto) {
+      const seriesTasks = taskMaps.get(seriesPublicId) ?? new Map<string, TaskDto>();
+      seriesTasks.set(task.publicId, task);
+      taskMaps.set(seriesPublicId, seriesTasks);
+    }
+
+    for (const meeting of meetings) {
+      if (!meeting.seriesPublicId) continue;
+      for (const task of meeting.tasks) addTask(meeting.seriesPublicId, task);
+    }
+
+    for (const task of tasks) {
+      if (task.seriesPublicId) addTask(task.seriesPublicId, task);
+    }
+
+    return new Map(
+      [...taskMaps].map(([seriesPublicId, seriesTasks]) => [
+        seriesPublicId,
+        [...seriesTasks.values()].sort(comparePublicRecordNumber),
+      ]),
+    );
+  }, [meetings, tasks]);
 
   const taskPicklistOptions = useMemo(() => [...tasks].sort(comparePublicRecordNumber), [tasks]);
 
@@ -755,23 +756,6 @@ export function MeetingsPage({
     return form.attendeePublicIds.length + parsePersonNameList(form.attendeeNames).length;
   }
 
-  function wizardStepSummary(step: MeetingWizardStep) {
-    if (step === "basics") {
-      return meetingForm.recurrenceMode === "single"
-        ? "One-time"
-        : meetingForm.recurrenceMode === "existing"
-          ? "Existing recurring"
-          : "New recurring";
-    }
-    if (step === "people") {
-      return `${countLabel(selectedAttendeeCount(meetingForm), "attendee")}, ${countLabel(
-        meetingForm.taskPublicIds.length,
-        "task",
-      )}`;
-    }
-    return meetingForm.private ? "Private details" : "Optional details";
-  }
-
   function validateMeetingBasics() {
     if (!meetingForm.title.trim()) return "Enter a meeting title before continuing.";
     if (!meetingForm.startsAt.trim()) return "Enter a meeting start before continuing.";
@@ -784,33 +768,72 @@ export function MeetingsPage({
     return "";
   }
 
-  function goToMeetingWizardStep(step: MeetingWizardStep) {
-    if (step !== "basics") {
-      const basicsError = validateMeetingBasics();
-      if (basicsError) {
-        setMeetingFormError(basicsError);
-        setMeetingWizardStep("basics");
-        return;
-      }
+  function meetingSeriesInputValue(form: MeetingFormState) {
+    if (form.recurrenceMode === "existing") {
+      return series.find((item) => item.publicId === form.existingSeriesPublicId)?.title ?? "";
     }
-    setMeetingFormError("");
-    setMeetingWizardStep(step);
+    return form.recurrenceMode === "new" ? form.newSeriesTitle : "";
   }
 
-  function goToNextMeetingWizardStep() {
-    if (meetingWizardStep === "basics") {
-      goToMeetingWizardStep("people");
+  function updateMeetingSeries(value: string) {
+    const normalizedValue = value.trim().toLocaleLowerCase();
+    const existingSeries = series.find(
+      (item) =>
+        item.publicId.toLocaleLowerCase() === normalizedValue ||
+        item.title.trim().toLocaleLowerCase() === normalizedValue,
+    );
+
+    if (!value.trim()) {
+      updateMeetingForm({
+        recurrenceMode: "single",
+        existingSeriesPublicId: "",
+        newSeriesTitle: "",
+        newSeriesCadenceLabel: "",
+      });
       return;
     }
-    if (meetingWizardStep === "people") {
-      goToMeetingWizardStep("details");
+
+    if (existingSeries) {
+      updateMeetingForm({
+        recurrenceMode: "existing",
+        existingSeriesPublicId: existingSeries.publicId,
+        newSeriesTitle: "",
+        newSeriesCadenceLabel: "",
+      });
+      return;
     }
+
+    updateMeetingForm({
+      recurrenceMode: "new",
+      existingSeriesPublicId: "",
+      newSeriesTitle: value,
+      newSeriesCadenceLabel: "",
+    });
   }
 
-  function goToPreviousMeetingWizardStep() {
+  function startMeetingForSeries(item: MeetingSeriesDto) {
+    const latestMeeting = meetings
+      .filter((meeting) => meeting.seriesPublicId === item.publicId)
+      .sort(
+        (left, right) =>
+          new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime(),
+      )[0];
+
+    setMeetingForm({
+      ...emptyMeetingForm,
+      title: item.title,
+      recurrenceMode: "existing",
+      existingSeriesPublicId: item.publicId,
+      attendeePublicIds: latestMeeting?.attendees.map((attendee) => attendee.publicId) ?? [],
+    });
     setMeetingFormError("");
-    if (meetingWizardStep === "details") setMeetingWizardStep("people");
-    if (meetingWizardStep === "people") setMeetingWizardStep("basics");
+    setMeetingFormStatus(`Creating the next ${item.title} meeting.`);
+    requestAnimationFrame(() => {
+      document
+        .getElementById("meeting-editor")
+        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      document.getElementById("meeting-start")?.focus();
+    });
   }
 
   async function createMeetingFromForm(
@@ -873,11 +896,6 @@ export function MeetingsPage({
     const basicsError = validateMeetingBasics();
     if (basicsError) {
       setMeetingFormError(basicsError);
-      setMeetingWizardStep("basics");
-      return;
-    }
-    if (meetingWizardStep !== "details") {
-      goToNextMeetingWizardStep();
       return;
     }
     try {
@@ -886,35 +904,10 @@ export function MeetingsPage({
       });
       setMeetingForm(emptyMeetingForm);
       setCalendarImportDetails(null);
-      setMeetingWizardStep("basics");
       setMeetingFormStatus(`Meeting ${meeting.publicId} added. Ready for the next meeting.`);
       await load();
     } catch (error) {
       setMeetingFormError(error instanceof Error ? error.message : "Meeting could not be created.");
-    }
-  }
-
-  async function submitQuickMeeting(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setQuickMeetingError("");
-    try {
-      await createMeetingFromForm(
-        {
-          ...emptyMeetingForm,
-          title: quickMeetingForm.title,
-          startsAt: quickMeetingForm.startsAt,
-          attendeeNames: quickMeetingForm.attendeeNames,
-        },
-        {
-          forceSingle: true,
-          includeDetails: false,
-          includeTasks: false,
-        },
-      );
-      setQuickMeetingForm(emptyQuickMeetingForm);
-      await load();
-    } catch (error) {
-      setQuickMeetingError(error instanceof Error ? error.message : "Quick Add meeting failed.");
     }
   }
 
@@ -961,7 +954,6 @@ export function MeetingsPage({
     });
     setCalendarImportOpen(false);
     setCalendarImportError("");
-    setMeetingWizardStep("basics");
     setMeetingFormError("");
   }
 
@@ -1733,53 +1725,11 @@ export function MeetingsPage({
             </form>
           ) : null}
       <form
-        className="quick-meeting-form"
+        className="editor-form meeting-create-form"
         data-tour-id="meeting-capture"
-        aria-label="Quick add one-time meeting"
-        onSubmit={submitQuickMeeting}
+        id="meeting-editor"
+        onSubmit={submitMeeting}
       >
-        <div className="quick-meeting-heading">
-          <h3>Quick add one-time meeting</h3>
-          <span>Title, time, attendees</span>
-        </div>
-        <FormField label="Quick add meeting title">
-          <input
-            value={quickMeetingForm.title}
-            onChange={(event) =>
-              setQuickMeetingForm({ ...quickMeetingForm, title: event.target.value })
-            }
-            required
-          />
-        </FormField>
-        <FormField label="Quick add meeting start">
-          <input
-            type="datetime-local"
-            value={quickMeetingForm.startsAt}
-            onChange={(event) =>
-              setQuickMeetingForm({ ...quickMeetingForm, startsAt: event.target.value })
-            }
-            required
-          />
-        </FormField>
-        <FormField label="Quick add attendees">
-          <input
-            value={quickMeetingForm.attendeeNames}
-            onChange={(event) =>
-              setQuickMeetingForm({ ...quickMeetingForm, attendeeNames: event.target.value })
-            }
-            placeholder="Morgan Lee, Taylor Park"
-          />
-        </FormField>
-        <button className="primary-button" type="submit">
-          Quick add meeting
-        </button>
-        {quickMeetingError ? (
-          <p className="form-error" role="alert">
-            {quickMeetingError}
-          </p>
-        ) : null}
-      </form>
-      <form className="editor-form" id="meeting-editor" onSubmit={submitMeeting}>
         <div className="editor-form-title-row">
           <h3>Add meeting</h3>
           <button
@@ -1849,109 +1799,52 @@ export function MeetingsPage({
             <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
           </section>
         ) : null}
-        <div className="meeting-wizard-stepper" role="group" aria-label="Add meeting steps">
-          {meetingWizardSteps.map((step, index) => (
-            <button
-              aria-current={meetingWizardStep === step.key ? "step" : undefined}
-              aria-label={`${index + 1} ${step.label} ${wizardStepSummary(step.key)}`}
-              className={meetingWizardStep === step.key ? "active" : ""}
-              key={step.key}
-              type="button"
-              onClick={() => goToMeetingWizardStep(step.key)}
-            >
-              <span>{index + 1}</span>
-              <strong>{step.label}</strong>
-              <small>{wizardStepSummary(step.key)}</small>
-            </button>
-          ))}
-        </div>
-        <div className="meeting-wizard-progress">
-          Step {meetingWizardStepNumber(meetingWizardStep)} of {meetingWizardSteps.length}
-        </div>
+        <section className="meeting-create-primary-grid" aria-label="Meeting essentials">
+          <FormField label="Meeting title">
+            <input
+              value={meetingForm.title}
+              onChange={(event) => updateMeetingForm({ title: event.target.value })}
+              required
+            />
+          </FormField>
+          <FormField label="Meeting start">
+            <input
+              id="meeting-start"
+              type="datetime-local"
+              value={meetingForm.startsAt}
+              onChange={(event) => updateMeetingForm({ startsAt: event.target.value })}
+              required
+            />
+          </FormField>
+          <FormField label="Ongoing meeting / series (optional)">
+            <input
+              aria-label="Ongoing meeting / series"
+              list="meeting-series-options"
+              value={meetingSeriesInputValue(meetingForm)}
+              onChange={(event) => updateMeetingSeries(event.target.value)}
+              placeholder="Search or type a new series name"
+            />
+            <datalist id="meeting-series-options">
+              {series.map((item) => (
+                <option key={item.publicId} value={collapseLinks(item.title)}>
+                  {item.publicId} · {item.cadenceLabel || "Recurring"}
+                </option>
+              ))}
+            </datalist>
+            <small className="form-help">
+              Choose an existing series, type a name to create one, or leave blank for one-time.
+            </small>
+          </FormField>
+        </section>
 
-        {meetingWizardStep === "basics" ? (
-          <section className="meeting-wizard-panel" aria-label="Meeting basics">
-            <FormField label="Meeting title">
-              <input
-                value={meetingForm.title}
-                onChange={(event) => updateMeetingForm({ title: event.target.value })}
-                required
-              />
-            </FormField>
-            <FormField label="Meeting start">
-              <input
-                type="datetime-local"
-                value={meetingForm.startsAt}
-                onChange={(event) => updateMeetingForm({ startsAt: event.target.value })}
-                required
-              />
-            </FormField>
-            <FormField label="Recurrence">
-              <select
-                value={meetingForm.recurrenceMode}
-                onChange={(event) => {
-                  const recurrenceMode = event.target.value as RecurrenceMode;
-                  updateMeetingForm((current) => ({
-                    ...current,
-                    recurrenceMode,
-                    existingSeriesPublicId:
-                      recurrenceMode === "existing" ? current.existingSeriesPublicId : "",
-                    newSeriesTitle:
-                      recurrenceMode === "new" ? current.newSeriesTitle : "",
-                    newSeriesCadenceLabel:
-                      recurrenceMode === "new" ? current.newSeriesCadenceLabel : "",
-                  }));
-                }}
-              >
-                <option value="single">One-time meeting</option>
-                <option value="existing">Use existing recurring meeting</option>
-                <option value="new">Start new recurring meeting</option>
-              </select>
-            </FormField>
-            {meetingForm.recurrenceMode === "existing" ? (
-              <FormField label="Existing recurring meeting">
-                <select
-                  value={meetingForm.existingSeriesPublicId}
-                  onChange={(event) =>
-                    updateMeetingForm({ existingSeriesPublicId: event.target.value })
-                  }
-                  required
-                >
-                  <option value="">Choose recurring meeting</option>
-                  {series.map((item) => (
-                    <option key={item.publicId} value={item.publicId}>
-                      {collapseLinks(item.title)}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-            ) : null}
-            {meetingForm.recurrenceMode === "new" ? (
-              <>
-                <FormField label="New recurring meeting name">
-                  <input
-                    value={meetingForm.newSeriesTitle}
-                    onChange={(event) =>
-                      updateMeetingForm({ newSeriesTitle: event.target.value })
-                    }
-                    required
-                  />
-                </FormField>
-                <FormField label="Cadence">
-                  <input
-                    value={meetingForm.newSeriesCadenceLabel}
-                    onChange={(event) =>
-                      updateMeetingForm({ newSeriesCadenceLabel: event.target.value })
-                    }
-                    placeholder="Weekly"
-                  />
-                </FormField>
-              </>
-            ) : null}
-          </section>
-        ) : null}
-        {meetingWizardStep === "people" ? (
-          <section className="meeting-wizard-panel" aria-label="Meeting people and work">
+        <details className="meeting-create-section" open>
+          <summary>
+            <span>Attendees &amp; tasks</span>
+            <small>
+              {countLabel(selectedAttendeeCount(meetingForm), "attendee")}, {countLabel(meetingForm.taskPublicIds.length, "task")}
+            </small>
+          </summary>
+          <div className="meeting-create-section-content">
             <CheckboxGroup
               legend="Existing attendees"
               options={people.map((person) => ({ publicId: person.publicId, label: person.name }))}
@@ -1976,11 +1869,15 @@ export function MeetingsPage({
               selected={meetingForm.taskPublicIds}
               onChange={(taskPublicIds) => updateMeetingForm({ taskPublicIds })}
             />
-          </section>
-        ) : null}
+          </div>
+        </details>
 
-        {meetingWizardStep === "details" ? (
-          <section className="meeting-wizard-panel" aria-label="Meeting details">
+        <details className="meeting-create-section">
+          <summary>
+            <span>More details</span>
+            <small>{meetingForm.private ? "Private" : "Optional"}</small>
+          </summary>
+          <div className="meeting-create-section-content meeting-create-details-grid">
             <FormField label="Meeting summary">
               <textarea
                 value={meetingForm.summary}
@@ -2022,8 +1919,8 @@ export function MeetingsPage({
               />
               <span>Private</span>
             </label>
-          </section>
-        ) : null}
+          </div>
+        </details>
         {meetingFormError ? (
           <p className="form-error" role="alert">
             {meetingFormError}
@@ -2034,24 +1931,10 @@ export function MeetingsPage({
             {meetingFormStatus}
           </p>
         ) : null}
-        <div className="meeting-wizard-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={goToPreviousMeetingWizardStep}
-            disabled={meetingWizardStep === "basics"}
-          >
-            Back
+        <div className="meeting-create-actions">
+          <button className="primary-button" type="submit">
+            Add meeting
           </button>
-          {meetingWizardStep === "details" ? (
-            <button className="primary-button" type="submit">
-              Add meeting
-            </button>
-          ) : (
-            <button className="primary-button" type="button" onClick={goToNextMeetingWizardStep}>
-              {meetingWizardStep === "basics" ? "Next: People & Work" : "Next: Details"}
-            </button>
-          )}
         </div>
       </form>
       </>
@@ -2087,32 +1970,110 @@ export function MeetingsPage({
               >
                 {(visibleSeries) => (
                   <div className="series-list">
-                    {visibleSeries.map((item) => (
-                      <div className="series-row" key={item.publicId}>
-                        <div className="series-row-main">
-                          <strong>
-                            <LinkedText text={item.title} onRecordOpen={onRecordReferenceOpen} />
-                          </strong>
-                          <span>
-                            <LinkedText text={item.publicId} onRecordOpen={onRecordReferenceOpen} />
-                          </span>
-                        </div>
-                        <div className="series-row-actions">
-                          <span className="hint-chip hint-chip-teal">
-                            {item.cadenceLabel || "Recurring"}
-                          </span>
-                          <button
-                            aria-label={`Read notes for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
-                            className="secondary-button icon-text-button"
-                            type="button"
-                            onClick={() => openSeriesNotes(item.publicId)}
-                          >
-                            <BookOpen aria-hidden="true" size={16} />
-                            Notes
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    {visibleSeries.map((item) => {
+                      const seriesTasks = tasksBySeriesPublicId.get(item.publicId) ?? [];
+                      const tasksExpanded = expandedSeriesTaskPublicIds[item.publicId] ?? false;
+                      const taskPanelId = `series-tasks-${item.publicId}`;
+
+                      return (
+                        <article className="series-record" key={item.publicId}>
+                          <div className={`series-row ${tasksExpanded ? "series-row-expanded" : ""}`}>
+                            <div className="series-row-main">
+                              <span className="record-summary-id">
+                                <LinkedText
+                                  text={item.publicId}
+                                  onRecordOpen={onRecordReferenceOpen}
+                                />
+                              </span>
+                              <div className="series-row-copy">
+                                <strong>
+                                  <LinkedText
+                                    text={item.title}
+                                    onRecordOpen={onRecordReferenceOpen}
+                                  />
+                                </strong>
+                              </div>
+                            </div>
+                            <div className="series-row-actions">
+                              <span className="hint-chip hint-chip-teal">
+                                {item.cadenceLabel || "Recurring"}
+                              </span>
+                              <button
+                                aria-label={`New meeting in series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
+                                className="primary-button icon-text-button"
+                                type="button"
+                                onClick={() => startMeetingForSeries(item)}
+                              >
+                                <Plus aria-hidden="true" size={16} />
+                                New meeting
+                              </button>
+                              <button
+                                aria-controls={taskPanelId}
+                                aria-expanded={tasksExpanded}
+                                aria-label={`${tasksExpanded ? "Hide" : "Show"} tasks for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
+                                className="secondary-button"
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSeriesTaskPublicIds((current) => ({
+                                    ...current,
+                                    [item.publicId]: !tasksExpanded,
+                                  }))
+                                }
+                              >
+                                Tasks ({seriesTasks.length})
+                              </button>
+                              <button
+                                aria-label={`Read notes for series ${item.publicId} ${singleLineText(item.title, "Untitled series")}`}
+                                className="secondary-button icon-text-button"
+                                type="button"
+                                onClick={() => openSeriesNotes(item.publicId)}
+                              >
+                                <BookOpen aria-hidden="true" size={16} />
+                                Notes
+                              </button>
+                            </div>
+                          </div>
+
+                          {tasksExpanded ? (
+                            <section
+                              aria-label={`Tasks for series ${item.publicId}`}
+                              className="series-task-panel"
+                              id={taskPanelId}
+                            >
+                              {seriesTasks.length === 0 ? (
+                                <p className="muted">No tasks in this series.</p>
+                              ) : (
+                                <ul className="series-task-list">
+                                  {seriesTasks.map((task) => (
+                                    <li className="series-task-item" key={task.publicId}>
+                                      <div className="series-task-summary">
+                                        <strong className="record-summary-id">
+                                          <LinkedText
+                                            text={task.publicId}
+                                            onRecordOpen={onRecordReferenceOpen}
+                                          />
+                                        </strong>
+                                        <span>
+                                          <LinkedText
+                                            text={task.description}
+                                            onRecordOpen={onRecordReferenceOpen}
+                                          />
+                                        </span>
+                                      </div>
+                                      <div className="series-task-meta">
+                                        <StatusBadge label={task.status} />
+                                        <span>{task.assignee?.name ?? "Unassigned"}</span>
+                                        <span>{task.dueDate ?? "No due date"}</span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </section>
+                          ) : null}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </PaginatedItems>
@@ -2172,8 +2133,8 @@ export function MeetingsPage({
                             }`}
                             size={17}
                           />
+                          <span className="record-summary-id">{meeting.publicId}</span>
                           <strong>{meetingTitleText}</strong>
-                          <span>{meeting.publicId}</span>
                         </span>
                         <span className="meeting-summary-meta">
                           <StatusBadge label={meeting.meetingType} />

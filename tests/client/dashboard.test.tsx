@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -1257,15 +1257,15 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
   });
 
-  it("creates a one-time meeting from Quick Add without advanced fields", async () => {
+  it("creates a one-time meeting from the unified form without optional details", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "Quick customer check-in");
-    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2099-08-01T11:30");
-    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee, Taylor Park");
-    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Quick customer check-in");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-01T11:30");
+    await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee, Taylor Park");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Quick customer check-in")).toBeInTheDocument();
     const quickMeetingCard = await expandMeetingCard("M100");
@@ -1302,15 +1302,15 @@ describe("dashboard and workspace flows", () => {
     ).toBe(false);
   });
 
-  it("preserves quick-created meeting notes when later assigning a recurring series", async () => {
+  it("preserves meeting notes when later assigning a recurring series", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.type(screen.getByLabelText("Quick add meeting title"), "CM Leadership");
-    await userEvent.type(screen.getByLabelText("Quick add meeting start"), "2026-07-06T09:00");
-    await userEvent.type(screen.getByLabelText("Quick add attendees"), "Morgan Lee");
-    await userEvent.click(screen.getByRole("button", { name: "Quick add meeting" }));
+    await userEvent.type(screen.getByLabelText("Meeting title"), "CM Leadership");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2026-07-06T09:00");
+    await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     let meetingCard = await expandMeetingCard("M100");
     await userEvent.click(
@@ -1366,28 +1366,18 @@ describe("dashboard and workspace flows", () => {
     expect(recurrencePatch).not.toHaveProperty("links");
   });
 
-  it("shows meeting wizard progress and validates Basics before moving forward", async () => {
+  it("shows one compact meeting form without wizard navigation", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
 
-    expect(screen.getByRole("button", { name: /1 Basics/i })).toHaveAttribute(
-      "aria-current",
-      "step",
-    );
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Meeting tasks" })).not.toBeInTheDocument();
-
-    await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
-    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Choose a recurring meeting before continuing.",
-    );
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Meeting essentials" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ongoing meeting / series")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Meeting tasks" })).toBeInTheDocument();
+    expect(screen.getByText("More details").closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/Step 1 of 3/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Next:/i })).not.toBeInTheDocument();
   });
 
   it("shows meetings and creates a recurring occurrence with carried tasks", async () => {
@@ -1411,15 +1401,38 @@ describe("dashboard and workspace flows", () => {
     expect(
       within(screen.getByRole("region", { name: "Recurring series" })).getByText("Project sync"),
     ).toBeInTheDocument();
+    const seriesRegion = screen.getByRole("region", { name: "Recurring series" });
+    const seriesTasksButton = within(seriesRegion).getByRole("button", {
+      name: /Show tasks for series S001 Project sync/i,
+    });
+    expect(seriesTasksButton).toHaveTextContent("Tasks (1)");
+    await userEvent.click(seriesTasksButton);
+    const seriesTasks = within(seriesRegion).getByRole("region", {
+      name: "Tasks for series S001",
+    });
+    expect(seriesTasksButton).toHaveAttribute("aria-expanded", "true");
+    expect(within(seriesTasks).getByText("T010")).toBeInTheDocument();
+    expect(within(seriesTasks).getByText("Carry roadmap")).toBeInTheDocument();
+    expect(within(seriesTasks).getByText("In Progress")).toBeInTheDocument();
+    expect(within(seriesTasks).getByText("Avery")).toBeInTheDocument();
+    expect(within(seriesTasks).getByText("2026-06-15")).toBeInTheDocument();
+    expect(within(seriesTasks).getAllByText("T010")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Add series" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create occurrence" })).not.toBeInTheDocument();
 
+    await userEvent.click(
+      within(seriesRegion).getByRole("button", {
+        name: /New meeting in series S001 Project sync/i,
+      }),
+    );
+    expect(screen.getByLabelText("Meeting title")).toHaveValue("Project sync");
+    expect(screen.getByLabelText("Ongoing meeting / series")).toHaveValue(
+      "Project sync",
+    );
+    expect(screen.getByLabelText("Avery")).toBeChecked();
+    await userEvent.clear(screen.getByLabelText("Meeting title"));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
-    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "existing");
-    await userEvent.selectOptions(screen.getByLabelText("Existing recurring meeting"), "S001");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
     const meetingTaskLabels = within(meetingTaskOptions)
       .getAllByRole("checkbox")
@@ -1435,8 +1448,6 @@ describe("dashboard and workspace flows", () => {
       "href",
       deckUrl,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
-    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Project sync follow-up")).toBeInTheDocument();
@@ -1506,11 +1517,10 @@ describe("dashboard and workspace flows", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Customer standup kickoff");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-07-01T10:00");
-    await userEvent.selectOptions(screen.getByLabelText("Recurrence"), "new");
-    await userEvent.type(screen.getByLabelText("New recurring meeting name"), "Customer standup");
-    await userEvent.type(screen.getByLabelText("Cadence"), "Weekly");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
+    await userEvent.type(
+      screen.getByLabelText("Ongoing meeting / series"),
+      "Customer standup",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Customer standup kickoff")).toBeInTheDocument();
@@ -1521,19 +1531,17 @@ describe("dashboard and workspace flows", () => {
     ).toBeInTheDocument();
   });
 
-  it("preserves attendee quick add and linked tasks in the wizard", async () => {
+  it("preserves attendee quick add and linked tasks in the compact form", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Launch work session");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
 
     await userEvent.click(screen.getByLabelText("Avery"));
     await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee");
     await userEvent.click(screen.getByLabelText(/T004 Do the All Hands deck/i));
-    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByText("Launch work session")).toBeInTheDocument();
@@ -1545,73 +1553,61 @@ describe("dashboard and workspace flows", () => {
     expect(body.taskPublicIds).toEqual(["T004"]);
   });
 
-  it("explains the reset after the meeting wizard creates a meeting", async () => {
+  it("explains the reset after the compact form creates a meeting", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Reset clarity check");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Meeting M100 added. Ready for the next meeting.",
     );
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Meeting title")).toHaveValue("");
+    expect(screen.getByLabelText("Ongoing meeting / series")).toHaveValue("");
   });
 
-  it("does not submit the meeting wizard before the Details step", async () => {
+  it("submits without requiring optional details", async () => {
     setupAppFetch();
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.type(screen.getByLabelText("Meeting title"), "Early submit check");
+    await userEvent.type(screen.getByLabelText("Meeting title"), "Fast submit check");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("More details").closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
-    const attendeeInput = screen.getByLabelText("Quick-add attendees");
-    await userEvent.type(attendeeInput, "Morgan Lee");
-    const addMeetingForm = attendeeInput.closest("form");
-    expect(addMeetingForm).not.toBeNull();
-    fireEvent.submit(addMeetingForm as HTMLFormElement);
-
-    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+    expect(await screen.findByText("Fast submit check")).toBeInTheDocument();
     expect(
       vi
         .mocked(globalThis.fetch)
         .mock.calls.some(([input, init]) => String(input) === "/api/meetings" && init?.method === "POST"),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("imports a Google Calendar event into the meeting wizard", async () => {
+  it("imports a Google Calendar event into the compact form", async () => {
     setupAppFetch({ googleCalendarConnected: true, googleCalendarEmail: "editor@gmail.com" });
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Temporary meeting");
     await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-03T09:00");
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
-    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Import from Google Calendar" }));
     await userEvent.type(screen.getByLabelText("Which Google Calendar meeting?"), "planning");
     await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));
     await userEvent.click(await screen.findByRole("button", { name: /Imported planning sync/i }));
 
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
     expect(screen.getByLabelText("Meeting title")).toHaveValue("Imported planning sync");
     expect(screen.getByLabelText("Meeting start")).toHaveValue(
       toDateTimeInputValue("2099-08-03T15:00:00.000Z"),
     );
     expect(screen.getByText("Imported from Google Calendar")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Next: People & Work" }));
     expect(screen.getByLabelText("Quick-add attendees")).toHaveValue(
       "Jordan Case",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Next: Details" }));
     expect(screen.getByLabelText("Meeting summary")).toHaveValue("Imported agenda");
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 

@@ -801,8 +801,8 @@ export function TasksPage({
                           className={`task-expand-icon ${isExpanded ? "task-expand-icon-open" : ""}`}
                           size={17}
                         />
+                        <span className="record-summary-id">{task.publicId}</span>
                         <strong>{taskSummaryText}</strong>
-                        <span>{task.publicId}</span>
                       </span>
                       <span className="task-summary-meta">
                         {task.alert === "dueSoon" ? (
