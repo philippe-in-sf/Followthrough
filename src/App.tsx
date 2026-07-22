@@ -15,7 +15,7 @@ import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
-import type { UserPreferencesDto } from "../shared/types";
+import type { DashboardOrganization, UserPreferencesDto } from "../shared/types";
 import type { TeamDto } from "../shared/types";
 
 type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions" | "People">;
@@ -59,6 +59,8 @@ function renderSection({
   onRecordFocusHandled,
   workCalendarUrl,
   onWorkCalendarUrlChange,
+  dashboardOrganization,
+  onDashboardOrganizationChange,
   googleCalendarConfigured,
   googleCalendarConnected,
   googleCalendarEmail,
@@ -76,6 +78,8 @@ function renderSection({
   onRecordFocusHandled: () => void;
   workCalendarUrl: string | null;
   onWorkCalendarUrlChange: (workCalendarUrl: string | null) => void;
+  dashboardOrganization: DashboardOrganization;
+  onDashboardOrganizationChange: (organization: DashboardOrganization) => Promise<void>;
   googleCalendarConfigured: boolean;
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;
@@ -88,7 +92,14 @@ function renderSection({
 }) {
   switch (section) {
     case "Dashboard":
-      return <DashboardPage onOpenRecord={onDashboardRecordOpen} onRecordReferenceOpen={onRecordReferenceOpen} />;
+      return (
+        <DashboardPage
+          dashboardOrganization={dashboardOrganization}
+          onDashboardOrganizationChange={onDashboardOrganizationChange}
+          onOpenRecord={onDashboardRecordOpen}
+          onRecordReferenceOpen={onRecordReferenceOpen}
+        />
+      );
     case "Tasks":
       return (
         <TasksPage
@@ -155,6 +166,7 @@ export function App() {
     () => ({
       workCalendarUrl: fallbackWorkCalendarUrl,
       weeklyDigestEnabled: false,
+      dashboardOrganization: "workflow",
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -172,6 +184,7 @@ export function App() {
       setPreferences({
         ...nextPreferences,
         workCalendarUrl: nextPreferences.workCalendarUrl ?? fallbackWorkCalendarUrl,
+        dashboardOrganization: nextPreferences.dashboardOrganization ?? "workflow",
       });
     } catch {
       setPreferences(fallbackPreferences);
@@ -260,6 +273,24 @@ export function App() {
     [],
   );
 
+  const setDashboardOrganization = useCallback(
+    async (dashboardOrganization: DashboardOrganization) => {
+      setPreferences((current) => ({ ...current, dashboardOrganization }));
+      try {
+        const nextPreferences = await api.preferences.update({ dashboardOrganization });
+        setPreferences({
+          ...nextPreferences,
+          workCalendarUrl: nextPreferences.workCalendarUrl ?? fallbackWorkCalendarUrl,
+          dashboardOrganization: nextPreferences.dashboardOrganization ?? dashboardOrganization,
+        });
+      } catch (error) {
+        await loadPreferences();
+        throw error;
+      }
+    },
+    [fallbackWorkCalendarUrl, loadPreferences],
+  );
+
   const setTeam = useCallback((team: TeamDto) => {
     setUser((current) => (current ? { ...current, team } : current));
   }, []);
@@ -329,6 +360,8 @@ export function App() {
         onRecordFocusHandled: clearFocusedRecord,
         workCalendarUrl: calendarShortcutUrl,
         onWorkCalendarUrlChange: setWorkCalendarUrl,
+        dashboardOrganization: preferences.dashboardOrganization,
+        onDashboardOrganizationChange: setDashboardOrganization,
         googleCalendarConfigured: preferences.googleCalendarConfigured,
         googleCalendarConnected: preferences.googleCalendarConnected,
         googleCalendarEmail: preferences.googleCalendarEmail,

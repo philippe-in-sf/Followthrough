@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   AuditLogDto,
+  DashboardOrganization,
   DecisionDto,
   MeetingDto,
   MeetingSeriesDto,
@@ -57,10 +58,12 @@ function setupAppFetch(
     googleCalendarConnected?: boolean;
     googleCalendarEmail?: string | null;
     extraMeetings?: MeetingDto[];
+    dashboardOrganization?: DashboardOrganization;
   } = {},
 ) {
   const people: PersonDto[] = [avery];
   let workCalendarUrl = options.workCalendarUrl ?? null;
+  let dashboardOrganization = options.dashboardOrganization ?? "workflow";
   let googleCalendarConnected = options.googleCalendarConnected ?? false;
   let googleCalendarEmail = options.googleCalendarEmail ?? null;
   const googleCalendarConfigured = options.googleCalendarConfigured ?? true;
@@ -244,6 +247,7 @@ function setupAppFetch(
       return json({
         workCalendarUrl,
         weeklyDigestEnabled: false,
+        dashboardOrganization,
         googleCalendarConfigured,
         googleCalendarConnected,
         googleCalendarEmail,
@@ -251,7 +255,12 @@ function setupAppFetch(
     }
 
     if (url.pathname === "/api/me/preferences" && method === "PUT") {
-      const nextUrl = body.workCalendarUrl === null ? null : String(body.workCalendarUrl).trim();
+      const nextUrl =
+        body.workCalendarUrl === undefined
+          ? workCalendarUrl
+          : body.workCalendarUrl === null
+            ? null
+            : String(body.workCalendarUrl).trim();
       if (nextUrl) {
         try {
           const parsed = new URL(nextUrl);
@@ -263,9 +272,11 @@ function setupAppFetch(
         }
       }
       workCalendarUrl = nextUrl || null;
+      dashboardOrganization = body.dashboardOrganization ?? dashboardOrganization;
       return json({
         workCalendarUrl,
         weeklyDigestEnabled: Boolean(body.weeklyDigestEnabled),
+        dashboardOrganization,
         googleCalendarConfigured,
         googleCalendarConnected,
         googleCalendarEmail,
@@ -817,6 +828,7 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getAllByText("Waiting on finance numbers").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Need agenda owner").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Leadership sync").length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: /Activity/ }));
     expect(screen.getByText("Use SQLite")).toBeInTheDocument();
     expect(screen.getByText("Project sync")).toBeInTheDocument();
 
@@ -836,6 +848,7 @@ describe("dashboard and workspace flows", () => {
     setupAppFetch();
     render(<App />);
 
+    await userEvent.click(await screen.findByRole("button", { name: /Workload/ }));
     const assigneeToggle = await screen.findByRole("button", {
       name: "Show open tasks for Avery",
     });
@@ -869,6 +882,7 @@ describe("dashboard and workspace flows", () => {
     expect(within(taskCard).getByRole("heading", { name: "Edit details for T099" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Activity/ }));
     await userEvent.click(
       (await screen.findAllByRole("button", { name: /Open meeting M010 Leadership sync/i }))[0],
     );
@@ -880,6 +894,7 @@ describe("dashboard and workspace flows", () => {
     expect(within(meetingCard).getByRole("heading", { name: "Edit details for M010" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Activity/ }));
     await userEvent.click(
       await screen.findByRole("button", { name: /Open decision D001 Use SQLite/i }),
     );
@@ -889,6 +904,36 @@ describe("dashboard and workspace flows", () => {
     });
     expect(screen.getByLabelText("Decision")).toHaveValue("Use SQLite");
     expect(screen.getByRole("button", { name: "Update decision" })).toBeInTheDocument();
+  });
+
+  it("persists the dashboard organization and exposes entity tabs", async () => {
+    setupAppFetch();
+    render(<App />);
+
+    const entityView = await screen.findByRole("button", { name: "By entity" });
+    expect(entityView).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(entityView);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "By entity" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+    const entityTabs = screen.getByRole("group", { name: "Entity dashboard tabs" });
+    expect(within(entityTabs).getByRole("button", { name: /Tasks/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await userEvent.click(within(entityTabs).getByRole("button", { name: /Meetings & series/ }));
+    expect(await screen.findByText("Project sync")).toBeInTheDocument();
+
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls.some(([input, init]) => {
+        if (String(input) !== "/api/me/preferences" || init?.method !== "PUT") return false;
+        return JSON.parse(String(init.body)).dashboardOrganization === "entity";
+      }),
+    ).toBe(true);
   });
 
   it("opens meeting and series references from task detail tags", async () => {

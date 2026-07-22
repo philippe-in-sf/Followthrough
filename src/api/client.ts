@@ -264,7 +264,11 @@ export const api = {
     request<{ results: SearchResult[] }>(`/api/search?${new URLSearchParams({ q: query })}`),
   preferences: {
     get: () => request<UserPreferencesDto>("/api/me/preferences"),
-    update: (body: { workCalendarUrl: string | null; weeklyDigestEnabled?: boolean }) =>
+    update: (body: {
+      workCalendarUrl?: string | null;
+      weeklyDigestEnabled?: boolean;
+      dashboardOrganization?: UserPreferencesDto["dashboardOrganization"];
+    }) =>
       request<UserPreferencesDto>("/api/me/preferences", {
         method: "PUT",
         body: JSON.stringify(body),

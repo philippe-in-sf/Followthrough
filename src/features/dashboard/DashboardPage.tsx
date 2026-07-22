@@ -12,6 +12,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { api, type DashboardMeeting, type DashboardTask } from "../../api/client";
+import type { DashboardOrganization } from "../../../shared/types";
 import { hasActiveBlockers, hasBlockers, hasClearedBlockers } from "../../blockers";
 import { EmptyState } from "../../components/EmptyState";
 import { collapseLinks, LinkedText, type RecordReferenceTarget } from "../../components/LinkedText";
@@ -19,6 +20,8 @@ import { PaginatedItems } from "../../components/PaginatedItems";
 import { StatusBadge } from "../../components/StatusBadge";
 
 type DashboardSummary = Awaited<ReturnType<typeof api.dashboard>>;
+type WorkflowTab = "attention" | "workload" | "activity";
+type EntityTab = "tasks" | "meetings" | "decisions";
 
 export type DashboardRecordTarget = {
   publicId: string;
@@ -198,15 +201,22 @@ function MeetingLine({
 }
 
 export function DashboardPage({
+  dashboardOrganization,
+  onDashboardOrganizationChange,
   onOpenRecord,
   onRecordReferenceOpen,
 }: {
+  dashboardOrganization: DashboardOrganization;
+  onDashboardOrganizationChange: (organization: DashboardOrganization) => Promise<void>;
   onOpenRecord: (target: DashboardRecordTarget) => void;
   onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [workflowTab, setWorkflowTab] = useState<WorkflowTab>("attention");
+  const [entityTab, setEntityTab] = useState<EntityTab>("tasks");
   const [expandedAssigneeKey, setExpandedAssigneeKey] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState("");
+  const [preferenceStatus, setPreferenceStatus] = useState("");
   const blockerTaskCount = summary?.activeBlockers.tasks.length ?? 0;
   const blockerMeetingCount = summary?.activeBlockers.meetings.length ?? 0;
   const blockerCount = blockerTaskCount + blockerMeetingCount;
@@ -218,6 +228,30 @@ export function DashboardPage({
     1,
     ...(summary?.openTasksByAssignee.map((group) => group.tasks.length) ?? [0]),
   );
+  const isWorkflow = dashboardOrganization === "workflow";
+  const showTaskAttention = isWorkflow ? workflowTab === "attention" : entityTab === "tasks";
+  const showMeetingAttention = isWorkflow
+    ? workflowTab === "attention"
+    : entityTab === "meetings";
+  const showWorkload = isWorkflow ? workflowTab === "workload" : entityTab === "tasks";
+  const showMomentum = isWorkflow && workflowTab === "activity";
+  const showMeetingsActivity = isWorkflow ? workflowTab === "activity" : entityTab === "meetings";
+  const showDecisionsActivity = isWorkflow
+    ? workflowTab === "activity"
+    : entityTab === "decisions";
+  const showSeriesActivity = isWorkflow ? workflowTab === "activity" : entityTab === "meetings";
+  const showMainColumn = showTaskAttention || showMeetingAttention || showWorkload;
+  const showSideColumn = showMeetingsActivity || showDecisionsActivity || showSeriesActivity;
+  const visibleBlockerCount =
+    (showTaskAttention ? blockerTaskCount : 0) +
+    (showMeetingAttention ? blockerMeetingCount : 0);
+  const layoutClassName = [
+    "dashboard-layout",
+    !showMainColumn || !showSideColumn ? "dashboard-layout-single" : "",
+    showMomentum ? "dashboard-layout-activity" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     void api.dashboard().then(setSummary);
@@ -245,6 +279,17 @@ export function DashboardPage({
     }
   }
 
+  async function changeDashboardOrganization(organization: DashboardOrganization) {
+    if (organization === dashboardOrganization) return;
+    setPreferenceStatus("Saving view...");
+    try {
+      await onDashboardOrganizationChange(organization);
+      setPreferenceStatus("View saved");
+    } catch {
+      setPreferenceStatus("Unable to save view");
+    }
+  }
+
   return (
     <main className="page dashboard-page">
       <section
@@ -256,20 +301,6 @@ export function DashboardPage({
           <p className="marketing-eyebrow dashboard-eyebrow">Command center</p>
           <h2 id="dashboard-heading">Workspace</h2>
           <p>{summary ? focusLine(summary) : "Loading workspace signals..."}</p>
-        </div>
-        <div className="dashboard-pulse" aria-label="Workspace pulse">
-          <div className="dashboard-pulse-row">
-            <span>Blockers</span>
-            <strong>{blockerCount}</strong>
-          </div>
-          <div className="dashboard-pulse-row">
-            <span>Open tasks</span>
-            <strong>{openTaskCount}</strong>
-          </div>
-          <div className="dashboard-pulse-row dashboard-pulse-row-hot">
-            <span>Due soon</span>
-            <strong>{dueSoonCount}</strong>
-          </div>
         </div>
       </section>
 
@@ -308,6 +339,100 @@ export function DashboardPage({
       </div>
 
       {summary ? (
+        <div className="dashboard-navigation">
+          <div className="dashboard-view-controls">
+            <div>
+              <strong>Organize dashboard</strong>
+              <span>Choose the lens that matches how you scan the workspace.</span>
+            </div>
+            <div className="dashboard-view-switcher" aria-label="Dashboard organization">
+              <button
+                type="button"
+                aria-pressed={isWorkflow}
+                onClick={() => void changeDashboardOrganization("workflow")}
+              >
+                By workflow
+              </button>
+              <button
+                type="button"
+                aria-pressed={!isWorkflow}
+                onClick={() => void changeDashboardOrganization("entity")}
+              >
+                By entity
+              </button>
+            </div>
+            {preferenceStatus ? (
+              <span className="form-status dashboard-preference-status" aria-live="polite">
+                {preferenceStatus}
+              </span>
+            ) : null}
+          </div>
+
+          <div
+            className="dashboard-tabs"
+            role="group"
+            aria-label={`${isWorkflow ? "Workflow" : "Entity"} dashboard tabs`}
+          >
+            {isWorkflow ? (
+              <>
+                <button
+                  type="button"
+                  aria-pressed={workflowTab === "attention"}
+                  onClick={() => setWorkflowTab("attention")}
+                >
+                  Attention <span>{blockerCount + overdueCount + dueSoonCount}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={workflowTab === "workload"}
+                  onClick={() => setWorkflowTab("workload")}
+                >
+                  Workload <span>{openTaskCount}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={workflowTab === "activity"}
+                  onClick={() => setWorkflowTab("activity")}
+                >
+                  Activity{" "}
+                  <span>
+                    {summary.recentMeetings.length +
+                      summary.recentDecisions.length +
+                      summary.activeSeries.length}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  aria-pressed={entityTab === "tasks"}
+                  onClick={() => setEntityTab("tasks")}
+                >
+                  Tasks <span>{openTaskCount}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={entityTab === "meetings"}
+                  onClick={() => setEntityTab("meetings")}
+                >
+                  Meetings &amp; series{" "}
+                  <span>{summary.recentMeetings.length + summary.activeSeries.length}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={entityTab === "decisions"}
+                  onClick={() => setEntityTab("decisions")}
+                >
+                  Decisions <span>{summary.recentDecisions.length}</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {summary && showMomentum ? (
         <section className="dashboard-section dashboard-momentum" aria-labelledby="momentum-heading">
           <div>
             <p className="dashboard-section-kicker">Momentum</p>
@@ -358,24 +483,24 @@ export function DashboardPage({
       ) : null}
 
       {summary ? (
-        <div className="dashboard-layout">
-          <div className="dashboard-main-column">
+        <div className={layoutClassName}>
+          <div className="dashboard-main-column" hidden={!showMainColumn}>
             <section
               className="dashboard-section dashboard-section-priority"
               aria-labelledby="active-blockers-heading"
+              hidden={!showTaskAttention && !showMeetingAttention}
             >
               <SectionHeading
                 eyebrow="Priority"
                 title="Active blockers"
-                count={countLabel(blockerCount, "item")}
+                count={countLabel(visibleBlockerCount, "item")}
                 id="active-blockers-heading"
               />
-              {summary.activeBlockers.tasks.length === 0 &&
-              summary.activeBlockers.meetings.length === 0 ? (
-                <EmptyState title="No blockers" detail="Tasks and meetings with active blockers will appear here." />
+              {visibleBlockerCount === 0 ? (
+                <EmptyState title="No blockers" detail="Active blockers will appear here." />
               ) : (
                 <div className="dashboard-blocker-list">
-                  {summary.activeBlockers.meetings.length > 0 ? (
+                  {showMeetingAttention && summary.activeBlockers.meetings.length > 0 ? (
                     <div className="dashboard-sublist">
                       <span className="dashboard-sublist-label">Meetings</span>
                       <PaginatedItems
@@ -398,7 +523,7 @@ export function DashboardPage({
                       </PaginatedItems>
                     </div>
                   ) : null}
-                  {summary.activeBlockers.tasks.length > 0 ? (
+                  {showTaskAttention && summary.activeBlockers.tasks.length > 0 ? (
                     <div className="dashboard-sublist">
                       <span className="dashboard-sublist-label">Tasks</span>
                       <PaginatedItems
@@ -426,7 +551,7 @@ export function DashboardPage({
               )}
             </section>
 
-            <div className="dashboard-task-columns">
+            <div className="dashboard-task-columns" hidden={!showTaskAttention}>
               <section className="dashboard-section" aria-labelledby="overdue-tasks-heading">
                 <SectionHeading
                   eyebrow="Recovery"
@@ -491,7 +616,11 @@ export function DashboardPage({
               </section>
             </div>
 
-            <section className="dashboard-section" aria-labelledby="open-tasks-heading">
+            <section
+              className="dashboard-section"
+              aria-labelledby="open-tasks-heading"
+              hidden={!showWorkload}
+            >
               <SectionHeading
                 eyebrow="Ownership"
                 title="Open tasks by assignee"
@@ -586,8 +715,16 @@ export function DashboardPage({
             </section>
           </div>
 
-          <aside className="dashboard-side-column" aria-label="Workspace activity">
-            <section className="dashboard-section" aria-labelledby="recent-meetings-heading">
+          <aside
+            className="dashboard-side-column"
+            aria-label="Workspace activity"
+            hidden={!showSideColumn}
+          >
+            <section
+              className="dashboard-section"
+              aria-labelledby="recent-meetings-heading"
+              hidden={!showMeetingsActivity}
+            >
               <SectionHeading
                 eyebrow="Meetings"
                 title="Recent meetings"
@@ -626,7 +763,11 @@ export function DashboardPage({
                 </PaginatedItems>
               )}
             </section>
-            <section className="dashboard-section" aria-labelledby="recent-decisions-heading">
+            <section
+              className="dashboard-section"
+              aria-labelledby="recent-decisions-heading"
+              hidden={!showDecisionsActivity}
+            >
               <SectionHeading
                 eyebrow="Decisions"
                 title="Recent decisions"
@@ -665,7 +806,11 @@ export function DashboardPage({
                 </PaginatedItems>
               )}
             </section>
-            <section className="dashboard-section" aria-labelledby="recurring-meetings-heading">
+            <section
+              className="dashboard-section"
+              aria-labelledby="recurring-meetings-heading"
+              hidden={!showSeriesActivity}
+            >
               <SectionHeading
                 eyebrow="Rhythm"
                 title="Recurring meetings"
