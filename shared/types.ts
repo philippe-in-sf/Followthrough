@@ -11,6 +11,7 @@ export type MeetingLinkType = "agenda" | "work" | "reference" | "other";
 export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "decision" | "person";
 export type UserRole = "owner" | "admin" | "member";
+export type DashboardOrganization = "workflow" | "entity";
 
 export type TeamDto = {
   id: number;
@@ -191,6 +192,7 @@ export type GoogleCalendarImportEventDto = {
 export type UserPreferencesDto = {
   workCalendarUrl: string | null;
   weeklyDigestEnabled: boolean;
+  dashboardOrganization: DashboardOrganization;
   googleCalendarConfigured: boolean;
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;

@@ -1,3 +1,4 @@
+import type { DashboardOrganization } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
 
 export class InvalidWorkCalendarUrlError extends Error {
@@ -10,12 +11,14 @@ export type UserPreferences = {
   userId: number;
   workCalendarUrl: string | null;
   weeklyDigestEnabled: boolean;
+  dashboardOrganization: DashboardOrganization;
 };
 
 type UserPreferencesRow = {
   user_id: number;
   work_calendar_url: string;
   weekly_digest_enabled: number;
+  dashboard_organization: DashboardOrganization;
 };
 
 export function parseWorkCalendarUrl(value: string | null) {
@@ -40,7 +43,7 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
   const row = db
     .prepare(
       `
-        SELECT user_id, work_calendar_url, weekly_digest_enabled
+        SELECT user_id, work_calendar_url, weekly_digest_enabled, dashboard_organization
         FROM user_preferences
         WHERE user_id = ?
       `,
@@ -51,12 +54,18 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
     userId,
     workCalendarUrl: row?.work_calendar_url ? row.work_calendar_url : null,
     weeklyDigestEnabled: row?.weekly_digest_enabled === 1,
+    dashboardOrganization: row?.dashboard_organization ?? "workflow",
   };
 }
 
 export function upsertUserPreferences(
   db: AppDatabase,
-  input: { userId: number; workCalendarUrl: string | null; weeklyDigestEnabled: boolean },
+  input: {
+    userId: number;
+    workCalendarUrl: string | null;
+    weeklyDigestEnabled: boolean;
+    dashboardOrganization: DashboardOrganization;
+  },
 ): UserPreferences {
   const workCalendarUrl = parseWorkCalendarUrl(input.workCalendarUrl);
 
@@ -66,14 +75,21 @@ export function upsertUserPreferences(
         user_id,
         work_calendar_url,
         weekly_digest_enabled,
+        dashboard_organization,
         updated_at
-      ) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET
         work_calendar_url = excluded.work_calendar_url,
         weekly_digest_enabled = excluded.weekly_digest_enabled,
+        dashboard_organization = excluded.dashboard_organization,
         updated_at = CURRENT_TIMESTAMP
     `,
-  ).run(input.userId, workCalendarUrl ?? "", input.weeklyDigestEnabled ? 1 : 0);
+  ).run(
+    input.userId,
+    workCalendarUrl ?? "",
+    input.weeklyDigestEnabled ? 1 : 0,
+    input.dashboardOrganization,
+  );
 
   return getUserPreferences(db, input.userId);
 }

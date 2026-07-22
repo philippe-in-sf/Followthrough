@@ -1262,19 +1262,23 @@ button:disabled {
   gap: 18px;
 }
 
+.dashboard-page [hidden] {
+  display: none !important;
+}
+
 .dashboard-hero {
   position: relative;
   isolation: isolate;
-  min-height: 220px;
+  min-height: 152px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 340px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   gap: 22px;
   overflow: hidden;
   border-radius: 8px;
   background: #111827;
   color: #ffffff;
-  padding: 28px;
+  padding: 24px 28px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
 }
 
@@ -1299,7 +1303,7 @@ button:disabled {
 }
 
 .dashboard-hero-copy {
-  align-self: end;
+  align-self: center;
   max-width: 680px;
 }
 
@@ -1310,7 +1314,7 @@ button:disabled {
 .dashboard-hero h2 {
   margin: 0;
   max-width: 9ch;
-  font-size: 3.7rem;
+  font-size: 3rem;
   letter-spacing: 0;
   line-height: 0.95;
 }
@@ -1365,6 +1369,111 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.dashboard-navigation {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-view-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.dashboard-view-controls > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard-view-controls > div:first-child span {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.dashboard-view-switcher {
+  display: inline-flex;
+  gap: 4px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+}
+
+.dashboard-view-switcher button,
+.dashboard-tabs button {
+  border: 0;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.dashboard-view-switcher button {
+  border-radius: 6px;
+  background: transparent;
+  padding: 8px 12px;
+}
+
+.dashboard-view-switcher button[aria-pressed="true"] {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.dashboard-view-switcher button:focus-visible,
+.dashboard-tabs button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.dashboard-preference-status {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: right;
+}
+
+.dashboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #d9dee7;
+}
+
+.dashboard-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  padding: 10px 12px 9px;
+}
+
+.dashboard-tabs button span {
+  min-width: 24px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 0.74rem;
+  padding: 3px 7px;
+  text-align: center;
+}
+
+.dashboard-tabs button[aria-pressed="true"] {
+  border-bottom-color: #0f766e;
+  color: #0f766e;
+}
+
+.dashboard-tabs button[aria-pressed="true"] span {
+  background: #ccfbf1;
+  color: #115e59;
 }
 
 .dashboard-metric {
@@ -1485,6 +1594,14 @@ button:disabled {
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.8fr);
   align-items: start;
   gap: 18px;
+}
+
+.dashboard-layout-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-layout-activity .dashboard-side-column {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboard-main-column,
@@ -5277,6 +5394,7 @@ button:disabled {
 .app-shell[data-skin] .search-results,
 .app-shell[data-skin] .summary-panel,
 .app-shell[data-skin] .empty-state,
+.app-shell[data-skin] .dashboard-view-controls,
 .app-shell[data-skin] .dashboard-metric,
 .app-shell[data-skin] .dashboard-section,
 .app-shell[data-skin] .task-filter-panel,
@@ -5302,6 +5420,50 @@ button:disabled {
 .app-shell[data-skin] .person-related-list li {
   border-color: var(--skin-border);
   background: var(--skin-surface);
+  color: var(--skin-text);
+}
+
+.app-shell[data-skin] .dashboard-view-controls > div:first-child span {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .dashboard-view-switcher {
+  border-color: var(--skin-border);
+  background: var(--skin-secondary-bg);
+}
+
+.app-shell[data-skin] .dashboard-view-switcher button,
+.app-shell[data-skin] .dashboard-tabs button {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .dashboard-view-switcher button[aria-pressed="true"] {
+  background: var(--skin-surface-raised);
+  color: var(--skin-text);
+  box-shadow: 0 1px 3px var(--skin-shadow);
+}
+
+.app-shell[data-skin] .dashboard-view-switcher button:focus-visible,
+.app-shell[data-skin] .dashboard-tabs button:focus-visible {
+  outline-color: var(--skin-focus);
+}
+
+.app-shell[data-skin] .dashboard-tabs {
+  border-color: var(--skin-border);
+}
+
+.app-shell[data-skin] .dashboard-tabs button span {
+  background: var(--skin-secondary-bg);
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .dashboard-tabs button[aria-pressed="true"] {
+  border-bottom-color: var(--skin-accent);
+  color: var(--skin-accent);
+}
+
+.app-shell[data-skin] .dashboard-tabs button[aria-pressed="true"] span {
+  background: var(--skin-accent-soft);
   color: var(--skin-text);
 }
 

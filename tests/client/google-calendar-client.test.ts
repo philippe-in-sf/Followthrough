@@ -22,6 +22,7 @@ describe("calendar client preferences", () => {
       json({
         workCalendarUrl: "https://calendar.example.com/team",
         weeklyDigestEnabled: false,
+        dashboardOrganization: "workflow",
         googleCalendarConfigured: true,
         googleCalendarConnected: true,
         googleCalendarEmail: "editor@gmail.com",
@@ -31,6 +32,7 @@ describe("calendar client preferences", () => {
     await expect(api.preferences.get()).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
       weeklyDigestEnabled: false,
+      dashboardOrganization: "workflow",
       googleCalendarConfigured: true,
       googleCalendarConnected: true,
       googleCalendarEmail: "editor@gmail.com",
@@ -47,6 +49,7 @@ describe("calendar client preferences", () => {
       json({
         workCalendarUrl: "https://calendar.example.com/team",
         weeklyDigestEnabled: false,
+        dashboardOrganization: "workflow",
         googleCalendarConfigured: true,
         googleCalendarConnected: false,
         googleCalendarEmail: null,
@@ -58,6 +61,7 @@ describe("calendar client preferences", () => {
     ).resolves.toEqual({
       workCalendarUrl: "https://calendar.example.com/team",
       weeklyDigestEnabled: false,
+      dashboardOrganization: "workflow",
       googleCalendarConfigured: true,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
