@@ -50,7 +50,10 @@ type SessionRow = {
   userId: number;
   impersonatedUserId: number | null;
   expiresAt: string;
+  lastSeenAt: string;
 };
+
+const LAST_SEEN_WRITE_INTERVAL_MS = 5 * 60 * 1000;
 
 export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -75,14 +78,22 @@ export function createSession(
   config: AppConfig,
 ) {
   const token = randomBytes(32).toString("hex");
+  const now = new Date();
   const expiresAt = new Date(Date.now() + config.sessionTtlDays * 24 * 60 * 60 * 1000);
 
-  db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").run(
-    hashToken(token),
-    userId,
-    expiresAt.toISOString(),
-  );
+  db.prepare(
+    "INSERT INTO sessions (token_hash, user_id, expires_at, last_seen_at) VALUES (?, ?, ?, ?)",
+  ).run(hashToken(token), userId, expiresAt.toISOString(), now.toISOString());
 
+  setSessionCookie(res, config, token, expiresAt);
+}
+
+function setSessionCookie(
+  res: Response,
+  config: AppConfig,
+  token: string,
+  expiresAt: Date,
+) {
   res.cookie(config.sessionCookieName, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -109,7 +120,8 @@ function getSessionRow(
     .prepare(
       `SELECT sessions.user_id AS userId,
               sessions.impersonated_user_id AS impersonatedUserId,
-              sessions.expires_at AS expiresAt
+              sessions.expires_at AS expiresAt,
+              sessions.last_seen_at AS lastSeenAt
        FROM sessions
        WHERE sessions.token_hash = ?`,
     )
@@ -117,10 +129,40 @@ function getSessionRow(
 
   if (!row) return null;
 
+  const now = Date.now();
   const expiresAt = Date.parse(row.expiresAt);
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  const lastSeenAt = parseDatabaseTimestamp(row.lastSeenAt);
+  const idleTimeoutMs = config.sessionIdleTimeoutMinutes * 60 * 1000;
+  if (
+    !Number.isFinite(expiresAt) ||
+    !Number.isFinite(lastSeenAt) ||
+    !Number.isFinite(idleTimeoutMs) ||
+    idleTimeoutMs <= 0 ||
+    expiresAt <= now ||
+    lastSeenAt + idleTimeoutMs <= now
+  ) {
+    db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+    return null;
+  }
+
+  const writeIntervalMs = Math.min(LAST_SEEN_WRITE_INTERVAL_MS, idleTimeoutMs / 4);
+  if (lastSeenAt + writeIntervalMs <= now) {
+    const refreshedLastSeenAt = new Date(now).toISOString();
+    db.prepare("UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?").run(
+      refreshedLastSeenAt,
+      tokenHash,
+    );
+    row.lastSeenAt = refreshedLastSeenAt;
+  }
 
   return { tokenHash, row };
+}
+
+function parseDatabaseTimestamp(value: string) {
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value)
+    ? value
+    : `${value.replace(" ", "T")}Z`;
+  return Date.parse(normalized);
 }
 
 function canImpersonate(actor: AuthUser, target: AuthUser) {
@@ -143,7 +185,10 @@ export function getSessionUser(
   if (!session.row.impersonatedUserId) return actor;
 
   const target = getAuthUserById(db, session.row.impersonatedUserId);
-  if (!target || !canImpersonate(actor, target)) return actor;
+  if (!target || !canImpersonate(actor, target)) {
+    db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(session.tokenHash);
+    return null;
+  }
 
   return {
     ...target,
@@ -190,6 +235,7 @@ export function destroySession(
 
 export function startSessionImpersonation(
   db: AppDatabase,
+  res: Response,
   cookieHeader: string | undefined,
   config: AppConfig,
   targetUserId: number,
@@ -197,36 +243,53 @@ export function startSessionImpersonation(
   const session = getSessionRow(db, cookieHeader, config);
   if (!session) return null;
 
-  db.prepare("UPDATE sessions SET impersonated_user_id = ? WHERE token_hash = ?").run(
-    targetUserId,
-    session.tokenHash,
-  );
+  const token = randomBytes(32).toString("hex");
+  const updated = db
+    .prepare(
+      `UPDATE sessions
+       SET token_hash = ?, impersonated_user_id = ?, last_seen_at = ?
+       WHERE token_hash = ?`,
+    )
+    .run(
+      hashToken(token),
+      targetUserId,
+      new Date().toISOString(),
+      session.tokenHash,
+    );
+  if (updated.changes !== 1) return null;
 
-  return getSessionUser(db, cookieHeader, config);
+  setSessionCookie(res, config, token, new Date(session.row.expiresAt));
+  return getSessionUser(db, `${config.sessionCookieName}=${token}`, config);
 }
 
 export function stopSessionImpersonation(
   db: AppDatabase,
+  res: Response,
   cookieHeader: string | undefined,
   config: AppConfig,
 ) {
   const session = getSessionRow(db, cookieHeader, config);
   if (!session) return null;
 
-  db.prepare("UPDATE sessions SET impersonated_user_id = NULL WHERE token_hash = ?").run(
-    session.tokenHash,
-  );
+  const token = randomBytes(32).toString("hex");
+  const updated = db
+    .prepare(
+      `UPDATE sessions
+       SET token_hash = ?, impersonated_user_id = NULL, last_seen_at = ?
+       WHERE token_hash = ?`,
+    )
+    .run(hashToken(token), new Date().toISOString(), session.tokenHash);
+  if (updated.changes !== 1) return null;
 
-  return getSessionUser(db, cookieHeader, config);
+  setSessionCookie(res, config, token, new Date(session.row.expiresAt));
+  return getSessionUser(db, `${config.sessionCookieName}=${token}`, config);
 }
 
-export function clearImpersonationsForUser(db: AppDatabase, userId: number) {
-  db.prepare("UPDATE sessions SET impersonated_user_id = NULL WHERE impersonated_user_id = ?").run(
-    userId,
-  );
+export function destroyImpersonatingSessionsForUser(db: AppDatabase, userId: number) {
+  db.prepare("DELETE FROM sessions WHERE impersonated_user_id = ?").run(userId);
 }
 
 export function destroySessionsForUser(db: AppDatabase, userId: number) {
-  clearImpersonationsForUser(db, userId);
+  destroyImpersonatingSessionsForUser(db, userId);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
 }

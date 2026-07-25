@@ -10,3 +10,4 @@ deploy/sites.*.env
 !deploy/sites.example.env
 data/*.sqlite
 data/*.sqlite-*
+data/backups/

@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { badRequest } from "../errors.js";
@@ -7,6 +7,8 @@ import { hashPassword } from "./password.js";
 import { destroySessionsForUser, hashToken } from "./sessions.js";
 
 const passwordResetTtlMs = 60 * 60 * 1000;
+const minimumResetRequestMs = 350;
+const resetRequestJitterMs = 150;
 
 type ResetUserRow = {
   id: number;
@@ -52,29 +54,45 @@ export async function requestPasswordReset({
   email: string;
   requestOrigin: string;
 }) {
-  const user = db
-    .prepare("SELECT id, name, email FROM users WHERE lower(email) = lower(?)")
-    .get(email) as ResetUserRow | undefined;
+  const startedAt = Date.now();
+  const responseFloorMs = minimumResetRequestMs + randomInt(resetRequestJitterMs + 1);
 
-  if (!user || !emailSender) return;
+  try {
+    const user = db
+      .prepare("SELECT id, name, email FROM users WHERE lower(email) = lower(?)")
+      .get(email) as ResetUserRow | undefined;
 
-  const { token, expiresAt } = createPasswordResetToken(db, user.id);
-  const resetUrl = buildPasswordResetUrl(config, requestOrigin, token);
+    if (!user || !emailSender) return;
 
-  await emailSender.send({
-    to: user.email,
-    subject: "Followthrough: Reset your password",
-    text: [
-      `Hi ${user.name},`,
-      "",
-      "Use this link to reset your Followthrough password:",
-      resetUrl,
-      "",
-      `This link expires at ${expiresAt}.`,
-      "",
-      "If you did not request this, you can ignore this email.",
-    ].join("\n"),
-  });
+    const { token, expiresAt } = createPasswordResetToken(db, user.id);
+    const resetUrl = buildPasswordResetUrl(config, requestOrigin, token);
+
+    void Promise.resolve()
+      .then(() =>
+        emailSender.send({
+          to: user.email,
+          subject: "Followthrough: Reset your password",
+          text: [
+            `Hi ${user.name},`,
+            "",
+            "Use this link to reset your Followthrough password:",
+            resetUrl,
+            "",
+            `This link expires at ${expiresAt}.`,
+            "",
+            "If you did not request this, you can ignore this email.",
+          ].join("\n"),
+        }),
+      )
+      .catch((error) => {
+        console.error("Password reset email delivery failed", error);
+      });
+  } finally {
+    const remainingMs = responseFloorMs - (Date.now() - startedAt);
+    if (remainingMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingMs));
+    }
+  }
 }
 
 export async function resetPasswordWithToken(

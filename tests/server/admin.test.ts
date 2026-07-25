@@ -336,8 +336,8 @@ describe("admin API", () => {
     expect(login.body.user.role).toBe("admin");
   });
 
-  it("lets admins change another user's role", async () => {
-    const { app, adminCookie } = await setup();
+  it("lets admins change another user's role and revokes that user's sessions", async () => {
+    const { app, adminCookie, memberCookie } = await setup();
 
     const users = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
     const member = users.body.users.find(
@@ -355,6 +355,9 @@ describe("admin API", () => {
       email: "member@example.com",
       role: "admin",
     });
+
+    const oldSession = await request(app).get("/api/tasks").set("Cookie", memberCookie);
+    expect(oldSession.status).toBe(401);
   });
 
   it("scopes admin users and login events to their team unless the user has owner access", async () => {
@@ -432,8 +435,13 @@ describe("admin API", () => {
         },
       },
     });
+    const impersonationCookie = started.headers["set-cookie"];
+    expect(impersonationCookie?.[0]).not.toBe(adminCookie?.[0]);
 
-    const me = await request(app).get("/api/auth/me").set("Cookie", adminCookie);
+    const replacedAdminSession = await request(app).get("/api/tasks").set("Cookie", adminCookie);
+    expect(replacedAdminSession.status).toBe(401);
+
+    const me = await request(app).get("/api/auth/me").set("Cookie", impersonationCookie);
     expect(me.body.user).toMatchObject({
       email: "member@example.com",
       role: "member",
@@ -446,19 +454,19 @@ describe("admin API", () => {
 
     const adminDuringImpersonation = await request(app)
       .get("/api/admin/team")
-      .set("Cookie", adminCookie);
+      .set("Cookie", impersonationCookie);
     expect(adminDuringImpersonation.status).toBe(403);
 
     const writeDuringImpersonation = await request(app)
       .post("/api/tasks")
-      .set("Cookie", adminCookie)
+      .set("Cookie", impersonationCookie)
       .send({ description: "Accidental impersonated write", status: "Open" });
     expect(writeDuringImpersonation.status).toBe(403);
     expect(writeDuringImpersonation.body.error).toBe("Stop viewing as user before making changes");
 
     const stopped = await request(app)
       .post("/api/auth/impersonation/stop")
-      .set("Cookie", adminCookie);
+      .set("Cookie", impersonationCookie);
 
     expect(stopped.status).toBe(200);
     expect(stopped.body.user).toMatchObject({
@@ -466,9 +474,52 @@ describe("admin API", () => {
       role: "admin",
       impersonation: null,
     });
+    const restoredAdminCookie = stopped.headers["set-cookie"];
+    expect(restoredAdminCookie?.[0]).not.toBe(impersonationCookie?.[0]);
 
-    const adminAfterStop = await request(app).get("/api/admin/team").set("Cookie", adminCookie);
+    const replacedImpersonationSession = await request(app)
+      .get("/api/tasks")
+      .set("Cookie", impersonationCookie);
+    expect(replacedImpersonationSession.status).toBe(401);
+
+    const adminAfterStop = await request(app)
+      .get("/api/admin/team")
+      .set("Cookie", restoredAdminCookie);
     expect(adminAfterStop.status).toBe(200);
+  });
+
+  it("revokes an impersonation session when the viewed user's role changes", async () => {
+    const { app, db, adminCookie } = await setup();
+    const users = await request(app).get("/api/admin/users").set("Cookie", adminCookie);
+    const member = users.body.users.find(
+      (user: { email: string }) => user.email === "member@example.com",
+    );
+
+    const started = await request(app)
+      .post(`/api/admin/users/${member.id}/impersonate`)
+      .set("Cookie", adminCookie);
+    const impersonationCookie = started.headers["set-cookie"];
+
+    const secondAdmin = await createUser(db, {
+      name: "Second Admin",
+      email: "second@example.com",
+      password: "long-enough-password",
+      role: "admin",
+    });
+    expect(secondAdmin.role).toBe("admin");
+    const secondLogin = await request(app).post("/api/auth/login").send({
+      email: "second@example.com",
+      password: "long-enough-password",
+    });
+
+    const updated = await request(app)
+      .patch(`/api/admin/users/${member.id}/role`)
+      .set("Cookie", secondLogin.headers["set-cookie"])
+      .send({ role: "admin" });
+    expect(updated.status).toBe(200);
+
+    const revoked = await request(app).get("/api/tasks").set("Cookie", impersonationCookie);
+    expect(revoked.status).toBe(401);
   });
 
   it("rejects impersonating admins or users outside the admin's visible team", async () => {
@@ -644,9 +695,15 @@ describe("admin API", () => {
     });
     expect(left.body.user.team.id).not.toBe(1);
 
-    const tasks = await request(app).get("/api/tasks").set("Cookie", memberCookie);
-    const meetings = await request(app).get("/api/meetings").set("Cookie", memberCookie);
-    const decisions = await request(app).get("/api/decisions").set("Cookie", memberCookie);
+    const rotatedMemberCookie = left.headers["set-cookie"];
+    expect(rotatedMemberCookie?.[0]).not.toBe(memberCookie?.[0]);
+
+    const oldSession = await request(app).get("/api/tasks").set("Cookie", memberCookie);
+    expect(oldSession.status).toBe(401);
+
+    const tasks = await request(app).get("/api/tasks").set("Cookie", rotatedMemberCookie);
+    const meetings = await request(app).get("/api/meetings").set("Cookie", rotatedMemberCookie);
+    const decisions = await request(app).get("/api/decisions").set("Cookie", rotatedMemberCookie);
 
     expect(tasks.body.tasks).toEqual([]);
     expect(meetings.body.meetings).toEqual([]);

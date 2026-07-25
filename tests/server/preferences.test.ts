@@ -5,6 +5,7 @@ import { loadConfig, type AppConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
+const tokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
 
 const baseConfig: AppConfig = {
   ...loadConfig(),
@@ -12,6 +13,7 @@ const baseConfig: AppConfig = {
   nodeEnv: "test",
   appBaseUrl: "http://localhost:3000",
   googleOAuthRedirectUri: "http://localhost:3000/api/google-calendar/oauth/callback",
+  googleOAuthTokenEncryptionKey: tokenEncryptionKey,
 };
 
 async function setup(config: Partial<AppConfig> = {}) {

@@ -1,9 +1,11 @@
+import { randomBytes } from "node:crypto";
 import cors from "cors";
 import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import type { AppConfig } from "./config.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+export const CSP_NONCE_PLACEHOLDER = "__CSP_NONCE__";
 
 function parseOrigin(value: string) {
   try {
@@ -23,11 +25,66 @@ function trustedOrigin(req: Request, config: AppConfig) {
 
 export function baselineSecurityHeaders(config: AppConfig) {
   return helmet({
-    // The server-rendered public pages currently include inline analytics and
-    // consent scripts. Add a nonce-based policy before enabling Helmet's CSP.
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'none'"],
+        connectSrc: [
+          "'self'",
+          "https://www.googletagmanager.com",
+          "https://www.google.com",
+          "https://*.google-analytics.com",
+          "https://*.analytics.google.com",
+          "https://consent.cookiebot.com",
+          "https://consentcdn.cookiebot.com",
+        ],
+        fontSrc: ["'self'", "data:"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        frameSrc: [
+          "'self'",
+          "https://www.googletagmanager.com",
+          "https://consentcdn.cookiebot.com",
+        ],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https://www.googletagmanager.com",
+          "https://*.google-analytics.com",
+          "https://imgsct.cookiebot.com",
+          "https://consentcdn.cookiebot.com",
+        ],
+        objectSrc: ["'none'"],
+        scriptSrc: [
+          "'self'",
+          (_req, res) => `'nonce-${(res as Response).locals.cspNonce}'`,
+          "'strict-dynamic'",
+          "https://www.googletagmanager.com",
+          "https://consent.cookiebot.com",
+          "https://consentcdn.cookiebot.com",
+        ],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        workerSrc: ["'self'"],
+        ...(config.nodeEnv === "production" ? { upgradeInsecureRequests: [] } : {}),
+      },
+    },
     strictTransportSecurity: config.nodeEnv === "production" ? undefined : false,
   });
+}
+
+export function assignCspNonce(_req: Request, res: Response, next: NextFunction) {
+  res.locals.cspNonce = randomBytes(32).toString("base64");
+  next();
+}
+
+export function applyCspNonceToHtml(html: string, nonce: string) {
+  const withPlaceholdersReplaced = html.replaceAll(CSP_NONCE_PLACEHOLDER, nonce);
+  return withPlaceholdersReplaced.replace(
+    /<script(?![^>]*\bnonce=)([^>]*)>/gi,
+    `<script nonce="${nonce}"$1>`,
+  );
 }
 
 export function explicitCorsPolicy(config: AppConfig) {
@@ -60,11 +117,10 @@ export function requireSameOrigin(config: AppConfig) {
     const fetchSite = req.get("sec-fetch-site")?.toLowerCase();
     const expectedOrigin = trustedOrigin(req, config);
 
-    // Browsers attach Origin to fetch/XHR state changes. Requests without
-    // browser fetch metadata remain available to trusted scripts and tests.
     if (
       (origin && (!expectedOrigin || parseOrigin(origin) !== expectedOrigin)) ||
-      (!origin && fetchSite === "cross-site")
+      (!origin && fetchSite === "cross-site") ||
+      (!origin && config.nodeEnv === "production")
     ) {
       res.status(403).json({ error: "Cross-origin request blocked" });
       return;

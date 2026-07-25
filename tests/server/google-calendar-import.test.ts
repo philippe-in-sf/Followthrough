@@ -1,10 +1,12 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
+import { getGoogleCalendarAccessToken } from "../../server/calendar/oauth";
 import type { AppConfig } from "../../server/config";
 import { createTestDatabase, migrateDatabase } from "../../server/db/database";
 
 const dbs: ReturnType<typeof createTestDatabase>[] = [];
+const tokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
 
 const baseConfig: AppConfig = {
   port: 3000,
@@ -13,8 +15,12 @@ const baseConfig: AppConfig = {
   backupDir: "data/backups",
   backupIntervalMs: 86_400_000,
   backupRetentionCount: 14,
+  backupEncryptionKey: "",
+  backupEncryptionPreviousKeys: [],
+  authCleanupIntervalMs: 86_400_000,
   sessionCookieName: "tm_session",
   sessionTtlDays: 14,
+  sessionIdleTimeoutMinutes: 1440,
   dueSoonDays: 7,
   appBaseUrl: "http://localhost:3000",
   taskReminderEmailFrom: "",
@@ -30,6 +36,8 @@ const baseConfig: AppConfig = {
   googleOAuthClientId: "",
   googleOAuthClientSecret: "",
   googleOAuthRedirectUri: "",
+  googleOAuthTokenEncryptionKey: tokenEncryptionKey,
+  googleOAuthTokenEncryptionPreviousKeys: [],
 };
 
 const oauthConfig: Partial<AppConfig> = {
@@ -53,7 +61,11 @@ async function setup(config: Partial<AppConfig> = {}) {
   return { app, cookie: signup.headers["set-cookie"], db };
 }
 
-function insertGoogleConnection(db: ReturnType<typeof createTestDatabase>, userId = 1) {
+function insertGoogleConnection(
+  db: ReturnType<typeof createTestDatabase>,
+  userId = 1,
+  expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+) {
   db.prepare(
     `
       INSERT INTO google_calendar_connections (
@@ -70,7 +82,7 @@ function insertGoogleConnection(db: ReturnType<typeof createTestDatabase>, userI
     "editor@gmail.com",
     "access-token",
     "refresh-token",
-    new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    expiresAt,
     "https://www.googleapis.com/auth/calendar.readonly",
   );
 }
@@ -160,11 +172,11 @@ describe("google calendar import", () => {
       .get(1) as
       | { google_email: string; access_token: string; refresh_token: string }
       | undefined;
-    expect(connection).toEqual({
-      google_email: "editor@gmail.com",
-      access_token: "new-access-token",
-      refresh_token: "new-refresh-token",
-    });
+    expect(connection?.google_email).toBe("editor@gmail.com");
+    expect(connection?.access_token).toMatch(/^enc:v1:/);
+    expect(connection?.refresh_token).toMatch(/^enc:v1:/);
+    expect(connection?.access_token).not.toContain("new-access-token");
+    expect(connection?.refresh_token).not.toContain("new-refresh-token");
   });
 
   it("requires the signed-in user to connect Google Calendar before import", async () => {
@@ -176,6 +188,37 @@ describe("google calendar import", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe("Connect Google Calendar before importing events.");
+  });
+
+  it("decrypts the refresh token and stores refreshed access tokens as ciphertext", async () => {
+    const { db } = await setup(oauthConfig);
+    insertGoogleConnection(db, 1, new Date(Date.now() - 60 * 1000).toISOString());
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: "refreshed-access-token",
+          expires_in: 3600,
+          scope: "https://www.googleapis.com/auth/calendar.readonly",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(
+      getGoogleCalendarAccessToken(db, { ...baseConfig, ...oauthConfig }, 1),
+    ).resolves.toBe("refreshed-access-token");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("refresh_token=refresh-token");
+
+    const stored = db
+      .prepare(
+        "SELECT access_token, refresh_token FROM google_calendar_connections WHERE user_id = ?",
+      )
+      .get(1) as { access_token: string; refresh_token: string };
+    expect(stored.access_token).toMatch(/^enc:v1:/);
+    expect(stored.refresh_token).toMatch(/^enc:v1:/);
+    expect(stored.access_token).not.toContain("refreshed-access-token");
+    expect(stored.refresh_token).not.toContain("refresh-token");
   });
 
   it("maps connected user Google Calendar events to meeting import candidates", async () => {

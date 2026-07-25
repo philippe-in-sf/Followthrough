@@ -7,8 +7,12 @@ export type AppConfig = {
   backupDir: string;
   backupIntervalMs: number;
   backupRetentionCount: number;
+  backupEncryptionKey: string;
+  backupEncryptionPreviousKeys: string[];
+  authCleanupIntervalMs: number;
   sessionCookieName: string;
   sessionTtlDays: number;
+  sessionIdleTimeoutMinutes: number;
   dueSoonDays: number;
   appBaseUrl: string;
   taskReminderEmailFrom: string;
@@ -24,7 +28,16 @@ export type AppConfig = {
   googleOAuthClientId: string;
   googleOAuthClientSecret: string;
   googleOAuthRedirectUri: string;
+  googleOAuthTokenEncryptionKey: string;
+  googleOAuthTokenEncryptionPreviousKeys: string[];
 };
+
+function commaSeparatedValues(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const databasePath = env.DATABASE_PATH ?? "data/task-manager.sqlite";
@@ -36,8 +49,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     backupDir: env.BACKUP_DIR ?? path.join(path.dirname(databasePath), "backups"),
     backupIntervalMs: Number(env.BACKUP_INTERVAL_MS ?? 86_400_000),
     backupRetentionCount: Number(env.BACKUP_RETENTION_COUNT ?? 14),
+    backupEncryptionKey: env.BACKUP_ENCRYPTION_KEY ?? "",
+    backupEncryptionPreviousKeys: commaSeparatedValues(
+      env.BACKUP_ENCRYPTION_PREVIOUS_KEYS,
+    ),
+    authCleanupIntervalMs: Number(env.AUTH_CLEANUP_INTERVAL_MS ?? 86_400_000),
     sessionCookieName: env.SESSION_COOKIE_NAME ?? "tm_session",
     sessionTtlDays: Number(env.SESSION_TTL_DAYS ?? 14),
+    sessionIdleTimeoutMinutes: Number(env.SESSION_IDLE_TIMEOUT_MINUTES ?? 1440),
     dueSoonDays: Number(env.DUE_SOON_DAYS ?? 7),
     appBaseUrl: env.APP_BASE_URL ?? "",
     taskReminderEmailFrom: env.TASK_REMINDER_EMAIL_FROM ?? "",
@@ -53,5 +72,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     googleOAuthClientId: env.GOOGLE_OAUTH_CLIENT_ID ?? "",
     googleOAuthClientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
     googleOAuthRedirectUri: env.GOOGLE_OAUTH_REDIRECT_URI ?? "",
+    googleOAuthTokenEncryptionKey: env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY ?? "",
+    googleOAuthTokenEncryptionPreviousKeys: commaSeparatedValues(
+      env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS,
+    ),
   };
 }

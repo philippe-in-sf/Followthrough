@@ -10,6 +10,26 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.3 - 2026-07-24
+
+### Security
+
+- Encrypted stored Google OAuth access and refresh tokens with authenticated
+  AES-256-GCM encryption, startup migration, and key rotation support.
+- Encrypted SQLite backups, added an authenticated restore command, migrated
+  legacy plaintext snapshots, and restricted database and backup permissions.
+- Added a nonce-based Content Security Policy for the SPA and public pages,
+  explicit CORS rules, and fail-closed production origin checks for mutations.
+- Added session idle expiry, rotation and revocation across privilege changes,
+  plus periodic cleanup of expired authentication records.
+- Equalized login and password-reset timing, trusted client IPs only through the
+  loopback proxy, and hardened the systemd service sandbox.
+
+### Changed
+
+- Updated React Router, Undici, and FormData dependencies and added dependency
+  auditing to pull-request checks.
+
 ## 1.16.2 - 2026-07-22
 
 ### Added

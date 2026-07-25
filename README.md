@@ -56,8 +56,12 @@ BACKUP_ENABLED=true
 BACKUP_DIR=data/backups
 BACKUP_INTERVAL_MS=86400000
 BACKUP_RETENTION_COUNT=14
+BACKUP_ENCRYPTION_KEY=
+BACKUP_ENCRYPTION_PREVIOUS_KEYS=
+AUTH_CLEANUP_INTERVAL_MS=86400000
 SESSION_COOKIE_NAME=tm_session
 SESSION_TTL_DAYS=14
+SESSION_IDLE_TIMEOUT_MINUTES=1440
 DUE_SOON_DAYS=7
 APP_BASE_URL=http://localhost:3000
 VITE_WORK_CALENDAR_URL=
@@ -73,11 +77,19 @@ SMTP_PASS=
 GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=
+GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY=
+GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
 
-Database backups run automatically from the server process by default. Set `BACKUP_DIR` to persistent storage, `BACKUP_INTERVAL_MS` to the desired schedule, and `BACKUP_RETENTION_COUNT` to the number of snapshot files to keep. Each backup writes a SQLite snapshot plus a `manifest.jsonl` audit trail in the backup directory. Set `BACKUP_ENABLED=false` only for local development or a deployment that has an external backup system.
+Sessions have a fixed maximum lifetime set by `SESSION_TTL_DAYS` and also expire after `SESSION_IDLE_TIMEOUT_MINUTES` without activity. Login, password changes, role changes, team changes, and entering or leaving impersonation rotate or revoke the affected session tokens.
+
+Database backups run automatically from the server process by default. Set `BACKUP_DIR` to persistent storage, `BACKUP_INTERVAL_MS` to the desired schedule, and `BACKUP_RETENTION_COUNT` to the number of snapshot files to keep. Generate a dedicated backup key with `openssl rand -base64 32` and set it as `BACKUP_ENCRYPTION_KEY`; production refuses to start the built-in backup job without one. Each backup is authenticated and encrypted with AES-256-GCM and accompanied by a `manifest.jsonl` audit trail in a service-only directory. To rotate the key, set the new key as `BACKUP_ENCRYPTION_KEY` and keep older keys comma-separated in `BACKUP_ENCRYPTION_PREVIOUS_KEYS` until their retained backups expire. Set `BACKUP_ENABLED=false` only for local development or a deployment that has an external encrypted backup system.
+
+Restore an encrypted snapshot to a new file with `npm run backup:decrypt -- data/backups/followthrough-….sqlite.enc restored.sqlite`. The command refuses to overwrite an existing destination and authenticates the complete backup before publishing the restored file.
+
+Expired sessions, Google OAuth states, and password-reset tokens are deleted at startup and periodically. `AUTH_CLEANUP_INTERVAL_MS` controls the cleanup interval.
 
 Email reminders use SMTP. Set `SMTP_HOST` and `TASK_REMINDER_EMAIL_FROM` to enable manual task reminder sends. Set `TASK_REMINDER_AUTO_ENABLED=true` to let the server send automatic reminders for open automatic-mode tasks that are overdue or due soon. Automatic reminders are throttled to once per task per day.
 
@@ -85,7 +97,7 @@ Weekly workspace digests also use the SMTP settings and are off by default for e
 
 The shared calendar shortcut URL is configured by admins in the Admin screen. Per-user calendar shortcut preferences remain available as a fallback, and `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
 
-Google Calendar import uses OAuth. Configure the deployment once with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI`, then each signed-in user connects their own Google account from the Meetings screen. The pasted calendar shortcut remains available as a secondary option; it is not required for Google Calendar imports. Connected users can search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
+Google Calendar import uses OAuth. Configure the deployment once with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, and a dedicated `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY`, then each signed-in user connects their own Google account from the Meetings screen. Generate the encryption key with `openssl rand -base64 32`; do not reuse the OAuth client secret or another application credential. Access and refresh tokens are stored as authenticated AES-256-GCM ciphertext, and existing plaintext rows are encrypted when the server starts. To rotate the key, set the new key as `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY` and provide older base64 keys as a comma-separated `GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS` value until all rows have been re-encrypted and the deployment is verified. The pasted calendar shortcut remains available as a secondary option; it is not required for Google Calendar imports. Connected users can search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
 
 ## Production Run
 
@@ -273,6 +285,11 @@ The Apache virtual host should cover both `followthrough.dev` and
 `/etc/letsencrypt/live/followthrough.dev/`. After any hostname or certificate
 change, reload Apache and rerun `npm run domain:check`.
 
+Apache must leave its standard proxy forwarding headers enabled so Express receives
+the client address through `X-Forwarded-For`. Followthrough trusts forwarded
+addresses only from a loopback proxy. After changing the proxy, verify a new Admin
+login event shows the public client address rather than `127.0.0.1`.
+
 Keep the app's canonical URLs aligned with the public hostname by checking only
 the non-secret production env keys:
 
@@ -318,7 +335,8 @@ Sites are deployed sequentially in the order listed by `DEPLOY_SITES`. Local cha
 
 ### Remote environment
 
-On first install, deployment creates this file only if it does not already exist:
+On first install, deployment creates this file only if it does not already exist
+and generates a dedicated backup-encryption key:
 
 ```text
 /opt/web-ui-task-manager/shared/.env
@@ -330,7 +348,11 @@ The default database path is:
 /opt/web-ui-task-manager/shared/data/task-manager.sqlite
 ```
 
-Edit the remote `.env` directly for site-specific settings.
+The deployment keeps this file owned by `root` with mode `0600`, keeps the shared
+data directory at `0700`, and runs the systemd service with a restrictive umask
+and read-only system paths. systemd reads the environment before dropping to the
+service identity. Use `sudo` when editing the remote `.env` for site-specific
+settings.
 
 ### Rollback
 
