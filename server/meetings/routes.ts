@@ -9,6 +9,7 @@ import {
 } from "../../shared/schemas.js";
 import type { MeetingDto, MeetingLinkDto, MeetingSeriesDto, PersonDto } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
+import { canMakePrivate, visibleRecordCondition } from "../db/scoping.js";
 import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
@@ -106,17 +107,13 @@ const taskSelectForMeeting = `
   LEFT JOIN meetings AS origin_meetings ON origin_meetings.id = tasks.origin_meeting_id
   LEFT JOIN meeting_series ON meeting_series.id = tasks.series_id
   WHERE meeting_tasks.meeting_id = ?
-  AND (tasks.private = 0 OR tasks.created_by_user_id = ?)
+  AND ${visibleRecordCondition("tasks")}
   AND tasks.archived_at IS NULL
   ORDER BY tasks.status IN ('Done', 'Won''t Fix'), tasks.due_date IS NULL, tasks.due_date ASC, tasks.created_at ASC
 `;
 
 function visibleMeetingCondition() {
-  return "(meetings.private = 0 OR meetings.created_by_user_id = ?)";
-}
-
-function canMakePrivate(createdByUserId: number | null, userId: number) {
-  return createdByUserId === null || createdByUserId === userId;
+  return visibleRecordCondition("meetings");
 }
 
 function toSeries(row: SeriesRow): MeetingSeriesDto {

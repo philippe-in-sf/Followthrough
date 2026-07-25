@@ -6,6 +6,7 @@ import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import { resolveBlockerClearedAt } from "../blockers.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
+import { canMakePrivate, visibleRecordCondition } from "../db/scoping.js";
 import type { EmailSender } from "../email/mailer.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
@@ -29,11 +30,7 @@ type TaskActor = {
 };
 
 function visibleTaskCondition() {
-  return "(tasks.private = 0 OR tasks.created_by_user_id = ?)";
-}
-
-function canMakePrivate(createdByUserId: number | null, userId: number) {
-  return createdByUserId === null || createdByUserId === userId;
+  return visibleRecordCondition("tasks");
 }
 
 function getTaskByPublicId(

@@ -9,6 +9,7 @@ import type {
   TaskStatus,
 } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
+import { visibleRecordCondition } from "../db/scoping.js";
 import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { parseBody } from "../validation.js";
@@ -68,11 +69,11 @@ function toPerson(row: PersonRow) {
 }
 
 function visibleTaskCondition() {
-  return "(tasks.private = 0 OR tasks.created_by_user_id = ?)";
+  return visibleRecordCondition("tasks");
 }
 
 function visibleMeetingCondition() {
-  return "(meetings.private = 0 OR meetings.created_by_user_id = ?)";
+  return visibleRecordCondition("meetings");
 }
 
 function toRelatedTask(row: RelatedTaskRow): PersonRelatedTaskDto {
