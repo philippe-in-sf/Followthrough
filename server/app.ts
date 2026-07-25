@@ -3,6 +3,7 @@ import { adminRoutes } from "./admin/routes.js";
 import { blockImpersonatedWrites, requireAdmin, requireAuth } from "./auth/authMiddleware.js";
 import { authRoutes } from "./auth/routes.js";
 import { googleCalendarRoutes } from "./calendar/routes.js";
+import { migrateGoogleCalendarTokensAtRest } from "./calendar/oauth.js";
 import { readChangelog, renderChangelogHtml } from "./changelog.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import { dashboardRoutes } from "./dashboard/routes.js";
@@ -18,7 +19,13 @@ import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
 import { renderPrivacyPolicyHtml } from "./privacy.js";
 import { searchRoutes } from "./search/routes.js";
-import { baselineSecurityHeaders, explicitCorsPolicy, requireSameOrigin } from "./security.js";
+import {
+  applyCspNonceToHtml,
+  assignCspNonce,
+  baselineSecurityHeaders,
+  explicitCorsPolicy,
+  requireSameOrigin,
+} from "./security.js";
 import { taskRoutes } from "./tasks/routes.js";
 import { appVersion } from "./version.js";
 import { waitlistRoutes } from "./waitlist/routes.js";
@@ -32,6 +39,12 @@ export type AppDependencies = {
 export function createApp(deps: AppDependencies = {}) {
   const config = deps.config ?? loadConfig();
   const db = deps.db ?? openDatabase(config.databasePath);
+  const migratedGoogleConnections = migrateGoogleCalendarTokensAtRest(db, config);
+  if (migratedGoogleConnections > 0) {
+    console.info(
+      `Encrypted Google OAuth tokens for ${migratedGoogleConnections} calendar connection(s)`,
+    );
+  }
   const emailSender = deps.emailSender ?? createEmailSender(config);
   const app = express();
 
@@ -42,6 +55,7 @@ export function createApp(deps: AppDependencies = {}) {
   // its forwarded client IP without trusting arbitrary external proxies.
   app.set("trust proxy", "loopback");
   app.disable("x-powered-by");
+  app.use(assignCspNonce);
   app.use(baselineSecurityHeaders(config));
   app.use(explicitCorsPolicy(config));
   app.use(express.json());
@@ -60,11 +74,22 @@ export function createApp(deps: AppDependencies = {}) {
   });
 
   app.get("/changelog", (_req, res) => {
-    res.type("html").send(renderChangelogHtml(readChangelog(), appVersion));
+    res
+      .type("html")
+      .send(
+        applyCspNonceToHtml(
+          renderChangelogHtml(readChangelog(), appVersion),
+          res.locals.cspNonce,
+        ),
+      );
   });
 
   app.get("/privacy", (_req, res) => {
-    res.type("html").send(renderPrivacyPolicyHtml(appVersion));
+    res
+      .type("html")
+      .send(
+        applyCspNonceToHtml(renderPrivacyPolicyHtml(appVersion), res.locals.cspNonce),
+      );
   });
 
   app.use("/api/auth", authRoutes(db, config, emailSender));

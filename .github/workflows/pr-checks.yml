@@ -27,6 +27,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # React Router's remaining high advisory applies to its unused RSC mode.
+      # Keep it visible until a compatible patched release exists without
+      # making every pull request fail on an unreachable code path.
+      - name: Audit dependencies
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
       - name: Check changelog
         run: npm run changelog:check
 

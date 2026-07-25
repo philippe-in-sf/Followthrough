@@ -17,6 +17,11 @@ EnvironmentFile=${appRoot}/shared/.env
 Environment=NODE_ENV=production
 User=${serviceUser}
 Group=${serviceGroup}
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
 ExecStart=/usr/bin/env node dist/server/index.js
 Restart=on-failure
 RestartSec=5

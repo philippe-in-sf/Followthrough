@@ -1,5 +1,5 @@
 import request from "supertest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../server/app";
 import { createUser } from "../../server/auth/userManagement";
 import { loadConfig } from "../../server/config";
@@ -136,6 +136,94 @@ describe("auth", () => {
     expect(logout.status).toBe(204);
   });
 
+  it("rotates the current browser session when logging in again", async () => {
+    const app = appWithInvite();
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join-team",
+    });
+    const originalCookie = signup.headers["set-cookie"];
+
+    const login = await request(app)
+      .post("/api/auth/login")
+      .set("Cookie", originalCookie)
+      .send({
+        email: "casey@example.com",
+        password: "long-enough-password",
+      });
+    const rotatedCookie = login.headers["set-cookie"];
+
+    expect(login.status).toBe(200);
+    expect(rotatedCookie?.[0]).not.toBe(originalCookie?.[0]);
+
+    const oldSession = await request(app).get("/api/tasks").set("Cookie", originalCookie);
+    expect(oldSession.status).toBe(401);
+
+    const newSession = await request(app).get("/api/tasks").set("Cookie", rotatedCookie);
+    expect(newSession.status).toBe(200);
+  });
+
+  it("expires sessions after the configured inactivity period", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    db.prepare("INSERT INTO invite_codes (code, usage_limit) VALUES (?, ?)").run("join", 1);
+    const app = createApp({
+      db,
+      config: { ...loadConfig(), sessionIdleTimeoutMinutes: 60 },
+    });
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    db.prepare("UPDATE sessions SET last_seen_at = ?").run(
+      new Date(Date.now() - 61 * 60 * 1000).toISOString(),
+    );
+
+    const expired = await request(app)
+      .get("/api/tasks")
+      .set("Cookie", signup.headers["set-cookie"]);
+
+    expect(expired.status).toBe(401);
+    expect(db.prepare("SELECT COUNT(*) AS count FROM sessions").get()).toEqual({ count: 0 });
+  });
+
+  it("refreshes last-seen activity for an active session", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    db.prepare("INSERT INTO invite_codes (code, usage_limit) VALUES (?, ?)").run("join", 1);
+    const app = createApp({
+      db,
+      config: { ...loadConfig(), sessionIdleTimeoutMinutes: 60 },
+    });
+
+    const signup = await request(app).post("/api/auth/signup").send({
+      name: "Casey",
+      email: "casey@example.com",
+      password: "long-enough-password",
+      inviteCode: "join",
+    });
+    const staleLastSeenAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    db.prepare("UPDATE sessions SET last_seen_at = ?").run(staleLastSeenAt);
+
+    const active = await request(app)
+      .get("/api/auth/me")
+      .set("Cookie", signup.headers["set-cookie"]);
+
+    expect(active.body.user.email).toBe("casey@example.com");
+    const session = db.prepare("SELECT last_seen_at FROM sessions").get() as {
+      last_seen_at: string;
+    };
+    expect(Date.parse(session.last_seen_at)).toBeGreaterThan(Date.parse(staleLastSeenAt));
+  });
+
   it("rate limits repeated login failures without revealing account existence", async () => {
     const app = appWithInvite();
 
@@ -179,6 +267,16 @@ describe("auth", () => {
       });
 
     expect(changePassword.status).toBe(204);
+    const rotatedCookie = changePassword.headers["set-cookie"];
+    expect(rotatedCookie?.[0]).not.toBe(signup.headers["set-cookie"]?.[0]);
+
+    const oldSession = await request(app)
+      .get("/api/tasks")
+      .set("Cookie", signup.headers["set-cookie"]);
+    expect(oldSession.status).toBe(401);
+
+    const currentSession = await request(app).get("/api/tasks").set("Cookie", rotatedCookie);
+    expect(currentSession.status).toBe(200);
 
     const oldLogin = await request(app).post("/api/auth/login").send({
       email: "casey@example.com",
@@ -292,6 +390,71 @@ describe("auth", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
     expect(sentEmails).toEqual([]);
+  });
+
+  it("does not reveal an account when reset email delivery fails", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    await createUser(db, {
+      name: "Reset User",
+      email: "reset@example.com",
+      password: "long-enough-password",
+      role: "member",
+    });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const app = createApp({
+      db,
+      emailSender: {
+        async send() {
+          throw new Error("SMTP unavailable");
+        },
+      },
+    });
+
+    const response = await request(app).post("/api/auth/password-reset/request").send({
+      email: "reset@example.com",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
+    expect(log).toHaveBeenCalledWith(
+      "Password reset email delivery failed",
+      expect.any(Error),
+    );
+    log.mockRestore();
+  });
+
+  it("does not couple the reset response time to SMTP completion", async () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+    await createUser(db, {
+      name: "Slow Reset User",
+      email: "slow-reset@example.com",
+      password: "long-enough-password",
+      role: "member",
+    });
+    let finishDelivery: (() => void) | undefined;
+    const pendingDelivery = new Promise<void>((resolve) => {
+      finishDelivery = resolve;
+    });
+    const app = createApp({
+      db,
+      emailSender: {
+        async send() {
+          await pendingDelivery;
+        },
+      },
+    });
+
+    const response = await request(app).post("/api/auth/password-reset/request").send({
+      email: "slow-reset@example.com",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
+    finishDelivery?.();
   });
 
   it("creates a direct database user that can log in", async () => {

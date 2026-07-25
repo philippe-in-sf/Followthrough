@@ -16,7 +16,11 @@ import { hashPassword } from "../auth/password.js";
 import { resetUserPassword } from "../auth/passwordReset.js";
 import { createUser, insertUserWithPasswordHash } from "../auth/userManagement.js";
 import { countTeamAdmins, moveUserToPersonalTeam } from "../auth/teamMembership.js";
-import { authUserDto, startSessionImpersonation } from "../auth/sessions.js";
+import {
+  authUserDto,
+  destroySessionsForUser,
+  startSessionImpersonation,
+} from "../auth/sessions.js";
 import type { EmailSender } from "../email/mailer.js";
 import { sendWelcomeEmail } from "../email/welcome.js";
 
@@ -510,7 +514,12 @@ export function adminRoutes(
         throw badRequest("At least one admin is required");
       }
 
-      db.prepare("UPDATE users SET role = ? WHERE id = ?").run(input.role, userId);
+      if (existing.role !== input.role) {
+        withTransaction(db, () => {
+          db.prepare("UPDATE users SET role = ? WHERE id = ?").run(input.role, userId);
+          destroySessionsForUser(db, userId);
+        });
+      }
 
       res.json({ user: userDto(getVisibleUser(db, req, userId)) });
     } catch (error) {
@@ -546,7 +555,7 @@ export function adminRoutes(
         throw badRequest("Only members can be impersonated");
       }
 
-      const user = startSessionImpersonation(db, req.headers.cookie, config, target.id);
+      const user = startSessionImpersonation(db, res, req.headers.cookie, config, target.id);
       if (!user) throw badRequest("Session is no longer available");
 
       res.json({ user: authUserDto(user) });

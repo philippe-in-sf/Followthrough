@@ -1,3 +1,5 @@
+import { CSP_NONCE_PLACEHOLDER } from "./security.js";
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -11,13 +13,14 @@ export function renderPrivacyPolicyHtml(version: string) {
 <html lang="en">
   <head>
     <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    <script nonce="${CSP_NONCE_PLACEHOLDER}">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;var n=d.querySelector('[nonce]');
+    n&&j.setAttribute('nonce',n.nonce||n.getAttribute('nonce'));f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-MW7M9JGM');</script>
     <!-- End Google Tag Manager -->
-    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="1b43ed9f-c702-40a9-9db4-ad20277b7a12" data-blockingmode="auto" type="text/javascript"></script>
+    <script nonce="${CSP_NONCE_PLACEHOLDER}" id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="1b43ed9f-c702-40a9-9db4-ad20277b7a12" data-blockingmode="auto" type="text/javascript"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Followthrough privacy policy</title>

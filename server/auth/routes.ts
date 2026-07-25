@@ -5,7 +5,7 @@ import type { AppDatabase } from "../db/database.js";
 import { withTransaction } from "../db/ids.js";
 import { badRequest } from "../errors.js";
 import { parseBody } from "../validation.js";
-import { hashPassword, verifyPassword } from "./password.js";
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./password.js";
 import type { EmailSender } from "../email/mailer.js";
 import { sendWelcomeEmail } from "../email/welcome.js";
 import { recordLoginEvent } from "./loginEvents.js";
@@ -106,6 +106,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
         return createdUser;
       });
 
+      destroySession(db, req.headers.cookie, config);
       createSession(db, res, user.id, config);
       recordLoginEvent(db, req, user.id, user.teamId);
       await sendWelcomeEmail({
@@ -129,10 +130,15 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
         | { id: number; name: string; email: string; password_hash: string }
         | undefined;
 
-      if (!user || !(await verifyPassword(input.password, user.password_hash))) {
+      const passwordMatches = await verifyPassword(
+        input.password,
+        user?.password_hash ?? DUMMY_PASSWORD_HASH,
+      );
+      if (!user || !passwordMatches) {
         throw badRequest("Email or password is incorrect");
       }
 
+      destroySession(db, req.headers.cookie, config);
       createSession(db, res, user.id, config);
       const authUser = getAuthUserById(db, user.id);
       if (!authUser) throw badRequest("Email or password is incorrect");
@@ -150,7 +156,7 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
   });
 
   router.post("/impersonation/stop", (req, res) => {
-    const user = stopSessionImpersonation(db, req.headers.cookie, config);
+    const user = stopSessionImpersonation(db, res, req.headers.cookie, config);
     if (!user) {
       res.status(401).json({ error: "Authentication required" });
       return;

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { DeploySite } from "../../deploy/lib/config";
 import {
@@ -39,6 +40,11 @@ describe("systemd unit rendering", () => {
     expect(unit).toContain("EnvironmentFile=/opt/web-ui-task-manager/shared/.env");
     expect(unit).toContain("User=taskmanager");
     expect(unit).toContain("Group=taskmanager");
+    expect(unit).toContain("UMask=0077");
+    expect(unit).toContain("NoNewPrivileges=true");
+    expect(unit).toContain("PrivateTmp=true");
+    expect(unit).toContain("ProtectHome=true");
+    expect(unit).toContain("ProtectSystem=full");
     expect(unit).toContain("ExecStart=/usr/bin/env node dist/server/index.js");
     expect(unit).toContain("Restart=on-failure");
     expect(unit).toContain("WantedBy=multi-user.target");
@@ -69,11 +75,33 @@ describe("remote command rendering", () => {
     expect(command).toContain("sudo chown -R \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/releases'");
     expect(command).toContain("sudo chown \"${deploy_user}:${deploy_group}\" '/opt/web-ui-task-manager/shared'");
     expect(command).toContain("sudo chown -R 'taskmanager':'taskmanager' '/opt/web-ui-task-manager/shared/data'");
+    expect(command).toContain("sudo chmod 700 '/opt/web-ui-task-manager/shared/data'");
+    expect(command).toContain("openssl rand -base64 32");
+    expect(command).toContain("configured_data_dir=\"$(dirname -- \"$database_path\")\"");
+    expect(command).toContain("sudo chmod 700 \"$configured_data_dir\"");
+    expect(command).toContain("sudo chmod 600 \"$database_path\"");
+    expect(command).toContain("sudo chmod 700 \"$backup_dir\"");
+    expect(command).toContain("sudo find \"$backup_dir\" -maxdepth 1 -type f -exec chmod 600 {} +");
+    expect(command).toContain("-name '*.sqlite.enc' -print -quit");
+    expect(command).toContain(
+      "BACKUP_ENCRYPTION_KEY is missing but encrypted backups already exist",
+    );
+    expect(command).toContain("sudo chown root:root '/opt/web-ui-task-manager/shared/.env'");
+    expect(command).toContain("sudo chmod 600 '/opt/web-ui-task-manager/shared/.env'");
     expect(command).not.toContain("$USER:$USER");
     expect(command).not.toContain("\"$USER\":\"$USER\"");
     expect(command).toContain("if [ ! -f '/opt/web-ui-task-manager/shared/.env' ]; then");
     expect(command).toContain("DATABASE_PATH=/opt/web-ui-task-manager/shared/data/task-manager.sqlite");
     expect(command).not.toContain("rm -rf '/opt/web-ui-task-manager/shared");
+  });
+
+  it("renders a syntactically valid remote layout command", () => {
+    const result = spawnSync("bash", ["-n"], {
+      input: buildEnsureLayoutCommand(site),
+      encoding: "utf8",
+    });
+
+    expect(result.status, result.stderr).toBe(0);
   });
 
   it("rejects dangerous app roots before rendering commands", () => {

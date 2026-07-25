@@ -5,7 +5,11 @@ import { hashPassword, verifyPassword } from "../auth/password.js";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
 import { badRequest } from "../errors.js";
-import { authUserDto } from "../auth/sessions.js";
+import {
+  authUserDto,
+  createSession,
+  destroySessionsForUser,
+} from "../auth/sessions.js";
 import { moveUserToPersonalTeam } from "../auth/teamMembership.js";
 import { getGoogleCalendarConnectionStatus } from "../calendar/oauth.js";
 import { parseBody } from "../validation.js";
@@ -90,6 +94,8 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
 
       const passwordHash = await hashPassword(input.newPassword);
       db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, userId);
+      destroySessionsForUser(db, userId);
+      createSession(db, res, userId, config);
       res.status(204).end();
     } catch (error) {
       next(error);
@@ -98,7 +104,8 @@ export function preferenceRoutes(db: AppDatabase, config: AppConfig) {
 
   router.post("/team/leave", (req, res, next) => {
     try {
-      const user = moveUserToPersonalTeam(db, req.user?.id ?? 0);
+      const user = moveUserToPersonalTeam(db, req.user?.id ?? 0, { revokeSessions: true });
+      createSession(db, res, user.id, config);
       res.json({ user: authUserDto(user) });
     } catch (error) {
       next(error);

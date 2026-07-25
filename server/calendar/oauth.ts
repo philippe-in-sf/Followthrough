@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import type { AppDatabase } from "../db/database.js";
+import { withTransaction } from "../db/ids.js";
 import { badRequest } from "../errors.js";
+import {
+  assertGoogleOAuthTokenEncryptionConfigured,
+  decryptGoogleOAuthToken,
+  encryptGoogleOAuthToken,
+} from "./tokenEncryption.js";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -19,6 +25,11 @@ type GoogleCalendarConnectionRow = {
   token_expires_at: string;
   scope: string;
 };
+
+type GoogleCalendarStoredTokenRow = Pick<
+  GoogleCalendarConnectionRow,
+  "user_id" | "access_token" | "refresh_token"
+>;
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -141,6 +152,7 @@ export async function fetchGoogleUserEmail(accessToken: string) {
 
 export function saveGoogleCalendarConnection(
   db: AppDatabase,
+  config: AppConfig,
   input: {
     userId: number;
     googleEmail: string | null;
@@ -151,6 +163,18 @@ export function saveGoogleCalendarConnection(
   },
 ) {
   const tokenExpiresAt = new Date(Date.now() + input.expiresInSeconds * 1000).toISOString();
+  const accessToken = encryptGoogleOAuthToken(
+    input.accessToken,
+    config,
+    tokenContext(input.userId, "access_token"),
+  );
+  const refreshToken = input.refreshToken
+    ? encryptGoogleOAuthToken(
+        input.refreshToken,
+        config,
+        tokenContext(input.userId, "refresh_token"),
+      )
+    : null;
   db.prepare(
     `
       INSERT INTO google_calendar_connections (
@@ -173,14 +197,18 @@ export function saveGoogleCalendarConnection(
   ).run(
     input.userId,
     input.googleEmail,
-    input.accessToken,
-    input.refreshToken,
+    accessToken,
+    refreshToken,
     tokenExpiresAt,
     input.scope,
   );
 }
 
-export function getGoogleCalendarConnection(db: AppDatabase, userId: number) {
+function tokenContext(userId: number, field: "access_token" | "refresh_token") {
+  return `google-calendar:${userId}:${field}`;
+}
+
+function getStoredGoogleCalendarConnection(db: AppDatabase, userId: number) {
   return db
     .prepare(
       `
@@ -192,13 +220,126 @@ export function getGoogleCalendarConnection(db: AppDatabase, userId: number) {
     .get(userId) as GoogleCalendarConnectionRow | undefined;
 }
 
+function decryptStoredTokens(
+  db: AppDatabase,
+  config: AppConfig,
+  connection: GoogleCalendarStoredTokenRow,
+) {
+  const accessToken = decryptGoogleOAuthToken(
+    connection.access_token,
+    config,
+    tokenContext(connection.user_id, "access_token"),
+  );
+  const refreshToken = connection.refresh_token
+    ? decryptGoogleOAuthToken(
+        connection.refresh_token,
+        config,
+        tokenContext(connection.user_id, "refresh_token"),
+      )
+    : null;
+
+  if (accessToken.needsReencryption || refreshToken?.needsReencryption) {
+    db.prepare(
+      `UPDATE google_calendar_connections
+       SET access_token = ?, refresh_token = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = ?`,
+    ).run(
+      encryptGoogleOAuthToken(
+        accessToken.plaintext,
+        config,
+        tokenContext(connection.user_id, "access_token"),
+      ),
+      refreshToken
+        ? encryptGoogleOAuthToken(
+            refreshToken.plaintext,
+            config,
+            tokenContext(connection.user_id, "refresh_token"),
+          )
+        : null,
+      connection.user_id,
+    );
+  }
+
+  return {
+    access_token: accessToken.plaintext,
+    refresh_token: refreshToken?.plaintext ?? null,
+  };
+}
+
+function decryptConnection(
+  db: AppDatabase,
+  config: AppConfig,
+  connection: GoogleCalendarConnectionRow,
+) {
+  return {
+    ...connection,
+    ...decryptStoredTokens(db, config, connection),
+  };
+}
+
+export function getGoogleCalendarConnection(
+  db: AppDatabase,
+  config: AppConfig,
+  userId: number,
+) {
+  const connection = getStoredGoogleCalendarConnection(db, userId);
+  return connection ? decryptConnection(db, config, connection) : undefined;
+}
+
+export function migrateGoogleCalendarTokensAtRest(db: AppDatabase, config: AppConfig) {
+  const columns = db
+    .prepare("PRAGMA table_info(google_calendar_connections)")
+    .all() as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((column) => column.name));
+  const requiredColumns = ["user_id", "access_token", "refresh_token"];
+  if (!requiredColumns.every((column) => columnNames.has(column))) {
+    if (isGoogleOAuthConfigured(config)) {
+      throw new Error(
+        "google_calendar_connections does not have the expected OAuth token columns",
+      );
+    }
+    return 0;
+  }
+
+  const connections = db
+    .prepare(
+      `SELECT user_id, access_token, refresh_token
+       FROM google_calendar_connections
+       ORDER BY user_id`,
+    )
+    .all() as GoogleCalendarStoredTokenRow[];
+
+  const encryptionConfigured = Boolean(config.googleOAuthTokenEncryptionKey.trim());
+  if (connections.length === 0 && !isGoogleOAuthConfigured(config) && !encryptionConfigured) {
+    return 0;
+  }
+
+  assertGoogleOAuthTokenEncryptionConfigured(config);
+  return withTransaction(db, () => {
+    let migrated = 0;
+    for (const connection of connections) {
+      const beforeAccessToken = connection.access_token;
+      const beforeRefreshToken = connection.refresh_token;
+      decryptStoredTokens(db, config, connection);
+      const stored = getStoredGoogleCalendarConnection(db, connection.user_id);
+      if (
+        stored &&
+        (stored.access_token !== beforeAccessToken || stored.refresh_token !== beforeRefreshToken)
+      ) {
+        migrated += 1;
+      }
+    }
+    return migrated;
+  });
+}
+
 export function getGoogleCalendarConnectionStatus(
   db: AppDatabase,
   config: AppConfig,
   userId: number,
 ) {
   const configured = isGoogleOAuthConfigured(config);
-  const connection = getGoogleCalendarConnection(db, userId);
+  const connection = getGoogleCalendarConnection(db, config, userId);
   return {
     googleCalendarConfigured: configured,
     googleCalendarConnected: configured && Boolean(connection),
@@ -215,7 +356,7 @@ export async function getGoogleCalendarAccessToken(
     throw badRequest("Google Calendar connection is not configured for this deployment.");
   }
 
-  const connection = getGoogleCalendarConnection(db, userId);
+  const connection = getGoogleCalendarConnection(db, config, userId);
   if (!connection) {
     throw badRequest("Connect Google Calendar before importing events.");
   }
@@ -230,7 +371,7 @@ export async function getGoogleCalendarAccessToken(
   }
 
   const token = await refreshGoogleAccessToken(config, connection.refresh_token);
-  saveGoogleCalendarConnection(db, {
+  saveGoogleCalendarConnection(db, config, {
     userId,
     googleEmail: connection.google_email,
     accessToken: token.access_token ?? "",

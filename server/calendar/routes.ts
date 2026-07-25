@@ -114,7 +114,7 @@ export function googleCalendarRoutes(db: AppDatabase, config: AppConfig) {
 
       const token = await exchangeGoogleOAuthCode(config, input.code);
       const googleEmail = await fetchGoogleUserEmail(token.access_token ?? "");
-      saveGoogleCalendarConnection(db, {
+      saveGoogleCalendarConnection(db, config, {
         userId,
         googleEmail,
         accessToken: token.access_token ?? "",

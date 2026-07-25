@@ -60,6 +60,51 @@ describe("database migrations", () => {
     expect(secondRun.count).toBe(firstRun.count);
   });
 
+  it("adds and backfills session activity timestamps", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    applyMigrationsBefore(db, "027_session_idle_timeout.sql");
+    db.prepare(
+      "INSERT INTO users (name, email, password_hash, team_id, role) VALUES (?, ?, ?, ?, ?)",
+    ).run("Session User", "session@example.com", "hash", 1, "member");
+    db.prepare(
+      "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
+    ).run("token-hash", 1, "2099-01-01T00:00:00.000Z");
+
+    migrateDatabase(db);
+
+    const session = db
+      .prepare("SELECT last_seen_at FROM sessions WHERE token_hash = ?")
+      .get("token-hash") as { last_seen_at: string };
+    expect(session.last_seen_at).toBeTruthy();
+  });
+
+  it("indexes authentication expiry cleanup columns", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+
+    const rows = db
+      .prepare(
+        `SELECT name
+         FROM sqlite_master
+         WHERE type = 'index'
+           AND name IN (?, ?, ?)
+         ORDER BY name`,
+      )
+      .all(
+        "idx_google_oauth_states_expires_at",
+        "idx_password_reset_tokens_expires_at",
+        "idx_sessions_expires_at",
+      ) as Array<{ name: string }>;
+
+    expect(rows.map((row) => row.name)).toEqual([
+      "idx_google_oauth_states_expires_at",
+      "idx_password_reset_tokens_expires_at",
+      "idx_sessions_expires_at",
+    ]);
+  });
+
   it("creates indexes used by carry-over lookups", () => {
     const db = createTestDatabase();
     dbs.push(db);
