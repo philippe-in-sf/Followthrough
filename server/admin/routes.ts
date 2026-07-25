@@ -21,6 +21,7 @@ import {
   destroySessionsForUser,
   startSessionImpersonation,
 } from "../auth/sessions.js";
+import { listAdminAuditEvents, recordAdminAuditEvent } from "./adminAudit.js";
 import type { EmailSender } from "../email/mailer.js";
 import { sendWelcomeEmail } from "../email/welcome.js";
 
@@ -362,6 +363,15 @@ export function adminRoutes(
     res.json({ loginEvents: rows.map(loginEventDto) });
   });
 
+  router.get("/admin-audit", (req, res) => {
+    res.json({
+      events: listAdminAuditEvents(db, {
+        isOwner: isOwnerRole(req.user?.role),
+        teamId: req.user?.teamId ?? 0,
+      }),
+    });
+  });
+
   router.post("/waitlist/:signupId/invite-code", (req, res, next) => {
     try {
       const input = parseBody(req, waitlistInviteCodeInputSchema);
@@ -514,10 +524,21 @@ export function adminRoutes(
         throw badRequest("At least one admin is required");
       }
 
+      const previousRole = existing.role;
       if (existing.role !== input.role) {
         withTransaction(db, () => {
           db.prepare("UPDATE users SET role = ? WHERE id = ?").run(input.role, userId);
           destroySessionsForUser(db, userId);
+        });
+
+        recordAdminAuditEvent(db, {
+          action: "user.role_changed",
+          actorUserId: req.user?.id ?? 0,
+          actorEmail: req.user?.email ?? "",
+          targetUserId: existing.id,
+          targetEmail: existing.email,
+          teamId: existing.team_id,
+          metadata: { from: previousRole, to: input.role },
         });
       }
 
@@ -533,8 +554,17 @@ export function adminRoutes(
       const userId = Number(req.params.userId);
       if (!Number.isInteger(userId) || userId < 1) throw notFound("User not found");
 
-      getVisibleUser(db, req, userId);
+      const target = getVisibleUser(db, req, userId);
       await resetUserPassword(db, userId, input.password);
+
+      recordAdminAuditEvent(db, {
+        action: "user.password_reset",
+        actorUserId: req.user?.id ?? 0,
+        actorEmail: req.user?.email ?? "",
+        targetUserId: target.id,
+        targetEmail: target.email,
+        teamId: target.team_id,
+      });
 
       res.status(204).end();
     } catch (error) {
@@ -557,6 +587,15 @@ export function adminRoutes(
 
       const user = startSessionImpersonation(db, res, req.headers.cookie, config, target.id);
       if (!user) throw badRequest("Session is no longer available");
+
+      recordAdminAuditEvent(db, {
+        action: "impersonation.start",
+        actorUserId: req.user?.id ?? 0,
+        actorEmail: req.user?.email ?? "",
+        targetUserId: target.id,
+        targetEmail: target.email,
+        teamId: target.team_id,
+      });
 
       res.json({ user: authUserDto(user) });
     } catch (error) {

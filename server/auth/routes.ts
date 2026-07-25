@@ -11,6 +11,7 @@ import { sendWelcomeEmail } from "../email/welcome.js";
 import { recordLoginEvent } from "./loginEvents.js";
 import { requestPasswordReset, resetPasswordWithToken } from "./passwordReset.js";
 import { createAuthRateLimits } from "./rateLimits.js";
+import { recordAdminAuditEvent } from "../admin/adminAudit.js";
 import {
   clearSessionCookie,
   createSession,
@@ -156,10 +157,22 @@ export function authRoutes(db: AppDatabase, config: AppConfig, emailSender: Emai
   });
 
   router.post("/impersonation/stop", (req, res) => {
+    const before = getSessionUser(db, req.headers.cookie, config);
     const user = stopSessionImpersonation(db, res, req.headers.cookie, config);
     if (!user) {
       res.status(401).json({ error: "Authentication required" });
       return;
+    }
+
+    if (before?.impersonation) {
+      recordAdminAuditEvent(db, {
+        action: "impersonation.stop",
+        actorUserId: before.impersonation.actor.id,
+        actorEmail: before.impersonation.actor.email,
+        targetUserId: before.id,
+        targetEmail: before.email,
+        teamId: before.teamId,
+      });
     }
 
     res.json({ user: authUserDto(user) });
