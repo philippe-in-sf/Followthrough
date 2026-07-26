@@ -7,9 +7,10 @@ This document records the disposition of the eleven findings in `audit.txt`.
 1. **Google OAuth tokens at rest:** Access and refresh tokens are encrypted with
    AES-256-GCM, authenticated to the owning user and token field, migrated on
    startup, and support key rotation.
-2. **React Router advisories:** `react-router-dom` and `react-router` resolve to
-   7.18.1. The reported XSS, open-redirect, and route-matching DoS advisories are
-   cleared. Pull requests now surface `npm audit`.
+2. **React Router advisories:** Followthrough did not import or use React Router,
+   so the unused `react-router-dom` dependency and its transitive `react-router`
+   package were removed. The production dependency audit now reports zero
+   vulnerabilities. Pull requests continue to surface `npm audit`.
 3. **Content Security Policy:** Helmet sends a nonce-based CSP. GTM, Cookiebot,
    the server-rendered pages, and every SPA delivery path receive a unique
    response nonce.
@@ -38,11 +39,6 @@ This document records the disposition of the eleven findings in `audit.txt`.
 
 ## Qualified or deferred decisions
 
-2. **Remaining React Router RSC advisory:** `GHSA-qwww-vcr4-c8h2` remains in
-   npm's report, but Followthrough does not use React Server Components. npm's
-   forced remediation downgrades React Router and reintroduces fixed
-   vulnerabilities, so the CI audit reports this finding without blocking every
-   pull request.
 3. **Compromised trusted scripts:** CSP materially constrains future injection
    bugs, but it cannot make an explicitly trusted, compromised GTM or Cookiebot
    script harmless. Those vendors retain the privileges required to perform
