@@ -152,14 +152,14 @@ describe("admin page", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
     const auditHeading = await screen.findByRole("heading", {
-      name: "View as user audit log",
+      name: "Activity log",
     });
     const auditPanel = auditHeading.closest("section");
     expect(auditPanel).not.toBeNull();
-    expect(within(auditPanel as HTMLElement).getByText("2 events recorded.")).toBeInTheDocument();
 
-    await userEvent.click(
-      within(auditPanel as HTMLElement).getByRole("button", { name: "Show activity" }),
+    await userEvent.selectOptions(
+      within(auditPanel as HTMLElement).getByLabelText("Log type"),
+      "view-as-user",
     );
 
     expect(within(auditPanel as HTMLElement).getByText("Started viewing")).toBeInTheDocument();
@@ -309,7 +309,8 @@ describe("admin page", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
-    expect(await screen.findByText("Login log")).toBeInTheDocument();
+    expect(await screen.findByText("Activity log")).toBeInTheDocument();
+    expect(screen.getByLabelText("Log type")).toHaveValue("sign-ins");
     expect(screen.getAllByText("editor@example.com").length).toBeGreaterThan(1);
     expect(screen.queryByText("127.0.0.1")).not.toBeInTheDocument();
     expect(screen.queryByText("Test Browser")).not.toBeInTheDocument();
