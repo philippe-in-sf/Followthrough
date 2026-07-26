@@ -1,6 +1,6 @@
 {
   "name": "followthrough",
-  "version": "1.16.4",
+  "version": "1.16.5",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -38,7 +38,6 @@
     "nodemailer": "^9.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

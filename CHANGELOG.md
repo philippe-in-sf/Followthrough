@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.5 - 2026-07-26
+
+### Security
+
+- Removed the unused React Router dependency and cleared the remaining production dependency audit findings.
+
 ## 1.16.4 - 2026-07-26
 
 ### Added
