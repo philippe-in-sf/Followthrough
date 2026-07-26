@@ -4,6 +4,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 ## Unreleased
 
+### Planned
+
+- Keep adding release notes before each package version bump and deployment.
+- Consider adding richer archive filters once real archived volume makes the shape obvious.
+- Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
+
+## 1.16.4 - 2026-07-26
+
 ### Added
 
 - Added a security audit trail for privileged admin actions (impersonation start/stop, role changes, and admin-initiated password resets), viewable by team admins for their own team and by the owner across all teams via `GET /api/admin/admin-audit`.
@@ -15,12 +23,6 @@ All notable changes to Followthrough are tracked here. This file was created aft
 ### Security
 
 - Added a systematic cross-team and private-record authorization test matrix covering record read/mutate endpoints, impersonation write-blocking, and the same-origin guard.
-
-### Planned
-
-- Keep adding release notes before each package version bump and deployment.
-- Consider adding richer archive filters once real archived volume makes the shape obvious.
-- Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
 ## 1.16.3 - 2026-07-24
 
