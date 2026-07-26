@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.7 - 2026-07-26
+
+### Changed
+
+- Consolidated sign-in and View as user security records into one full-width Admin activity log with a log-type selector.
+
 ## 1.16.6 - 2026-07-26
 
 ### Added

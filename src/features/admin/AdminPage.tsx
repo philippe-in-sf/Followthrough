@@ -41,6 +41,8 @@ type WaitlistDirectUserFormState = {
   role: UserRole;
 };
 
+type AdminActivityLog = "sign-ins" | "view-as-user";
+
 const emptyNewUserForm: NewUserFormState = {
   name: "",
   email: "",
@@ -149,7 +151,7 @@ export function AdminPage({
   const [impersonationError, setImpersonationError] = useState("");
   const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null);
   const [loginDetailsVisible, setLoginDetailsVisible] = useState(false);
-  const [impersonationAuditVisible, setImpersonationAuditVisible] = useState(false);
+  const [activityLog, setActivityLog] = useState<AdminActivityLog>("sign-ins");
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
   const [handlingSignupId, setHandlingSignupId] = useState<number | null>(null);
@@ -572,31 +574,89 @@ export function AdminPage({
           </form>
         </section>
 
-        <section className="admin-panel admin-impersonation-audit-panel">
+        <section className="admin-panel admin-login-log-panel">
           <div className="panel-heading">
             <div>
-              <h2>View as user audit log</h2>
+              <h2>Activity log</h2>
               <p className="admin-panel-note">
-                Records when an administrator starts or stops viewing the workspace as a member.
+                {activityLog === "sign-ins"
+                  ? "Successful sign-ins by date and time. Network details stay hidden until confirmed."
+                  : "View as user starts and stops, including the administrator and viewed member."}
               </p>
             </div>
-            {impersonationAuditEvents.length > 0 ? (
-              <button
-                aria-expanded={impersonationAuditVisible}
-                className="secondary-button"
-                onClick={() => setImpersonationAuditVisible((current) => !current)}
-                type="button"
-              >
-                {impersonationAuditVisible ? "Hide activity" : "Show activity"}
-              </button>
-            ) : null}
+            <div className="admin-log-controls">
+              <FormField label="Log type">
+                <select
+                  aria-label="Log type"
+                  onChange={(event) => setActivityLog(event.target.value as AdminActivityLog)}
+                  value={activityLog}
+                >
+                  <option value="sign-ins">Sign-ins</option>
+                  <option value="view-as-user">View as user</option>
+                </select>
+              </FormField>
+              {activityLog === "sign-ins" && loginEvents.length > 0 && !loginDetailsVisible ? (
+                <button
+                  className="secondary-button"
+                  onClick={() => setLoginDetailsVisible(true)}
+                  type="button"
+                >
+                  Show IP and browser
+                </button>
+              ) : null}
+            </div>
           </div>
-          {impersonationAuditEvents.length === 0 ? (
+          {activityLog === "sign-ins" ? (
+            loginEvents.length === 0 ? (
+              <EmptyState title="No logins yet" detail="Successful team sign-ins appear here." />
+            ) : (
+              <PaginatedItems
+                items={loginEvents}
+                itemName="login"
+                pageSize={8}
+                getItemKey={(event) => String(event.id)}
+              >
+                {(visibleLoginEvents) => (
+                  <div className="admin-user-table-wrap">
+                    <table className="admin-user-table admin-login-table">
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Date and time</th>
+                          <th>IP</th>
+                          <th>Browser</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleLoginEvents.map((event) => (
+                          <tr key={event.id}>
+                            <td data-label="User">
+                              <div className="admin-login-identity">
+                                <strong>{event.userName}</strong>
+                                <span>{event.userEmail}</span>
+                              </div>
+                            </td>
+                            <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
+                            <td data-label="IP">
+                              {loginDetailsVisible ? event.ipAddress ?? "Unknown" : "Hidden"}
+                            </td>
+                            <td data-label="Browser">
+                              {loginDetailsVisible ? event.userAgent ?? "Unknown" : "Hidden"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </PaginatedItems>
+            )
+          ) : impersonationAuditEvents.length === 0 ? (
             <EmptyState
               title="No view-as-user activity"
               detail="Starts and stops will appear here after an administrator uses View as user."
             />
-          ) : impersonationAuditVisible ? (
+          ) : (
             <PaginatedItems
               items={impersonationAuditEvents}
               itemName="event"
@@ -621,73 +681,6 @@ export function AdminPage({
                           <td data-label="Administrator">{event.actorEmail}</td>
                           <td data-label="Viewed user">{event.targetEmail ?? "Deleted user"}</td>
                           <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </PaginatedItems>
-          ) : (
-            <p className="admin-panel-note">
-              {impersonationAuditEvents.length}{" "}
-              {impersonationAuditEvents.length === 1 ? "event" : "events"} recorded.
-            </p>
-          )}
-        </section>
-
-        <section className="admin-panel admin-login-log-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>Login log</h2>
-              <p className="admin-panel-note">
-                Successful sign-ins by date and time. Network details stay hidden until confirmed.
-              </p>
-            </div>
-            {loginEvents.length > 0 && !loginDetailsVisible ? (
-              <button
-                className="secondary-button"
-                onClick={() => setLoginDetailsVisible(true)}
-                type="button"
-              >
-                Show IP and browser
-              </button>
-            ) : null}
-          </div>
-          {loginEvents.length === 0 ? (
-            <EmptyState title="No logins yet" detail="Successful team sign-ins appear here." />
-          ) : (
-            <PaginatedItems
-              items={loginEvents}
-              itemName="login"
-              pageSize={8}
-              getItemKey={(event) => String(event.id)}
-            >
-              {(visibleLoginEvents) => (
-                <div className="admin-user-table-wrap">
-                  <table className="admin-user-table admin-login-table">
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Date and time</th>
-                        <th>IP</th>
-                        <th>Browser</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleLoginEvents.map((event) => (
-                        <tr key={event.id}>
-                          <td data-label="User">
-                            <strong>{event.userName}</strong>
-                            <span>{event.userEmail}</span>
-                          </td>
-                          <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
-                          <td data-label="IP">
-                            {loginDetailsVisible ? event.ipAddress ?? "Unknown" : "Hidden"}
-                          </td>
-                          <td data-label="Browser">
-                            {loginDetailsVisible ? event.userAgent ?? "Unknown" : "Hidden"}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
