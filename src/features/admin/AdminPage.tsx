@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
 import type {
+  AdminAuditEventDto,
   TeamDto,
   TeamUserDto,
   UserLoginEventDto,
@@ -105,6 +106,10 @@ function formatLoginTime(value: string) {
   });
 }
 
+function impersonationActionLabel(action: AdminAuditEventDto["action"]) {
+  return action === "impersonation.start" ? "Started viewing" : "Stopped viewing";
+}
+
 export function AdminPage({
   currentUserId,
   onImpersonate,
@@ -121,6 +126,7 @@ export function AdminPage({
   });
   const [users, setUsers] = useState<TeamUserDto[]>([]);
   const [loginEvents, setLoginEvents] = useState<UserLoginEventDto[]>([]);
+  const [adminAuditEvents, setAdminAuditEvents] = useState<AdminAuditEventDto[]>([]);
   const [waitlistSignups, setWaitlistSignups] = useState<WaitlistSignupDto[]>([]);
   const [inviteForms, setInviteForms] = useState<Record<number, WaitlistInviteFormState>>({});
   const [directUserForms, setDirectUserForms] = useState<
@@ -143,6 +149,7 @@ export function AdminPage({
   const [impersonationError, setImpersonationError] = useState("");
   const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null);
   const [loginDetailsVisible, setLoginDetailsVisible] = useState(false);
+  const [impersonationAuditVisible, setImpersonationAuditVisible] = useState(false);
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
   const [handlingSignupId, setHandlingSignupId] = useState<number | null>(null);
@@ -153,16 +160,19 @@ export function AdminPage({
     async function loadAdminData() {
       setLoading(true);
       try {
-        const [teamResult, usersResult, loginEventsResult, waitlistResult] = await Promise.all([
-          api.admin.team(),
-          api.admin.users(),
-          api.admin.loginEvents(),
-          api.admin.waitlist(),
-        ]);
+        const [teamResult, usersResult, loginEventsResult, auditResult, waitlistResult] =
+          await Promise.all([
+            api.admin.team(),
+            api.admin.users(),
+            api.admin.loginEvents(),
+            api.admin.auditEvents(),
+            api.admin.waitlist(),
+          ]);
         if (!active) return;
         setTeamForm(toTeamForm(teamResult.team));
         setUsers(usersResult.users);
         setLoginEvents(loginEventsResult.loginEvents);
+        setAdminAuditEvents(auditResult.events);
         setWaitlistSignups(waitlistResult.signups);
         setInviteForms(initialInviteForms(waitlistResult.signups));
         setDirectUserForms(initialDirectUserForms(waitlistResult.signups));
@@ -178,6 +188,10 @@ export function AdminPage({
       active = false;
     };
   }, []);
+
+  const impersonationAuditEvents = adminAuditEvents.filter(
+    (event) => event.action === "impersonation.start" || event.action === "impersonation.stop",
+  );
 
   async function saveTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -556,6 +570,70 @@ export function AdminPage({
               Add user
             </button>
           </form>
+        </section>
+
+        <section className="admin-panel admin-impersonation-audit-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>View as user audit log</h2>
+              <p className="admin-panel-note">
+                Records when an administrator starts or stops viewing the workspace as a member.
+              </p>
+            </div>
+            {impersonationAuditEvents.length > 0 ? (
+              <button
+                aria-expanded={impersonationAuditVisible}
+                className="secondary-button"
+                onClick={() => setImpersonationAuditVisible((current) => !current)}
+                type="button"
+              >
+                {impersonationAuditVisible ? "Hide activity" : "Show activity"}
+              </button>
+            ) : null}
+          </div>
+          {impersonationAuditEvents.length === 0 ? (
+            <EmptyState
+              title="No view-as-user activity"
+              detail="Starts and stops will appear here after an administrator uses View as user."
+            />
+          ) : impersonationAuditVisible ? (
+            <PaginatedItems
+              items={impersonationAuditEvents}
+              itemName="event"
+              pageSize={8}
+              getItemKey={(event) => String(event.id)}
+            >
+              {(visibleEvents) => (
+                <div className="admin-user-table-wrap">
+                  <table className="admin-user-table admin-impersonation-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>Administrator</th>
+                        <th>Viewed user</th>
+                        <th>Date and time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleEvents.map((event) => (
+                        <tr key={event.id}>
+                          <td data-label="Action">{impersonationActionLabel(event.action)}</td>
+                          <td data-label="Administrator">{event.actorEmail}</td>
+                          <td data-label="Viewed user">{event.targetEmail ?? "Deleted user"}</td>
+                          <td data-label="Date and time">{formatLoginTime(event.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </PaginatedItems>
+          ) : (
+            <p className="admin-panel-note">
+              {impersonationAuditEvents.length}{" "}
+              {impersonationAuditEvents.length === 1 ? "event" : "events"} recorded.
+            </p>
+          )}
         </section>
 
         <section className="admin-panel admin-login-log-panel">
