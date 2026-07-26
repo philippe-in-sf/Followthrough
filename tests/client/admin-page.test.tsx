@@ -94,6 +94,45 @@ describe("admin page", () => {
       if (url.pathname === "/api/admin/login-events" && method === "GET") {
         return json({ loginEvents: [] });
       }
+      if (url.pathname === "/api/admin/admin-audit" && method === "GET") {
+        return json({
+          events: [
+            {
+              id: 3,
+              action: "user.role_changed",
+              actorUserId: 1,
+              actorEmail: "editor@example.com",
+              targetUserId: 2,
+              targetEmail: "member@example.com",
+              teamId: 1,
+              metadata: { previousRole: "member", role: "admin" },
+              createdAt: "2026-07-26T10:05:00.000Z",
+            },
+            {
+              id: 2,
+              action: "impersonation.stop",
+              actorUserId: 1,
+              actorEmail: "editor@example.com",
+              targetUserId: 2,
+              targetEmail: "member@example.com",
+              teamId: 1,
+              metadata: {},
+              createdAt: "2026-07-26T10:04:00.000Z",
+            },
+            {
+              id: 1,
+              action: "impersonation.start",
+              actorUserId: 1,
+              actorEmail: "editor@example.com",
+              targetUserId: 2,
+              targetEmail: "member@example.com",
+              teamId: 1,
+              metadata: {},
+              createdAt: "2026-07-26T10:00:00.000Z",
+            },
+          ],
+        });
+      }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups: [] });
       }
@@ -112,7 +151,31 @@ describe("admin page", () => {
     render(<App />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Admin" }));
-    const memberRow = await screen.findByRole("row", { name: /member@example.com/i });
+    const auditHeading = await screen.findByRole("heading", {
+      name: "View as user audit log",
+    });
+    const auditPanel = auditHeading.closest("section");
+    expect(auditPanel).not.toBeNull();
+    expect(within(auditPanel as HTMLElement).getByText("2 events recorded.")).toBeInTheDocument();
+
+    await userEvent.click(
+      within(auditPanel as HTMLElement).getByRole("button", { name: "Show activity" }),
+    );
+
+    expect(within(auditPanel as HTMLElement).getByText("Started viewing")).toBeInTheDocument();
+    expect(within(auditPanel as HTMLElement).getByText("Stopped viewing")).toBeInTheDocument();
+    expect(
+      within(auditPanel as HTMLElement).queryByText(/role changed/i),
+    ).not.toBeInTheDocument();
+    expect(
+      within(auditPanel as HTMLElement).getAllByText("member@example.com"),
+    ).toHaveLength(2);
+
+    const usersPanel = screen.getByRole("heading", { name: "Users" }).closest("section");
+    expect(usersPanel).not.toBeNull();
+    const memberRow = within(usersPanel as HTMLElement).getByRole("row", {
+      name: /member@example.com/i,
+    });
     await userEvent.click(within(memberRow).getByRole("button", { name: "View as user" }));
 
     const banner = await screen.findByRole("status");
@@ -203,6 +266,9 @@ describe("admin page", () => {
             },
           ],
         });
+      }
+      if (url.pathname === "/api/admin/admin-audit" && method === "GET") {
+        return json({ events: [] });
       }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups: [] });
@@ -349,6 +415,9 @@ describe("admin page", () => {
       if (url.pathname === "/api/admin/login-events" && method === "GET") {
         return json({ loginEvents: [] });
       }
+      if (url.pathname === "/api/admin/admin-audit" && method === "GET") {
+        return json({ events: [] });
+      }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups: [] });
       }
@@ -451,6 +520,9 @@ describe("admin page", () => {
       if (url.pathname === "/api/admin/users" && method === "GET") return json({ users });
       if (url.pathname === "/api/admin/login-events" && method === "GET") {
         return json({ loginEvents: [] });
+      }
+      if (url.pathname === "/api/admin/admin-audit" && method === "GET") {
+        return json({ events: [] });
       }
       if (url.pathname === "/api/admin/waitlist" && method === "GET") {
         return json({ signups });

@@ -10,6 +10,12 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.16.6 - 2026-07-26
+
+### Added
+
+- Added a scoped, collapsible Admin view for reviewing View as user start and stop audit events.
+
 ## 1.16.5 - 2026-07-26
 
 ### Security

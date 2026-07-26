@@ -1,5 +1,6 @@
 import type {
   AlertState,
+  AdminAuditEventDto,
   AdminInviteCodeDto,
   AuditLogDto,
   DecisionDto,
@@ -291,6 +292,7 @@ export const api = {
       }),
     users: () => request<{ users: TeamUserDto[] }>("/api/admin/users"),
     loginEvents: () => request<{ loginEvents: UserLoginEventDto[] }>("/api/admin/login-events"),
+    auditEvents: () => request<{ events: AdminAuditEventDto[] }>("/api/admin/admin-audit"),
     waitlist: () => request<{ signups: WaitlistSignupDto[] }>("/api/admin/waitlist"),
     createWaitlistInviteCode: (signupId: number, body: { code: string; role: UserRole }) =>
       request<{ inviteCode: AdminInviteCodeDto; signup: WaitlistSignupDto }>(
