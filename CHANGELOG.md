@@ -4,6 +4,18 @@ All notable changes to Followthrough are tracked here. This file was created aft
 
 ## Unreleased
 
+### Added
+
+- Added a security audit trail for privileged admin actions (impersonation start/stop, role changes, and admin-initiated password resets), viewable by team admins for their own team and by the owner across all teams via `GET /api/admin/admin-audit`.
+
+### Changed
+
+- Centralized the record-visibility (team-scoping and private-record) invariant in a single module so the previously duplicated SQL conditions can no longer drift apart.
+
+### Security
+
+- Added a systematic cross-team and private-record authorization test matrix covering record read/mutate endpoints, impersonation write-blocking, and the same-origin guard.
+
 ### Planned
 
 - Keep adding release notes before each package version bump and deployment.

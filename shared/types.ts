@@ -38,6 +38,24 @@ export type UserLoginEventDto = {
   userAgent: string | null;
 };
 
+export type AdminAuditAction =
+  | "impersonation.start"
+  | "impersonation.stop"
+  | "user.role_changed"
+  | "user.password_reset";
+
+export type AdminAuditEventDto = {
+  id: number;
+  action: AdminAuditAction;
+  actorUserId: number | null;
+  actorEmail: string;
+  targetUserId: number | null;
+  targetEmail: string | null;
+  teamId: number | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type WaitlistHandledAction = "invite_code" | "direct_user";
 
 export type WaitlistSignupDto = {
