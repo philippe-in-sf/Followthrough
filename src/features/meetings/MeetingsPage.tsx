@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type {
   AuditLogDto,
-  GoogleCalendarImportEventDto,
+  CalendarImportEventDto,
   MeetingDto,
   MeetingLinkDto,
   MeetingLinkType,
@@ -80,10 +80,13 @@ type MeetingLinkFormState = {
 };
 
 type CalendarImportDetails = {
+  sourceLabel: string;
   sourceTitle: string;
   notes: string;
   links: MeetingLinkFormState[];
 };
+
+type CalendarImportSource = "google" | "feed";
 
 type MeetingLane = {
   key: string;
@@ -486,9 +489,11 @@ export function MeetingsPage({
   const [meetingFormStatus, setMeetingFormStatus] = useState("");
   const [calendarImportOpen, setCalendarImportOpen] = useState(false);
   const [calendarImportQuery, setCalendarImportQuery] = useState("");
-  const [calendarImportEvents, setCalendarImportEvents] = useState<GoogleCalendarImportEventDto[]>(
+  const [calendarImportEvents, setCalendarImportEvents] = useState<CalendarImportEventDto[]>(
     [],
   );
+  const [calendarImportSource, setCalendarImportSource] =
+    useState<CalendarImportSource>("google");
   const [calendarImportError, setCalendarImportError] = useState("");
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportDetails, setCalendarImportDetails] =
@@ -501,6 +506,12 @@ export function MeetingsPage({
   const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
   const [googleCalendarError, setGoogleCalendarError] = useState("");
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState("");
+  const [calendarFeedAvailable, setCalendarFeedAvailable] = useState(false);
+  const [calendarFeedConfigured, setCalendarFeedConfigured] = useState(false);
+  const [calendarFeedInput, setCalendarFeedInput] = useState("");
+  const [calendarFeedSaving, setCalendarFeedSaving] = useState(false);
+  const [calendarFeedError, setCalendarFeedError] = useState("");
+  const [calendarFeedStatus, setCalendarFeedStatus] = useState("");
   const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
@@ -676,6 +687,26 @@ export function MeetingsPage({
     setWorkCalendarInput(workCalendarUrl ?? "");
   }, [workCalendarUrl]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void api.calendarFeed
+      .connection()
+      .then((status) => {
+        if (cancelled) return;
+        setCalendarFeedAvailable(status.available);
+        setCalendarFeedConfigured(status.configured);
+        if (status.configured && !googleCalendarConnected) {
+          setCalendarImportSource("feed");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCalendarFeedAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [googleCalendarConnected]);
+
   async function saveWorkCalendar(nextWorkCalendarUrl: string | null) {
     setWorkCalendarSaving(true);
     setWorkCalendarError("");
@@ -717,6 +748,7 @@ export function MeetingsPage({
     try {
       await api.googleCalendar.disconnect();
       onGoogleCalendarConnectionChange?.(false, null);
+      if (calendarFeedConfigured) setCalendarImportSource("feed");
       setGoogleCalendarStatus("Google Calendar disconnected.");
     } catch (error) {
       setGoogleCalendarError(
@@ -724,6 +756,46 @@ export function MeetingsPage({
       );
     } finally {
       setGoogleCalendarDisconnecting(false);
+    }
+  }
+
+  async function saveCalendarFeed() {
+    if (!calendarFeedInput.trim()) return;
+    setCalendarFeedSaving(true);
+    setCalendarFeedError("");
+    setCalendarFeedStatus("");
+    try {
+      const status = await api.calendarFeed.save(calendarFeedInput);
+      setCalendarFeedAvailable(status.available);
+      setCalendarFeedConfigured(status.configured);
+      setCalendarFeedInput("");
+      setCalendarImportSource("feed");
+      setCalendarFeedStatus("Private iCalendar feed saved.");
+    } catch (error) {
+      setCalendarFeedError(
+        error instanceof Error ? error.message : "Calendar feed could not be saved.",
+      );
+    } finally {
+      setCalendarFeedSaving(false);
+    }
+  }
+
+  async function disconnectCalendarFeed() {
+    setCalendarFeedSaving(true);
+    setCalendarFeedError("");
+    setCalendarFeedStatus("");
+    try {
+      await api.calendarFeed.disconnect();
+      setCalendarFeedConfigured(false);
+      setCalendarFeedInput("");
+      if (googleCalendarConnected) setCalendarImportSource("google");
+      setCalendarFeedStatus("Private iCalendar feed removed.");
+    } catch (error) {
+      setCalendarFeedError(
+        error instanceof Error ? error.message : "Calendar feed could not be removed.",
+      );
+    } finally {
+      setCalendarFeedSaving(false);
     }
   }
 
@@ -911,26 +983,33 @@ export function MeetingsPage({
     }
   }
 
-  async function searchGoogleCalendarEvents() {
+  async function searchCalendarEvents() {
     setCalendarImportLoading(true);
     setCalendarImportError("");
     try {
-      const result = await api.googleCalendar.searchEvents(calendarImportQuery);
+      const result =
+        calendarImportSource === "feed"
+          ? await api.calendarFeed.searchEvents(calendarImportQuery)
+          : await api.googleCalendar.searchEvents(calendarImportQuery);
       setCalendarImportEvents(result.events);
       if (result.events.length === 0) {
-        setCalendarImportError("No matching Google Calendar events.");
+        setCalendarImportError(
+          calendarImportSource === "feed"
+            ? "No matching iCalendar feed events."
+            : "No matching Google Calendar events.",
+        );
       }
     } catch (error) {
       setCalendarImportEvents([]);
       setCalendarImportError(
-        error instanceof Error ? error.message : "Google Calendar could not be searched.",
+        error instanceof Error ? error.message : "Calendar could not be searched.",
       );
     } finally {
       setCalendarImportLoading(false);
     }
   }
 
-  function applyGoogleCalendarEvent(event: GoogleCalendarImportEventDto) {
+  function applyCalendarEvent(event: CalendarImportEventDto) {
     const attendeeNames = [meetingForm.attendeeNames, event.attendeeNames]
       .map((value) => value.trim())
       .filter(Boolean)
@@ -948,6 +1027,8 @@ export function MeetingsPage({
       attendeeNames,
     }));
     setCalendarImportDetails({
+      sourceLabel:
+        calendarImportSource === "feed" ? "iCalendar feed" : "Google Calendar",
       sourceTitle: event.title,
       notes: event.notes,
       links: event.links,
@@ -1685,6 +1766,75 @@ export function MeetingsPage({
                   {googleCalendarStatus}
                 </p>
               ) : null}
+              <section
+                className="google-calendar-connection"
+                aria-label="iCalendar feed connection"
+              >
+                <div>
+                  <strong>Private iCalendar feed</strong>
+                  <span>
+                    {calendarFeedConfigured
+                      ? "Feed URL saved."
+                      : calendarFeedAvailable
+                        ? "No feed URL saved."
+                        : "Calendar feed encryption is not configured."}
+                  </span>
+                </div>
+                {calendarFeedConfigured ? (
+                  <button
+                    className="secondary-button icon-text-button"
+                    type="button"
+                    onClick={disconnectCalendarFeed}
+                    disabled={calendarFeedSaving}
+                  >
+                    <Trash2 aria-hidden="true" size={17} />
+                    {calendarFeedSaving ? "Removing" : "Remove feed"}
+                  </button>
+                ) : null}
+              </section>
+              <FormField label="Private iCalendar feed URL">
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={calendarFeedInput}
+                  onChange={(event) => setCalendarFeedInput(event.target.value)}
+                  placeholder={
+                    calendarFeedConfigured
+                      ? "Paste a replacement feed URL"
+                      : "https://calendar.example.com/private.ics"
+                  }
+                  disabled={!calendarFeedAvailable}
+                />
+              </FormField>
+              <div className="calendar-settings-actions">
+                <button
+                  className="primary-button icon-text-button"
+                  type="button"
+                  onClick={saveCalendarFeed}
+                  disabled={
+                    calendarFeedSaving ||
+                    !calendarFeedAvailable ||
+                    !calendarFeedInput.trim()
+                  }
+                >
+                  <Save aria-hidden="true" size={17} />
+                  {calendarFeedSaving
+                    ? "Saving"
+                    : calendarFeedConfigured
+                      ? "Replace feed"
+                      : "Save feed"}
+                </button>
+              </div>
+              {calendarFeedError ? (
+                <p className="form-error" role="alert">
+                  {calendarFeedError}
+                </p>
+              ) : null}
+              {calendarFeedStatus ? (
+                <p className="form-status" role="status">
+                  {calendarFeedStatus}
+                </p>
+              ) : null}
               <FormField label="Calendar shortcut URL">
                 <input
                   type="url"
@@ -1738,12 +1888,54 @@ export function MeetingsPage({
             onClick={() => setCalendarImportOpen((open) => !open)}
           >
             <CalendarPlus aria-hidden="true" size={17} />
-            Import from Google Calendar
+            {calendarFeedConfigured
+              ? googleCalendarConnected
+                ? "Import from calendar"
+                : "Import from calendar feed"
+              : "Import from Google Calendar"}
           </button>
         </div>
         {calendarImportOpen ? (
-          <section className="calendar-import-panel" aria-label="Import from Google Calendar">
-            <FormField label="Which Google Calendar meeting?">
+          <section className="calendar-import-panel" aria-label="Import from calendar">
+            {googleCalendarConnected && calendarFeedConfigured ? (
+              <div
+                className="record-view-toggle"
+                role="group"
+                aria-label="Calendar import source"
+              >
+                <button
+                  aria-pressed={calendarImportSource === "google"}
+                  className={calendarImportSource === "google" ? "active" : ""}
+                  type="button"
+                  onClick={() => {
+                    setCalendarImportSource("google");
+                    setCalendarImportEvents([]);
+                    setCalendarImportError("");
+                  }}
+                >
+                  Google Calendar
+                </button>
+                <button
+                  aria-pressed={calendarImportSource === "feed"}
+                  className={calendarImportSource === "feed" ? "active" : ""}
+                  type="button"
+                  onClick={() => {
+                    setCalendarImportSource("feed");
+                    setCalendarImportEvents([]);
+                    setCalendarImportError("");
+                  }}
+                >
+                  iCalendar feed
+                </button>
+              </div>
+            ) : null}
+            <FormField
+              label={
+                calendarImportSource === "feed"
+                  ? "Which iCalendar meeting?"
+                  : "Which Google Calendar meeting?"
+              }
+            >
               <input
                 value={calendarImportQuery}
                 onChange={(event) => setCalendarImportQuery(event.target.value)}
@@ -1753,7 +1945,7 @@ export function MeetingsPage({
             <button
               className="secondary-button icon-text-button"
               type="button"
-              onClick={searchGoogleCalendarEvents}
+              onClick={searchCalendarEvents}
               disabled={calendarImportLoading}
             >
               <CalendarPlus aria-hidden="true" size={17} />
@@ -1779,7 +1971,7 @@ export function MeetingsPage({
                         className="calendar-import-result"
                         key={event.id}
                         type="button"
-                        onClick={() => applyGoogleCalendarEvent(event)}
+                        onClick={() => applyCalendarEvent(event)}
                       >
                         <strong>{event.title}</strong>
                         <span>{new Date(event.startsAt).toLocaleString()}</span>
@@ -1793,8 +1985,8 @@ export function MeetingsPage({
           </section>
         ) : null}
         {calendarImportDetails ? (
-          <section className="calendar-import-preview" aria-label="Imported Google Calendar details">
-            <strong>Imported from Google Calendar</strong>
+          <section className="calendar-import-preview" aria-label="Imported calendar details">
+            <strong>Imported from {calendarImportDetails.sourceLabel}</strong>
             <span>{calendarImportDetails.sourceTitle}</span>
             <span>{countLabel(calendarImportDetails.links.length, "link")}</span>
           </section>

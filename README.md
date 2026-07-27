@@ -79,6 +79,8 @@ GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=
 GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY=
 GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS=
+CALENDAR_FEED_ENCRYPTION_KEY=
+CALENDAR_FEED_ENCRYPTION_PREVIOUS_KEYS=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
@@ -98,6 +100,8 @@ Weekly workspace digests also use the SMTP settings and are off by default for e
 The shared calendar shortcut URL is configured by admins in the Admin screen. Per-user calendar shortcut preferences remain available as a fallback, and `VITE_WORK_CALENDAR_URL` remains available as a deployment fallback.
 
 Google Calendar import uses OAuth. Configure the deployment once with `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, and a dedicated `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY`, then each signed-in user connects their own Google account from the Meetings screen. Generate the encryption key with `openssl rand -base64 32`; do not reuse the OAuth client secret or another application credential. Access and refresh tokens are stored as authenticated AES-256-GCM ciphertext, and existing plaintext rows are encrypted when the server starts. To rotate the key, set the new key as `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY` and provide older base64 keys as a comma-separated `GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS` value until all rows have been re-encrypted and the deployment is verified. The pasted calendar shortcut remains available as a secondary option; it is not required for Google Calendar imports. Connected users can search upcoming Google Calendar events and import the title, start time, location summary, description notes, attendees, Calendar link, and Google Meet link.
+
+OAuth-free calendar import is available through a private iCalendar feed. Generate a dedicated key with `openssl rand -base64 32` and set it as `CALENDAR_FEED_ENCRYPTION_KEY`; users can then save their own `https` or `webcal` feed URL from Meetings → Calendar settings. Feed URLs are stored as authenticated AES-256-GCM ciphertext and are never returned to the browser after saving. To rotate the key, set the new key and keep older keys in `CALENDAR_FEED_ENCRYPTION_PREVIOUS_KEYS` until saved feeds have been used once and re-encrypted. The importer reads upcoming one-time and recurring events, follows only validated public HTTPS redirects, blocks private-network targets, and limits feed downloads to 2 MB.
 
 ## Production Run
 

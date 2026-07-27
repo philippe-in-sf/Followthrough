@@ -86,4 +86,24 @@ describe("calendar client preferences", () => {
       expect.objectContaining({ method: "DELETE" }),
     );
   });
+
+  it("saves an iCalendar feed without returning the secret URL", async () => {
+    globalThis.fetch = vi.fn(() =>
+      json({ available: true, configured: true }),
+    ) as typeof fetch;
+
+    await expect(
+      api.calendarFeed.save("https://calendar.example.com/private.ics"),
+    ).resolves.toEqual({ available: true, configured: true });
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/calendar-feed/connection",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          feedUrl: "https://calendar.example.com/private.ics",
+        }),
+      }),
+    );
+  });
 });

@@ -57,6 +57,8 @@ function setupAppFetch(
     googleCalendarConfigured?: boolean;
     googleCalendarConnected?: boolean;
     googleCalendarEmail?: string | null;
+    calendarFeedAvailable?: boolean;
+    calendarFeedConfigured?: boolean;
     extraMeetings?: MeetingDto[];
     dashboardOrganization?: DashboardOrganization;
   } = {},
@@ -67,6 +69,8 @@ function setupAppFetch(
   let googleCalendarConnected = options.googleCalendarConnected ?? false;
   let googleCalendarEmail = options.googleCalendarEmail ?? null;
   const googleCalendarConfigured = options.googleCalendarConfigured ?? true;
+  const calendarFeedAvailable = options.calendarFeedAvailable ?? true;
+  let calendarFeedConfigured = options.calendarFeedConfigured ?? false;
   const tasks: TaskDto[] = [
     {
       publicId: "T099",
@@ -306,6 +310,48 @@ function setupAppFetch(
               },
             ],
             attendeeNames: "Jordan Case",
+          },
+        ],
+      });
+    }
+
+    if (url.pathname === "/api/calendar-feed/connection" && method === "GET") {
+      return json({
+        available: calendarFeedAvailable,
+        configured: calendarFeedConfigured,
+      });
+    }
+
+    if (url.pathname === "/api/calendar-feed/connection" && method === "PUT") {
+      if (!calendarFeedAvailable) {
+        return json({ error: "Calendar feed encryption is not configured." }, 503);
+      }
+      calendarFeedConfigured = true;
+      return json({ available: true, configured: true });
+    }
+
+    if (url.pathname === "/api/calendar-feed/connection" && method === "DELETE") {
+      calendarFeedConfigured = false;
+      return json(null, 204);
+    }
+
+    if (url.pathname === "/api/calendar-feed/events" && method === "GET") {
+      return json({
+        events: [
+          {
+            id: "ical-1",
+            title: "Imported feed sync",
+            startsAt: "2099-08-04T16:00:00.000Z",
+            summary: "Feed agenda",
+            notes: "Private feed notes",
+            links: [
+              {
+                label: "Video call",
+                url: "https://meet.example.com/feed",
+                linkType: "work",
+              },
+            ],
+            attendeeNames: "Morgan Lane",
           },
         ],
       });
@@ -1668,6 +1714,35 @@ describe("dashboard and workspace flows", () => {
         linkType: "agenda",
       },
     ]);
+  });
+
+  it("saves a private iCalendar feed and imports an event without OAuth", async () => {
+    setupAppFetch({
+      googleCalendarConfigured: false,
+      calendarFeedAvailable: true,
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.type(
+      await screen.findByLabelText("Private iCalendar feed URL"),
+      "https://calendar.example.com/private.ics",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save feed" }));
+
+    expect(await screen.findByText("Private iCalendar feed saved.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Private iCalendar feed URL")).toHaveValue("");
+
+    await userEvent.click(screen.getByRole("button", { name: "Import from calendar feed" }));
+    await userEvent.type(screen.getByLabelText("Which iCalendar meeting?"), "sync");
+    await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Imported feed sync/i }));
+
+    expect(screen.getByLabelText("Meeting title")).toHaveValue("Imported feed sync");
+    expect(screen.getByText("Imported from iCalendar feed")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quick-add attendees")).toHaveValue("Morgan Lane");
+    expect(screen.getByLabelText("Meeting summary")).toHaveValue("Feed agenda");
   });
 
   it("edits meeting notes and structured links", async () => {
