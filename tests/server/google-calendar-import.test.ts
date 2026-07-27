@@ -38,6 +38,8 @@ const baseConfig: AppConfig = {
   googleOAuthRedirectUri: "",
   googleOAuthTokenEncryptionKey: tokenEncryptionKey,
   googleOAuthTokenEncryptionPreviousKeys: [],
+  calendarFeedEncryptionKey: tokenEncryptionKey,
+  calendarFeedEncryptionPreviousKeys: [],
 };
 
 const oauthConfig: Partial<AppConfig> = {

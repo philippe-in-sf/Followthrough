@@ -30,6 +30,8 @@ export type AppConfig = {
   googleOAuthRedirectUri: string;
   googleOAuthTokenEncryptionKey: string;
   googleOAuthTokenEncryptionPreviousKeys: string[];
+  calendarFeedEncryptionKey: string;
+  calendarFeedEncryptionPreviousKeys: string[];
 };
 
 function commaSeparatedValues(value: string | undefined) {
@@ -75,6 +77,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     googleOAuthTokenEncryptionKey: env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY ?? "",
     googleOAuthTokenEncryptionPreviousKeys: commaSeparatedValues(
       env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS,
+    ),
+    calendarFeedEncryptionKey:
+      env.CALENDAR_FEED_ENCRYPTION_KEY ?? env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY ?? "",
+    calendarFeedEncryptionPreviousKeys: commaSeparatedValues(
+      env.CALENDAR_FEED_ENCRYPTION_PREVIOUS_KEYS ??
+        env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS,
     ),
   };
 }

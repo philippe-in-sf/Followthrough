@@ -193,7 +193,7 @@ export type MeetingLinkDto = {
   linkType: MeetingLinkType;
 };
 
-export type GoogleCalendarImportEventDto = {
+export type CalendarImportEventDto = {
   id: string;
   title: string;
   startsAt: string;
@@ -205,6 +205,13 @@ export type GoogleCalendarImportEventDto = {
     url: string;
     linkType: MeetingLinkType;
   }>;
+};
+
+export type GoogleCalendarImportEventDto = CalendarImportEventDto;
+
+export type CalendarFeedConnectionStatusDto = {
+  available: boolean;
+  configured: boolean;
 };
 
 export type UserPreferencesDto = {

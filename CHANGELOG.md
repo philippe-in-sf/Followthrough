@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.17.0 - 2026-07-27
+
+### Added
+
+- Added an OAuth-free, per-user private iCalendar feed connector with encrypted URL storage and meeting import.
+- Added recurring-event expansion, public-network validation, redirect and download limits, and source selection alongside Google Calendar import.
+
 ## 1.16.7 - 2026-07-26
 
 ### Changed

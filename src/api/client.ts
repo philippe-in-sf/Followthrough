@@ -3,8 +3,9 @@ import type {
   AdminAuditEventDto,
   AdminInviteCodeDto,
   AuditLogDto,
+  CalendarFeedConnectionStatusDto,
+  CalendarImportEventDto,
   DecisionDto,
-  GoogleCalendarImportEventDto,
   MeetingDto,
   MeetingNoteDto,
   MeetingLinkType,
@@ -400,11 +401,26 @@ export const api = {
   },
   googleCalendar: {
     searchEvents: (query: string) =>
-      request<{ events: GoogleCalendarImportEventDto[] }>(
+      request<{ events: CalendarImportEventDto[] }>(
         `/api/google-calendar/events?${new URLSearchParams({ query })}`,
       ),
     disconnect: () =>
       request<void>("/api/google-calendar/connection", { method: "DELETE" }),
+  },
+  calendarFeed: {
+    connection: () =>
+      request<CalendarFeedConnectionStatusDto>("/api/calendar-feed/connection"),
+    save: (feedUrl: string) =>
+      request<CalendarFeedConnectionStatusDto>("/api/calendar-feed/connection", {
+        method: "PUT",
+        body: JSON.stringify({ feedUrl }),
+      }),
+    disconnect: () =>
+      request<void>("/api/calendar-feed/connection", { method: "DELETE" }),
+    searchEvents: (query: string) =>
+      request<{ events: CalendarImportEventDto[] }>(
+        `/api/calendar-feed/events?${new URLSearchParams({ query })}`,
+      ),
   },
   series: {
     list: () => request<{ series: MeetingSeriesDto[] }>("/api/meeting-series"),
