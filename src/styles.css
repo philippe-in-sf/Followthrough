@@ -2551,7 +2551,6 @@ button:disabled {
 }
 
 .editor-form-title-row,
-.calendar-settings-panel,
 .calendar-import-panel,
 .calendar-import-preview {
   grid-column: 1 / -1;
@@ -2594,7 +2593,7 @@ button:disabled {
   padding: 12px;
 }
 
-.calendar-settings-panel h3,
+.calendar-settings-panel .panel-heading,
 .google-calendar-connection,
 .calendar-settings-panel .form-error,
 .calendar-settings-panel .form-status {
@@ -2608,10 +2607,6 @@ button:disabled {
 
 .calendar-settings-panel > .form-field input {
   min-width: 0;
-}
-
-.calendar-settings-panel h3 {
-  margin: 0;
 }
 
 .google-calendar-connection {

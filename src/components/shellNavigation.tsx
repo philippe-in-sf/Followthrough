@@ -78,8 +78,13 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
   },
   Settings: {
     icon: SlidersHorizontal,
-    description: "Manage your account password and team access.",
-    contextRows: [{ label: "Password" }, { label: "Team access" }, { label: "Personal workspace" }],
+    description: "Manage your account, calendar connections, digest, and team access.",
+    contextRows: [
+      { label: "Password" },
+      { label: "Weekly digest" },
+      { label: "Calendar" },
+      { label: "Team access" },
+    ],
   },
   Admin: {
     icon: Settings,
