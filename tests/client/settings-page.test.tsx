@@ -20,6 +20,22 @@ const user: User = {
   },
 };
 
+function renderSettings(overrides: Partial<Parameters<typeof SettingsPage>[0]> = {}) {
+  return render(
+    <SettingsPage
+      user={user}
+      workCalendarUrl={null}
+      onWorkCalendarUrlChange={vi.fn()}
+      googleCalendarConfigured={false}
+      googleCalendarConnected={false}
+      googleCalendarEmail={null}
+      onGoogleCalendarConnectionChange={vi.fn()}
+      onLeaveTeam={vi.fn()}
+      {...overrides}
+    />,
+  );
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -47,7 +63,7 @@ describe("SettingsPage", () => {
     });
     globalThis.fetch = fetchMock;
 
-    render(<SettingsPage user={user} onLeaveTeam={vi.fn()} />);
+    renderSettings();
 
     await userEvent.type(screen.getByLabelText("Current password"), "old-password");
     await userEvent.type(screen.getByLabelText("New password"), "new-long-password");
@@ -88,7 +104,7 @@ describe("SettingsPage", () => {
     });
     globalThis.fetch = fetchMock;
 
-    render(<SettingsPage user={user} onLeaveTeam={vi.fn()} />);
+    renderSettings();
 
     await userEvent.type(screen.getByLabelText("Current password"), "old-password");
     await userEvent.type(screen.getByLabelText("New password"), "new-long-password");
@@ -96,7 +112,7 @@ describe("SettingsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("New passwords do not match")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("/api/me/password");
   });
 
   it("moves the leave-team action into settings", async () => {
@@ -115,7 +131,7 @@ describe("SettingsPage", () => {
       } as Response),
     ) as typeof fetch;
 
-    render(<SettingsPage user={user} onLeaveTeam={onLeaveTeam} />);
+    renderSettings({ onLeaveTeam });
 
     await userEvent.click(screen.getByRole("button", { name: "Leave team" }));
 
@@ -151,7 +167,7 @@ describe("SettingsPage", () => {
     });
     globalThis.fetch = fetchMock;
 
-    render(<SettingsPage user={user} onLeaveTeam={vi.fn()} />);
+    renderSettings();
 
     await userEvent.click(await screen.findByLabelText("Email me the weekly workspace digest"));
 
@@ -165,5 +181,133 @@ describe("SettingsPage", () => {
       ),
     );
     expect(await screen.findByText("Weekly digest enabled")).toBeInTheDocument();
+  });
+
+  it("saves and clears the calendar shortcut URL", async () => {
+    const onWorkCalendarUrlChange = vi.fn();
+    let workCalendarUrl: string | null = null;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/calendar-feed/connection") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ available: true, configured: false }),
+        } as Response);
+      }
+      if (String(input) === "/api/me/preferences" && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as { workCalendarUrl?: string | null };
+        workCalendarUrl = body.workCalendarUrl?.trim() || null;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          workCalendarUrl,
+          weeklyDigestEnabled: false,
+          googleCalendarConfigured: false,
+          googleCalendarConnected: false,
+          googleCalendarEmail: null,
+        }),
+      } as Response);
+    });
+    globalThis.fetch = fetchMock;
+
+    renderSettings({ onWorkCalendarUrlChange });
+
+    await userEvent.type(
+      await screen.findByLabelText("Calendar shortcut URL"),
+      "https://calendar.example.com/team",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
+
+    expect(await screen.findByText("Calendar shortcut saved.")).toBeInTheDocument();
+    expect(onWorkCalendarUrlChange).toHaveBeenLastCalledWith("https://calendar.example.com/team");
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear shortcut" }));
+
+    expect(await screen.findByText("Calendar shortcut cleared.")).toBeInTheDocument();
+    expect(onWorkCalendarUrlChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("disconnects a connected Google Calendar account", async () => {
+    const onGoogleCalendarConnectionChange = vi.fn();
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/google-calendar/connection" && init?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 204 } as Response);
+      }
+      if (String(input) === "/api/calendar-feed/connection") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ available: true, configured: false }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          workCalendarUrl: null,
+          weeklyDigestEnabled: false,
+          googleCalendarConfigured: true,
+          googleCalendarConnected: true,
+          googleCalendarEmail: "editor@gmail.com",
+        }),
+      } as Response);
+    }) as typeof fetch;
+
+    renderSettings({
+      googleCalendarConfigured: true,
+      googleCalendarConnected: true,
+      googleCalendarEmail: "editor@gmail.com",
+      onGoogleCalendarConnectionChange,
+    });
+
+    expect(await screen.findByText("Connected as editor@gmail.com")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
+
+    expect(onGoogleCalendarConnectionChange).toHaveBeenCalledWith(false, null);
+    expect(await screen.findByText("Google Calendar disconnected.")).toBeInTheDocument();
+  });
+
+  it("saves a private iCalendar feed", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/calendar-feed/connection" && init?.method === "PUT") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ available: true, configured: true }),
+        } as Response);
+      }
+      if (String(input) === "/api/calendar-feed/connection") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ available: true, configured: false }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          workCalendarUrl: null,
+          weeklyDigestEnabled: false,
+          googleCalendarConfigured: false,
+          googleCalendarConnected: false,
+          googleCalendarEmail: null,
+        }),
+      } as Response);
+    });
+    globalThis.fetch = fetchMock;
+
+    renderSettings();
+
+    await userEvent.type(
+      await screen.findByLabelText("Private iCalendar feed URL"),
+      "https://calendar.example.com/private.ics",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save feed" }));
+
+    expect(await screen.findByText("Private iCalendar feed saved.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Private iCalendar feed URL")).toHaveValue("");
   });
 });

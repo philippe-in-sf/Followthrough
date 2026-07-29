@@ -10,6 +10,21 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.18.0 - 2026-07-28
+
+### Added
+
+- Added installable web-app metadata and mobile icons so Followthrough can be added to a phone home screen as a standalone app.
+
+### Changed
+
+- Moved Google Calendar, private iCalendar feed, and calendar shortcut controls from Meetings to Settings.
+- Updated the mobile Settings summary to include calendar connections and the weekly digest.
+
+### Fixed
+
+- Kept the mobile app aligned with the full app by using the shared navigation, feature pages, and package version rather than a separate mobile feature set.
+
 ## 1.17.1 - 2026-07-28
 
 ### Fixed

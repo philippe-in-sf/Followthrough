@@ -9,7 +9,6 @@ import {
   Plus,
   RotateCcw,
   Save,
-  Settings,
   Trash2,
 } from "lucide-react";
 import type {
@@ -459,24 +458,16 @@ export function MeetingsPage({
   focusMeetingPublicId,
   onMeetingFocusHandled,
   onSeriesFocusHandled,
-  workCalendarUrl,
-  onWorkCalendarUrlChange,
   googleCalendarConfigured = false,
   googleCalendarConnected = false,
-  googleCalendarEmail = null,
-  onGoogleCalendarConnectionChange,
   onRecordReferenceOpen,
 }: {
   focusSeriesPublicId?: string | null;
   focusMeetingPublicId?: string | null;
   onMeetingFocusHandled?: () => void;
   onSeriesFocusHandled?: () => void;
-  workCalendarUrl?: string | null;
-  onWorkCalendarUrlChange?: (workCalendarUrl: string | null) => void;
   googleCalendarConfigured?: boolean;
   googleCalendarConnected?: boolean;
-  googleCalendarEmail?: string | null;
-  onGoogleCalendarConnectionChange?: (connected: boolean, email: string | null) => void;
   onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
@@ -498,20 +489,8 @@ export function MeetingsPage({
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportDetails, setCalendarImportDetails] =
     useState<CalendarImportDetails | null>(null);
-  const [calendarSettingsOpen, setCalendarSettingsOpen] = useState(false);
-  const [workCalendarInput, setWorkCalendarInput] = useState(workCalendarUrl ?? "");
-  const [workCalendarSaving, setWorkCalendarSaving] = useState(false);
-  const [workCalendarError, setWorkCalendarError] = useState("");
-  const [workCalendarStatus, setWorkCalendarStatus] = useState("");
-  const [googleCalendarDisconnecting, setGoogleCalendarDisconnecting] = useState(false);
-  const [googleCalendarError, setGoogleCalendarError] = useState("");
-  const [googleCalendarStatus, setGoogleCalendarStatus] = useState("");
   const [calendarFeedAvailable, setCalendarFeedAvailable] = useState(false);
   const [calendarFeedConfigured, setCalendarFeedConfigured] = useState(false);
-  const [calendarFeedInput, setCalendarFeedInput] = useState("");
-  const [calendarFeedSaving, setCalendarFeedSaving] = useState(false);
-  const [calendarFeedError, setCalendarFeedError] = useState("");
-  const [calendarFeedStatus, setCalendarFeedStatus] = useState("");
   const [meetingTaskForms, setMeetingTaskForms] = useState<Record<string, MeetingTaskFormState>>({});
   const [editingMeetingPublicId, setEditingMeetingPublicId] = useState<string | null>(null);
   const [meetingEditForm, setMeetingEditForm] = useState<MeetingFormState>(emptyMeetingForm);
@@ -684,10 +663,6 @@ export function MeetingsPage({
   }, [meetingQuery]);
 
   useEffect(() => {
-    setWorkCalendarInput(workCalendarUrl ?? "");
-  }, [workCalendarUrl]);
-
-  useEffect(() => {
     let cancelled = false;
     void api.calendarFeed
       .connection()
@@ -706,98 +681,6 @@ export function MeetingsPage({
       cancelled = true;
     };
   }, [googleCalendarConnected]);
-
-  async function saveWorkCalendar(nextWorkCalendarUrl: string | null) {
-    setWorkCalendarSaving(true);
-    setWorkCalendarError("");
-    setWorkCalendarStatus("");
-    try {
-      const preferences = await api.preferences.update({
-        workCalendarUrl: nextWorkCalendarUrl,
-      });
-      setWorkCalendarInput(preferences.workCalendarUrl ?? "");
-      onWorkCalendarUrlChange?.(preferences.workCalendarUrl);
-      setWorkCalendarStatus(
-        preferences.workCalendarUrl
-          ? "Calendar shortcut saved."
-          : "Calendar shortcut cleared.",
-      );
-    } catch (error) {
-      setWorkCalendarError(
-        error instanceof Error ? error.message : "Calendar shortcut could not be saved.",
-      );
-    } finally {
-      setWorkCalendarSaving(false);
-    }
-  }
-
-  async function submitWorkCalendar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await saveWorkCalendar(workCalendarInput);
-  }
-
-  async function clearWorkCalendar() {
-    setWorkCalendarInput("");
-    await saveWorkCalendar(null);
-  }
-
-  async function disconnectGoogleCalendar() {
-    setGoogleCalendarDisconnecting(true);
-    setGoogleCalendarError("");
-    setGoogleCalendarStatus("");
-    try {
-      await api.googleCalendar.disconnect();
-      onGoogleCalendarConnectionChange?.(false, null);
-      if (calendarFeedConfigured) setCalendarImportSource("feed");
-      setGoogleCalendarStatus("Google Calendar disconnected.");
-    } catch (error) {
-      setGoogleCalendarError(
-        error instanceof Error ? error.message : "Google Calendar could not be disconnected.",
-      );
-    } finally {
-      setGoogleCalendarDisconnecting(false);
-    }
-  }
-
-  async function saveCalendarFeed() {
-    if (!calendarFeedInput.trim()) return;
-    setCalendarFeedSaving(true);
-    setCalendarFeedError("");
-    setCalendarFeedStatus("");
-    try {
-      const status = await api.calendarFeed.save(calendarFeedInput);
-      setCalendarFeedAvailable(status.available);
-      setCalendarFeedConfigured(status.configured);
-      setCalendarFeedInput("");
-      setCalendarImportSource("feed");
-      setCalendarFeedStatus("Private iCalendar feed saved.");
-    } catch (error) {
-      setCalendarFeedError(
-        error instanceof Error ? error.message : "Calendar feed could not be saved.",
-      );
-    } finally {
-      setCalendarFeedSaving(false);
-    }
-  }
-
-  async function disconnectCalendarFeed() {
-    setCalendarFeedSaving(true);
-    setCalendarFeedError("");
-    setCalendarFeedStatus("");
-    try {
-      await api.calendarFeed.disconnect();
-      setCalendarFeedConfigured(false);
-      setCalendarFeedInput("");
-      if (googleCalendarConnected) setCalendarImportSource("google");
-      setCalendarFeedStatus("Private iCalendar feed removed.");
-    } catch (error) {
-      setCalendarFeedError(
-        error instanceof Error ? error.message : "Calendar feed could not be removed.",
-      );
-    } finally {
-      setCalendarFeedSaving(false);
-    }
-  }
 
   async function resolveAttendeePublicIds(selectedIds: string[], attendeeNames: string) {
     const attendeeIds = new Set(selectedIds);
@@ -1683,18 +1566,6 @@ export function MeetingsPage({
       <header className="page-header">
         <h2>Meetings</h2>
         <div className="meetings-header-actions">
-          {meetingArchiveView === "active" ? (
-            <button
-              aria-controls="calendar-settings-panel"
-              aria-expanded={calendarSettingsOpen}
-              className="secondary-button icon-text-button calendar-settings-toggle"
-              type="button"
-              onClick={() => setCalendarSettingsOpen((open) => !open)}
-            >
-              <Settings aria-hidden="true" size={17} />
-              Calendar settings
-            </button>
-          ) : null}
           <div className="record-view-toggle" role="group" aria-label="Meeting archive view">
             <button
               aria-pressed={meetingArchiveView === "active"}
@@ -1717,163 +1588,6 @@ export function MeetingsPage({
       </header>
       {meetingArchiveView === "active" ? (
         <>
-          {calendarSettingsOpen ? (
-            <form
-              className="calendar-settings-panel"
-              id="calendar-settings-panel"
-              aria-label="Calendar settings"
-              onSubmit={submitWorkCalendar}
-            >
-              <h3>Calendar settings</h3>
-              <section
-                className="google-calendar-connection"
-                aria-label="Google Calendar connection"
-              >
-                <div>
-                  <strong>Google Calendar</strong>
-                  <span>
-                    {googleCalendarConnected
-                      ? `Connected as ${googleCalendarEmail ?? "Google Calendar"}`
-                      : googleCalendarConfigured
-                        ? "Google Calendar is not connected."
-                        : "Google Calendar connection is not available."}
-                  </span>
-                </div>
-                {googleCalendarConnected ? (
-                  <button
-                    className="secondary-button icon-text-button"
-                    type="button"
-                    onClick={disconnectGoogleCalendar}
-                    disabled={googleCalendarDisconnecting}
-                  >
-                    <Trash2 aria-hidden="true" size={17} />
-                    {googleCalendarDisconnecting ? "Disconnecting" : "Disconnect Google Calendar"}
-                  </button>
-                ) : googleCalendarConfigured ? (
-                  <a className="primary-button icon-text-button" href="/api/google-calendar/connect">
-                    <CalendarPlus aria-hidden="true" size={17} />
-                    Connect Google Calendar
-                  </a>
-                ) : null}
-              </section>
-              {googleCalendarError ? (
-                <p className="form-error" role="alert">
-                  {googleCalendarError}
-                </p>
-              ) : null}
-              {googleCalendarStatus ? (
-                <p className="form-status" role="status">
-                  {googleCalendarStatus}
-                </p>
-              ) : null}
-              <section
-                className="google-calendar-connection"
-                aria-label="iCalendar feed connection"
-              >
-                <div>
-                  <strong>Private iCalendar feed</strong>
-                  <span>
-                    {calendarFeedConfigured
-                      ? "Feed URL saved."
-                      : calendarFeedAvailable
-                        ? "No feed URL saved."
-                        : "Calendar feed encryption is not configured."}
-                  </span>
-                </div>
-                {calendarFeedConfigured ? (
-                  <button
-                    className="secondary-button icon-text-button"
-                    type="button"
-                    onClick={disconnectCalendarFeed}
-                    disabled={calendarFeedSaving}
-                  >
-                    <Trash2 aria-hidden="true" size={17} />
-                    {calendarFeedSaving ? "Removing" : "Remove feed"}
-                  </button>
-                ) : null}
-              </section>
-              <FormField label="Private iCalendar feed URL">
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={calendarFeedInput}
-                  onChange={(event) => setCalendarFeedInput(event.target.value)}
-                  placeholder={
-                    calendarFeedConfigured
-                      ? "Paste a replacement feed URL"
-                      : "https://calendar.example.com/private.ics"
-                  }
-                  disabled={!calendarFeedAvailable}
-                />
-              </FormField>
-              <div className="calendar-settings-actions">
-                <button
-                  className="primary-button icon-text-button"
-                  type="button"
-                  onClick={saveCalendarFeed}
-                  disabled={
-                    calendarFeedSaving ||
-                    !calendarFeedAvailable ||
-                    !calendarFeedInput.trim()
-                  }
-                >
-                  <Save aria-hidden="true" size={17} />
-                  {calendarFeedSaving
-                    ? "Saving"
-                    : calendarFeedConfigured
-                      ? "Replace feed"
-                      : "Save feed"}
-                </button>
-              </div>
-              {calendarFeedError ? (
-                <p className="form-error" role="alert">
-                  {calendarFeedError}
-                </p>
-              ) : null}
-              {calendarFeedStatus ? (
-                <p className="form-status" role="status">
-                  {calendarFeedStatus}
-                </p>
-              ) : null}
-              <FormField label="Calendar shortcut URL">
-                <input
-                  type="url"
-                  value={workCalendarInput}
-                  onChange={(event) => setWorkCalendarInput(event.target.value)}
-                  placeholder="https://calendar.example.com/team"
-                />
-              </FormField>
-              <div className="calendar-settings-actions">
-                <button
-                  className="primary-button icon-text-button"
-                  type="submit"
-                  disabled={workCalendarSaving}
-                >
-                  <Save aria-hidden="true" size={17} />
-                  {workCalendarSaving ? "Saving" : "Save shortcut"}
-                </button>
-                <button
-                  className="secondary-button icon-text-button"
-                  type="button"
-                  onClick={clearWorkCalendar}
-                  disabled={workCalendarSaving || !workCalendarInput.trim()}
-                >
-                  <Trash2 aria-hidden="true" size={17} />
-                  Clear shortcut
-                </button>
-              </div>
-              {workCalendarError ? (
-                <p className="form-error" role="alert">
-                  {workCalendarError}
-                </p>
-              ) : null}
-              {workCalendarStatus ? (
-                <p className="form-status" role="status">
-                  {workCalendarStatus}
-                </p>
-              ) : null}
-            </form>
-          ) : null}
       <form
         className="editor-form meeting-create-form"
         data-tour-id="meeting-capture"

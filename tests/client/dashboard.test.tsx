@@ -778,7 +778,7 @@ describe("dashboard and workspace flows", () => {
     );
   });
 
-  it("hides Google Calendar settings behind the Meetings settings control", async () => {
+  it("shows Google Calendar settings on Settings", async () => {
     setupAppFetch();
     render(<App />);
 
@@ -787,7 +787,7 @@ describe("dashboard and workspace flows", () => {
     expect(screen.queryByText("Google Calendar is not connected.")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Calendar shortcut URL")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(await screen.findByText("Google Calendar is not connected.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Google Calendar" })).toHaveAttribute(
       "href",
@@ -796,12 +796,11 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByLabelText("Calendar shortcut URL")).toBeInTheDocument();
   });
 
-  it("saves and clears the secondary calendar shortcut URL from Meetings", async () => {
+  it("saves and clears the secondary calendar shortcut URL from Settings", async () => {
     setupAppFetch();
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
     await userEvent.type(
       await screen.findByLabelText("Calendar shortcut URL"),
       "https://calendar.example.com/team",
@@ -826,8 +825,7 @@ describe("dashboard and workspace flows", () => {
     setupAppFetch();
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
     await userEvent.type(await screen.findByLabelText("Calendar shortcut URL"), "javascript:alert(1)");
     await userEvent.click(screen.getByRole("button", { name: "Save shortcut" }));
 
@@ -837,15 +835,14 @@ describe("dashboard and workspace flows", () => {
     expect(screen.queryByRole("link", { name: "Open calendar shortcut" })).not.toBeInTheDocument();
   });
 
-  it("disconnects a connected Google Calendar account from Meetings", async () => {
+  it("disconnects a connected Google Calendar account from Settings", async () => {
     setupAppFetch({
       googleCalendarConnected: true,
       googleCalendarEmail: "editor@gmail.com",
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
     expect(await screen.findByText("Connected as editor@gmail.com")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
@@ -1723,8 +1720,7 @@ describe("dashboard and workspace flows", () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
-    await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
     await userEvent.type(
       await screen.findByLabelText("Private iCalendar feed URL"),
       "https://calendar.example.com/private.ics",
@@ -1734,7 +1730,8 @@ describe("dashboard and workspace flows", () => {
     expect(await screen.findByText("Private iCalendar feed saved.")).toBeInTheDocument();
     expect(screen.getByLabelText("Private iCalendar feed URL")).toHaveValue("");
 
-    await userEvent.click(screen.getByRole("button", { name: "Import from calendar feed" }));
+    await userEvent.click(screen.getByRole("button", { name: "Meetings" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Import from calendar feed" }));
     await userEvent.type(screen.getByLabelText("Which iCalendar meeting?"), "sync");
     await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));
     await userEvent.click(await screen.findByRole("button", { name: /Imported feed sync/i }));

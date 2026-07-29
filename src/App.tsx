@@ -115,12 +115,8 @@ function renderSection({
           focusMeetingPublicId={focusPublicId("Meetings", focusedRecord)}
           onMeetingFocusHandled={onRecordFocusHandled}
           onSeriesFocusHandled={onRecordFocusHandled}
-          workCalendarUrl={workCalendarUrl}
-          onWorkCalendarUrlChange={onWorkCalendarUrlChange}
           googleCalendarConfigured={googleCalendarConfigured}
           googleCalendarConnected={googleCalendarConnected}
-          googleCalendarEmail={googleCalendarEmail}
-          onGoogleCalendarConnectionChange={onGoogleCalendarConnectionChange}
           onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
@@ -148,7 +144,18 @@ function renderSection({
         />
       );
     case "Settings":
-      return <SettingsPage user={user} onLeaveTeam={onLeaveTeam} />;
+      return (
+        <SettingsPage
+          user={user}
+          workCalendarUrl={workCalendarUrl}
+          onWorkCalendarUrlChange={onWorkCalendarUrlChange}
+          googleCalendarConfigured={googleCalendarConfigured}
+          googleCalendarConnected={googleCalendarConnected}
+          googleCalendarEmail={googleCalendarEmail}
+          onGoogleCalendarConnectionChange={onGoogleCalendarConnectionChange}
+          onLeaveTeam={onLeaveTeam}
+        />
+      );
     case "Admin":
       return user.role === "admin" || user.role === "owner" ? (
         <AdminPage
