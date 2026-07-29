@@ -4699,10 +4699,7 @@ button:disabled {
   }
 
   .guided-tour-card {
-    inset:
-      auto 14px calc(76px + env(safe-area-inset-bottom))
-      14px !important;
-    width: auto !important;
+    max-width: calc(100vw - 28px);
     max-height: min(62vh, 420px);
     overflow-y: auto;
   }

@@ -10,6 +10,13 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.17.1 - 2026-07-28
+
+### Fixed
+
+- Positioned guided-tour cards beside their highlighted mobile targets instead of pinning every step above the bottom navigation.
+- Replaced ambiguous rail wording and highlighted the visible mobile section summary when the desktop context rail is hidden.
+
 ## 1.17.0 - 2026-07-27
 
 ### Added

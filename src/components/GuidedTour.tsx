@@ -5,7 +5,7 @@ import type { AppSection } from "./shellNavigation";
 type GuidedTourStep = {
   body: string;
   section?: AppSection;
-  targetId: string;
+  targetIds: string[];
   title: string;
 };
 
@@ -20,35 +20,35 @@ const guidedTourStorageKeyPrefix = "followthrough.guidedTour.v1.completed";
 
 const guidedTourSteps: GuidedTourStep[] = [
   {
-    targetId: "primary-navigation",
+    targetIds: ["primary-navigation"],
     title: "Primary navigation",
-    body: "Move between the operational areas from this rail. The current section stays highlighted.",
+    body: "Use these section icons to move between operational areas. The current section stays highlighted.",
   },
   {
-    targetId: "section-context",
+    targetIds: ["section-context", "mobile-section-context"],
     title: "Section context",
-    body: "This rail gives each area a short summary and the most useful record counts or shortcuts.",
+    body: "This summary shows the current area's purpose, useful record counts, and shortcuts.",
   },
   {
-    targetId: "global-search",
+    targetIds: ["global-search"],
     title: "Global search",
     body: "Search by public ID, title, description, attendee, or person when you already know what you need.",
   },
   {
     section: "Dashboard",
-    targetId: "dashboard-overview",
+    targetIds: ["dashboard-overview"],
     title: "Dashboard overview",
     body: "Start here for blockers, overdue work, due-soon tasks, recent meetings, and recurring-series activity.",
   },
   {
     section: "Tasks",
-    targetId: "task-workflow",
+    targetIds: ["task-workflow"],
     title: "Task workflow",
     body: "Filter the task list, scan lanes, expand details, and jump through clickable meeting or series chips.",
   },
   {
     section: "Meetings",
-    targetId: "meeting-capture",
+    targetIds: ["meeting-capture"],
     title: "Meeting capture",
     body: "Quick-add a meeting, import calendar details, then capture notes, links, attendees, and follow-up work.",
   },
@@ -78,8 +78,15 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function measureTarget(targetId: string): TargetBox | null {
-  const target = document.querySelector<HTMLElement>(`[data-tour-id="${targetId}"]`);
+function measureTarget(targetIds: string[]): TargetBox | null {
+  const target = targetIds
+    .flatMap((targetId) =>
+      Array.from(document.querySelectorAll<HTMLElement>(`[data-tour-id="${targetId}"]`)),
+    )
+    .find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
   if (!target) return null;
 
   if (typeof target.scrollIntoView === "function") {
@@ -107,6 +114,35 @@ function targetStyle(targetBox: TargetBox | null) {
 }
 
 function cardStyle(targetBox: TargetBox | null) {
+  const mobileGutter = 14;
+  if (window.innerWidth <= 700) {
+    const mobileBase = {
+      left: `${mobileGutter}px`,
+      right: `${mobileGutter}px`,
+      width: "auto",
+    };
+    if (!targetBox) {
+      return {
+        ...mobileBase,
+        top: `${Math.max(mobileGutter, window.innerHeight * 0.18)}px`,
+      };
+    }
+
+    const gap = 14;
+    const targetCenter = targetBox.top + targetBox.height / 2;
+    if (targetCenter > window.innerHeight / 2) {
+      return {
+        ...mobileBase,
+        bottom: `${Math.max(mobileGutter, window.innerHeight - targetBox.top + gap)}px`,
+      };
+    }
+
+    return {
+      ...mobileBase,
+      top: `${Math.max(mobileGutter, targetBox.top + targetBox.height + gap)}px`,
+    };
+  }
+
   const width = Math.min(380, Math.max(280, window.innerWidth - 32));
   if (!targetBox) {
     return {
@@ -166,7 +202,7 @@ export function GuidedTour({
     if (!open) return undefined;
 
     function updateTargetBox() {
-      setTargetBox(measureTarget(currentStep.targetId));
+      setTargetBox(measureTarget(currentStep.targetIds));
     }
 
     const timer = window.setTimeout(updateTargetBox, 80);

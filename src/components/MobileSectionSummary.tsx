@@ -4,7 +4,11 @@ export function MobileSectionSummary({ section }: { section: AppSection }) {
   const current = sectionNavigation[section];
 
   return (
-    <section className="mobile-section-summary" aria-label="Mobile section summary">
+    <section
+      className="mobile-section-summary"
+      aria-label="Mobile section summary"
+      data-tour-id="mobile-section-context"
+    >
       <p className="context-eyebrow">Current section</p>
       <h2>{section}</h2>
       <p className="context-description">{current.description}</p>

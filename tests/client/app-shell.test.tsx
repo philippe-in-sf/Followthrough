@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +22,8 @@ const user: User = {
 
 afterEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderShell(
@@ -113,11 +115,68 @@ describe("AppShell split context rail", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Guided tour" });
     expect(within(dialog).getByRole("heading", { name: "Primary navigation" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Use these section icons to move between operational areas. The current section stays highlighted.",
+      ),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Skip tour" }));
 
     expect(screen.queryByRole("dialog", { name: "Guided tour" })).not.toBeInTheDocument();
     expect(localStorage.getItem(getGuidedTourStorageKey(user.id))).toBe("true");
+  });
+
+  it("describes section context without referring to an ambiguous rail", async () => {
+    renderShell("Dashboard");
+
+    await userEvent.click(screen.getByRole("button", { name: "Start guided tour" }));
+    const dialog = screen.getByRole("dialog", { name: "Guided tour" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+    expect(within(dialog).getByRole("heading", { name: "Section context" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "This summary shows the current area's purpose, useful record counts, and shortcuts.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/rail/i)).not.toBeInTheDocument();
+  });
+
+  it("positions mobile tour cards next to the visible target", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("innerHeight", 844);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const targetId = this.getAttribute("data-tour-id");
+      const box =
+        targetId === "primary-navigation"
+          ? { height: 50, left: 0, top: 780, width: 390 }
+          : targetId === "mobile-section-context"
+            ? { height: 100, left: 0, top: 120, width: 390 }
+            : { height: 0, left: 0, top: 0, width: 0 };
+
+      return {
+        ...box,
+        bottom: box.top + box.height,
+        right: box.left + box.width,
+        x: box.left,
+        y: box.top,
+        toJSON: () => box,
+      };
+    });
+
+    renderShell("Dashboard");
+    await userEvent.click(screen.getByRole("button", { name: "Start guided tour" }));
+    const dialog = screen.getByRole("dialog", { name: "Guided tour" });
+
+    await waitFor(() => expect(dialog).toHaveStyle({ bottom: "78px" }));
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+    await waitFor(() => expect(dialog).toHaveStyle({ top: "234px" }));
+    expect(dialog.style.bottom).toBe("");
   });
 
   it("relaunches the guided tour from the topbar", async () => {
