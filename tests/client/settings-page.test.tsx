@@ -112,7 +112,7 @@ describe("SettingsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("New passwords do not match")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("/api/me/password");
   });
 
   it("moves the leave-team action into settings", async () => {
