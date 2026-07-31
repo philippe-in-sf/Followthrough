@@ -97,7 +97,7 @@ describe("AppShell split context rail", () => {
     expect(screen.getByLabelText("Version 1.0.1")).toBeInTheDocument();
   });
 
-  it("offers four app skins from a compact picker", async () => {
+  it("offers all app skins from a compact picker", async () => {
     renderShell("Dashboard");
 
     expect(screen.queryByRole("radiogroup", { name: "App skin" })).not.toBeInTheDocument();
@@ -108,6 +108,9 @@ describe("AppShell split context rail", () => {
     expect(within(skinMenu).getByRole("radio", { name: "Harbor" })).toBeInTheDocument();
     expect(within(skinMenu).getByRole("radio", { name: "Cedar" })).toBeInTheDocument();
     expect(within(skinMenu).getByRole("radio", { name: "Cinder" })).toBeInTheDocument();
+    expect(within(skinMenu).getByRole("radio", { name: "Signal" })).toBeInTheDocument();
+    expect(within(skinMenu).getByRole("radio", { name: "Daylight" })).toBeInTheDocument();
+    expect(within(skinMenu).getByRole("radio", { name: "Parchment" })).toBeInTheDocument();
   });
 
   it("opens the guided tour for first-run users and remembers a skip", async () => {
