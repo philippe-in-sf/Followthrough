@@ -10,6 +10,10 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+### Changed
+
+- Updated GitHub Actions to their Node 24 runtimes, pinned reviewed native install scripts, and made dependency-audit findings block CI again.
+
 ## 1.20.0 - 2026-07-31
 
 ### Added
