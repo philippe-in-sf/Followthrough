@@ -55,7 +55,7 @@ afterEach(() => {
 
 describe("tasks", () => {
   it("creates, filters, edits, and archives tasks", async () => {
-    const { app, cookie, personPublicId } = await setup();
+    const { app, db, cookie, personPublicId } = await setup();
 
     const created = await request(app).post("/api/tasks").set("Cookie", cookie).send({
       description: "Send notes",
@@ -74,6 +74,11 @@ describe("tasks", () => {
     expect(created.body.task.reminderMode).toBe("manual");
     expect(created.body.task.dependencies).toEqual([]);
     expect(created.body.task.alert).toBe("dueSoon");
+
+    db.prepare("UPDATE tasks SET status_changed_at = ? WHERE public_id = ?").run(
+      "2026-05-01T12:00:00Z",
+      "T001",
+    );
 
     const filtered = await request(app)
       .get(`/api/tasks?assigneePublicId=${personPublicId}&status=Open&alert=dueSoon`)
@@ -98,6 +103,12 @@ describe("tasks", () => {
     expect(edited.body.task.notes).toBe("Drafted the first pass and sent it to legal.");
     expect(edited.body.task.blockersClearedAt).toBeNull();
     expect(edited.body.task.alert).toBeNull();
+    const doneAt = (
+      db.prepare("SELECT status_changed_at FROM tasks WHERE public_id = ?").get("T001") as {
+        status_changed_at: string;
+      }
+    ).status_changed_at;
+    expect(doneAt).not.toBe("2026-05-01T12:00:00Z");
 
     const cleared = await request(app)
       .patch("/api/tasks/T001")
@@ -114,6 +125,13 @@ describe("tasks", () => {
     expect(cleared.body.task.blockers).toBe("Waiting on legal sign-off");
     expect(cleared.body.task.notes).toBe("Legal approved the language.");
     expect(cleared.body.task.blockersClearedAt).toEqual(expect.any(String));
+    expect(
+      (
+        db.prepare("SELECT status_changed_at FROM tasks WHERE public_id = ?").get("T001") as {
+          status_changed_at: string;
+        }
+      ).status_changed_at,
+    ).toBe(doneAt);
 
     const archived = await request(app).post("/api/tasks/T001/archive").set("Cookie", cookie);
     expect(archived.status).toBe(204);
@@ -131,9 +149,20 @@ describe("tasks", () => {
     const archivedAudit = await request(app).get("/api/tasks/T001/audit").set("Cookie", cookie);
     expect(archivedAudit.status).toBe(200);
 
+    db.prepare("UPDATE tasks SET status_changed_at = ? WHERE public_id = ?").run(
+      "2026-04-01T12:00:00Z",
+      "T001",
+    );
     const restored = await request(app).post("/api/tasks/T001/restore").set("Cookie", cookie);
     expect(restored.status).toBe(200);
     expect(restored.body.task).toEqual(expect.objectContaining({ publicId: "T001", archived: false }));
+    expect(
+      (
+        db.prepare("SELECT status_changed_at FROM tasks WHERE public_id = ?").get("T001") as {
+          status_changed_at: string;
+        }
+      ).status_changed_at,
+    ).not.toBe("2026-04-01T12:00:00Z");
 
     const activeAfterRestore = await request(app).get("/api/tasks").set("Cookie", cookie);
     expect(

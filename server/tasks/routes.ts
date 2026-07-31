@@ -246,8 +246,8 @@ export function createTaskRecord(
   const result = db
     .prepare(
       `INSERT INTO tasks
-       (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, due_date, origin_meeting_id, origin_decision_id, series_id, reminder_mode, private, created_by_user_id, team_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (public_id, description, blockers, notes, blockers_cleared_at, assignee_person_id, status, status_changed_at, due_date, origin_meeting_id, origin_decision_id, series_id, reminder_mode, private, created_by_user_id, team_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       publicId,
@@ -477,6 +477,10 @@ export function taskRoutes(
                notes = ?,
                blockers_cleared_at = ?,
                assignee_person_id = ?,
+               status_changed_at = CASE
+                 WHEN status_changed_at IS NULL OR status <> ? THEN CURRENT_TIMESTAMP
+                 ELSE status_changed_at
+               END,
                status = ?,
                due_date = ?,
                origin_meeting_id = ?,
@@ -493,6 +497,7 @@ export function taskRoutes(
           notes,
           blockersClearedAt,
           relations.assigneePersonId,
+          input.status,
           input.status,
           input.dueDate ?? null,
           relations.originMeetingId,
@@ -629,7 +634,9 @@ export function taskRoutes(
         const result = db
           .prepare(
             `UPDATE tasks
-             SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+             SET archived_at = NULL,
+                 status_changed_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP
              WHERE public_id = ?
              AND team_id = ?
              AND (private = 0 OR created_by_user_id = ?)

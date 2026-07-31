@@ -56,7 +56,9 @@ export function AuditLog({
                     <LinkedText text={event.summary} onRecordOpen={onRecordOpen} />
                   </strong>
                   <span>
-                    {event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
+                    {event.action === "auto_archived"
+                      ? "Automation"
+                      : event.actorName ?? "Unknown"} - {formatAuditTime(event.createdAt)}
                   </span>
                 </li>
               ))}

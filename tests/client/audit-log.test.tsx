@@ -33,4 +33,30 @@ describe("AuditLog", () => {
 
     expect(screen.getByText(/Editor - .* (?:UTC|GMT[+-]\d{1,2}|[A-Z]{3,5})$/)).toBeInTheDocument();
   });
+
+  it("identifies automatic task archival in the audit history", () => {
+    render(
+      <AuditLog
+        events={[
+          {
+            id: 2,
+            entityType: "task",
+            entityPublicId: "T001",
+            action: "auto_archived",
+            summary: "Archived automatically after 14 days in Done",
+            actorName: null,
+            createdAt: "2026-06-30 12:00:00",
+            changes: {},
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText("Archived automatically after 14 days in Done"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Automation - .* (?:UTC|GMT[+-]\d{1,2}|[A-Z]{3,5})$/),
+    ).toBeInTheDocument();
+  });
 });

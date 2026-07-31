@@ -10,6 +10,7 @@ import { loadConfig } from "./config.js";
 import { startWorkspaceDigestJob } from "./dashboard/digestJob.js";
 import { startDatabaseBackupJob } from "./db/backups.js";
 import { startAutomaticTaskReminderJob } from "./tasks/reminderJob.js";
+import { startTaskAutoArchiveJob } from "./tasks/archiveJob.js";
 import { attachViteDevServer } from "./vite-dev.js";
 import { applyCspNonceToHtml } from "./security.js";
 
@@ -21,6 +22,10 @@ const reminderJob = startAutomaticTaskReminderJob(
   app.locals.db as AppDatabase,
   config,
   app.locals.emailSender as EmailSender | null,
+);
+const taskAutoArchiveJob = startTaskAutoArchiveJob(
+  app.locals.db as AppDatabase,
+  config,
 );
 const digestJob = startWorkspaceDigestJob(
   app.locals.db as AppDatabase,
@@ -53,6 +58,7 @@ process.on("SIGTERM", () => {
   authCleanupJob.stop();
   backupJob.stop();
   reminderJob.stop();
+  taskAutoArchiveJob.stop();
   digestJob.stop();
   server.close(() => process.exit(0));
 });

@@ -18,6 +18,8 @@ export type AppConfig = {
   taskReminderEmailFrom: string;
   taskReminderAutoEnabled: boolean;
   taskReminderAutoIntervalMs: number;
+  taskAutoArchiveAfterDays: number;
+  taskAutoArchiveIntervalMs: number;
   workspaceDigestIntervalMs: number;
   smtpHost: string;
   smtpPort: number;
@@ -64,6 +66,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     taskReminderEmailFrom: env.TASK_REMINDER_EMAIL_FROM ?? "",
     taskReminderAutoEnabled: env.TASK_REMINDER_AUTO_ENABLED === "true",
     taskReminderAutoIntervalMs: Number(env.TASK_REMINDER_AUTO_INTERVAL_MS ?? 86_400_000),
+    taskAutoArchiveAfterDays: Number(env.TASK_AUTO_ARCHIVE_AFTER_DAYS ?? 14),
+    taskAutoArchiveIntervalMs: Number(env.TASK_AUTO_ARCHIVE_INTERVAL_MS ?? 86_400_000),
     workspaceDigestIntervalMs: Number(env.WORKSPACE_DIGEST_INTERVAL_MS ?? 86_400_000),
     smtpHost: env.SMTP_HOST ?? "",
     smtpPort: Number(env.SMTP_PORT ?? 587),
