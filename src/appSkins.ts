@@ -22,6 +22,11 @@ export const appSkins = [
     swatches: ["#1c1412", "#7c2d12", "#fb7185"],
   },
   {
+    id: "signal",
+    name: "Signal",
+    swatches: ["#111827", "#0f766e", "#facc15"],
+  },
+  {
     id: "daylight",
     name: "Daylight",
     swatches: ["#f0f4f8", "#ffffff", "#2563eb"],

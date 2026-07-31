@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.19.0 - 2026-07-30
+
+### Added
+
+- Added the optional Signal app skin, inspired by the marketing homepage's charcoal navigation, white surfaces, teal actions, and yellow highlights.
+
+### Changed
+
+- Separated dashboard highlight colors from keyboard focus colors so skins can use expressive accents without weakening focus visibility.
+- Updated app-shell coverage to verify every available skin in the palette picker.
+
 ## 1.18.0 - 2026-07-28
 
 ### Added

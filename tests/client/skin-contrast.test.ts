@@ -45,6 +45,18 @@ describe("skin contrast styles", () => {
     );
   });
 
+  it("uses the homepage palette for the Signal skin", () => {
+    const css = styles();
+
+    expect(css).toContain('.app-shell[data-skin="signal"] {');
+    expect(css).toContain("--skin-rail-bg: #111827;");
+    expect(css).toContain("--skin-accent: #0f766e;");
+    expect(css).toContain("--skin-highlight: #facc15;");
+    expect(css).toContain(
+      ".app-shell[data-skin] .dashboard-eyebrow,\n.app-shell[data-skin] .dashboard-pulse-row-hot strong {\n  color: var(--skin-highlight);\n}",
+    );
+  });
+
   it("keeps Google Calendar panels dark and readable inside skins", () => {
     const css = styles();
 
