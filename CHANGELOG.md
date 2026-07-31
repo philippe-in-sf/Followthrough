@@ -10,6 +10,18 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.20.0 - 2026-07-31
+
+### Added
+
+- Added daily automatic archival for tasks that have remained `Done` or `Won't Fix` for 14 days.
+- Added automatic archival entries to each task's audit history with the archival date and time.
+
+### Changed
+
+- Track when a task last entered its current status so unrelated edits do not alter the archival window.
+- Restart the 14-day archival window when an archived closed task is restored.
+
 ## 1.19.0 - 2026-07-30
 
 ### Added

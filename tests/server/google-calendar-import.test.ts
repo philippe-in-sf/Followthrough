@@ -26,6 +26,8 @@ const baseConfig: AppConfig = {
   taskReminderEmailFrom: "",
   taskReminderAutoEnabled: false,
   taskReminderAutoIntervalMs: 86_400_000,
+  taskAutoArchiveAfterDays: 14,
+  taskAutoArchiveIntervalMs: 86_400_000,
   workspaceDigestIntervalMs: 86_400_000,
   smtpHost: "",
   smtpPort: 587,
