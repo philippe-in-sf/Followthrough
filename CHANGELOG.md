@@ -10,9 +10,14 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.21.0 - 2026-07-31
+
 ### Changed
 
 - Updated GitHub Actions to their Node 24 runtimes, pinned reviewed native install scripts, and made dependency-audit findings block CI again.
+- Updated compatible runtime, build, test, and type dependencies, including React 19.2.8, Vite 8.2.0, Vitest 4.1.10, and lucide-react 1.28.0.
+- Adopted TypeScript 7's native compiler and jest-dom 7 after full type-check, test, and production-build verification.
+- Replaced the Vite config's legacy `__dirname` lookup with `import.meta.dirname` for native config-loader compatibility.
 
 ## 1.20.0 - 2026-07-31
 

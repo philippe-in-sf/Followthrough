@@ -5,7 +5,12 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: [{ find: /^lucide-react$/, replacement: path.resolve(__dirname, "src/lucide-icons.ts") }],
+    alias: [
+      {
+        find: /^lucide-react$/,
+        replacement: path.resolve(import.meta.dirname, "src/lucide-icons.ts"),
+      },
+    ],
   },
   server: {
     port: 5173,
