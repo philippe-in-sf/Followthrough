@@ -170,6 +170,66 @@ describe("tasks", () => {
     ).toContain("T001");
   });
 
+  it("updates a task status without requiring the full edit form", async () => {
+    const { app, db, cookie, personPublicId } = await setup();
+
+    await request(app).post("/api/tasks").set("Cookie", cookie).send({
+      description: "Send the launch notes",
+      blockers: "Waiting on approval",
+      notes: "Keep the supporting links intact.",
+      assigneePublicId: personPublicId,
+      status: "Open",
+      dueDate: "2026-06-12",
+      dependencyPublicIds: [],
+    });
+    db.prepare("UPDATE tasks SET status_changed_at = ? WHERE public_id = ?").run(
+      "2026-05-01T12:00:00Z",
+      "T001",
+    );
+
+    const updated = await request(app)
+      .patch("/api/tasks/T001/status")
+      .set("Cookie", cookie)
+      .send({ status: "In Progress" });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.task).toEqual(
+      expect.objectContaining({
+        publicId: "T001",
+        description: "Send the launch notes",
+        blockers: "Waiting on approval",
+        notes: "Keep the supporting links intact.",
+        status: "In Progress",
+        dueDate: "2026-06-12",
+      }),
+    );
+    expect(
+      (
+        db.prepare("SELECT status_changed_at FROM tasks WHERE public_id = ?").get("T001") as {
+          status_changed_at: string;
+        }
+      ).status_changed_at,
+    ).not.toBe("2026-05-01T12:00:00Z");
+
+    const audit = await request(app).get("/api/tasks/T001/audit").set("Cookie", cookie);
+    expect(audit.body.auditEvents[0]).toEqual(
+      expect.objectContaining({
+        action: "status_changed",
+        summary: "Changed task status from Open to In Progress",
+        changes: {
+          before: { status: "Open" },
+          after: { status: "In Progress" },
+        },
+      }),
+    );
+
+    const invalid = await request(app)
+      .patch("/api/tasks/T001/status")
+      .set("Cookie", cookie)
+      .send({ status: "Mostly done, spiritually" });
+    expect(invalid.status).toBe(400);
+  });
+
   it("filters tasks assigned to the signed-in user's matching person record", async () => {
     const { app, cookie, personPublicId } = await setup({ personEmail: "EDITOR@example.com" });
     const otherPerson = await request(app)

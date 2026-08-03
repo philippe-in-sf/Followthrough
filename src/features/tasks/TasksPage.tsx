@@ -192,6 +192,8 @@ export function TasksPage({
   const [taskEditForm, setTaskEditForm] = useState<TaskFormState>(emptyTaskForm);
   const [expandedTaskPublicIds, setExpandedTaskPublicIds] = useState<Record<string, boolean>>({});
   const [taskAudits, setTaskAudits] = useState<Record<string, AuditLogDto[]>>({});
+  const [pendingTaskStatuses, setPendingTaskStatuses] = useState<Record<string, TaskStatus>>({});
+  const [taskStatusErrors, setTaskStatusErrors] = useState<Record<string, string>>({});
   const [pendingReminderPublicId, setPendingReminderPublicId] = useState<string | null>(null);
   const [reminderFeedback, setReminderFeedback] = useState<Record<string, string>>({});
   const taskLoadRequestId = useRef(0);
@@ -419,6 +421,42 @@ export function TasksPage({
     setEditingTaskPublicId(null);
     setTaskEditForm(emptyTaskForm);
     await loadTasks();
+  }
+
+  async function updateTaskStatus(task: TaskDto, nextStatus: TaskStatus) {
+    if (nextStatus === task.status) return;
+
+    setPendingTaskStatuses((current) => ({ ...current, [task.publicId]: nextStatus }));
+    setTaskStatusErrors((current) => ({ ...current, [task.publicId]: "" }));
+
+    try {
+      const result = await api.tasks.updateStatus(task.publicId, nextStatus);
+      setTasks((current) => {
+        const updated = current.map((item) =>
+          item.publicId === task.publicId ? result.task : item,
+        );
+        if (
+          (status && result.task.status !== status) ||
+          (alert && result.task.alert !== alert)
+        ) {
+          return updated.filter((item) => item.publicId !== task.publicId);
+        }
+        return updated;
+      });
+      await loadTasks().catch(() => undefined);
+    } catch (error) {
+      setTaskStatusErrors((current) => ({
+        ...current,
+        [task.publicId]:
+          error instanceof ApiError ? error.message : "Could not update task status",
+      }));
+    } finally {
+      setPendingTaskStatuses((current) => {
+        const next = { ...current };
+        delete next[task.publicId];
+        return next;
+      });
+    }
   }
 
   async function sendReminder(task: TaskDto) {
@@ -787,49 +825,91 @@ export function TasksPage({
                     id={`task-${task.publicId}`}
                     key={task.publicId}
                   >
-                    <button
-                      aria-controls={detailsId}
-                      aria-expanded={isExpanded}
-                      aria-label={`${isExpanded ? "Collapse" : "Expand"} task ${task.publicId} ${taskSummaryText}`}
-                      className="task-summary-button"
-                      type="button"
-                      onClick={() => toggleTask(task.publicId)}
-                    >
-                      <span className="task-summary-title">
-                        <ChevronDown
-                          aria-hidden="true"
-                          className={`task-expand-icon ${isExpanded ? "task-expand-icon-open" : ""}`}
-                          size={17}
-                        />
-                        <span className="record-summary-id">{task.publicId}</span>
-                        <strong>{taskSummaryText}</strong>
-                      </span>
-                      <span className="task-summary-meta">
-                        {task.alert === "dueSoon" ? (
-                          <StatusBadge label="Due soon" tone="warn" />
-                        ) : null}
-                        {task.alert === "overdue" ? (
-                          <StatusBadge label="Overdue" tone="bad" />
-                        ) : null}
-                        {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
-                        {task.archived ? <StatusBadge label="Archived" /> : null}
-                        {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
-                        {hasClearedBlockers(task) ? (
-                          <StatusBadge label="Blocker cleared" tone="good" />
-                        ) : null}
-                        {dependencyCount ? (
-                          <StatusBadge
-                            label={countLabel(dependencyCount, "dependency")}
-                            tone={dependencyBadgeTone}
+                    <div className="task-summary-row">
+                      <button
+                        aria-controls={detailsId}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} task ${task.publicId} ${taskSummaryText}`}
+                        className="task-summary-button"
+                        type="button"
+                        onClick={() => toggleTask(task.publicId)}
+                      >
+                        <span className="task-summary-title">
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`task-expand-icon ${isExpanded ? "task-expand-icon-open" : ""}`}
+                            size={17}
                           />
+                          <span className="record-summary-id">{task.publicId}</span>
+                          <strong>{taskSummaryText}</strong>
+                        </span>
+                        <span className="task-summary-meta">
+                          {task.alert === "dueSoon" ? (
+                            <StatusBadge label="Due soon" tone="warn" />
+                          ) : null}
+                          {task.alert === "overdue" ? (
+                            <StatusBadge label="Overdue" tone="bad" />
+                          ) : null}
+                          {task.private ? <StatusBadge label="Private" tone="warn" /> : null}
+                          {task.archived ? <StatusBadge label="Archived" /> : null}
+                          {hasActiveBlockers(task) ? <StatusBadge label="Blocker" tone="bad" /> : null}
+                          {hasClearedBlockers(task) ? (
+                            <StatusBadge label="Blocker cleared" tone="good" />
+                          ) : null}
+                          {dependencyCount ? (
+                            <StatusBadge
+                              label={countLabel(dependencyCount, "dependency")}
+                              tone={dependencyBadgeTone}
+                            />
+                          ) : null}
+                          <span>{task.assignee?.name ?? "Unassigned"}</span>
+                          <span>{task.dueDate ?? "No due date"}</span>
+                        </span>
+                      </button>
+                      <div className="task-summary-status">
+                        {task.archived ? (
+                          <div className="task-summary-status-control">
+                            <span>Status</span>
+                            <StatusBadge label={task.status} />
+                          </div>
+                        ) : (
+                          <label className="task-summary-status-control">
+                            <span>Status</span>
+                            <select
+                              aria-describedby={
+                                taskStatusErrors[task.publicId]
+                                  ? `task-status-error-${task.publicId}`
+                                  : undefined
+                              }
+                              aria-label={`Status for task ${task.publicId}`}
+                              disabled={pendingTaskStatuses[task.publicId] !== undefined}
+                              value={pendingTaskStatuses[task.publicId] ?? task.status}
+                              onChange={(event) =>
+                                void updateTaskStatus(
+                                  task,
+                                  event.target.value as TaskStatus,
+                                )
+                              }
+                            >
+                              {statuses.map((item) => (
+                                <option key={item} value={item}>
+                                  {item}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {taskStatusErrors[task.publicId] ? (
+                          <span
+                            className="task-status-error"
+                            id={`task-status-error-${task.publicId}`}
+                            role="alert"
+                          >
+                            {taskStatusErrors[task.publicId]}
+                          </span>
                         ) : null}
-                        <span>{task.assignee?.name ?? "Unassigned"}</span>
-                        <span>{task.dueDate ?? "No due date"}</span>
-                      </span>
-                      <span className="task-summary-status">
-                        <StatusBadge label={task.status} />
-                      </span>
-                    </button>
+                      </div>
+                    </div>
                     {isExpanded ? (
                       <div className="task-expanded-content" id={detailsId}>
                         {editingTaskPublicId === task.publicId ? (

@@ -371,6 +371,11 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
+    updateStatus: (publicId: string, status: TaskStatus) =>
+      request<{ task: TaskDto }>(`/api/tasks/${publicId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
     archive: (publicId: string) =>
       request<void>(`/api/tasks/${publicId}/archive`, { method: "POST" }),
     restore: (publicId: string) =>

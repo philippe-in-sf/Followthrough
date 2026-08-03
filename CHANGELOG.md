@@ -10,6 +10,17 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.21.1 - 2026-08-03
+
+### Added
+
+- Added status selectors to collapsed active-task rows so a task's status can be changed without opening its details.
+- Added a focused status-update endpoint that preserves unrelated task fields and records each change in audit history.
+
+### Changed
+
+- Updated the task-list layout so inline status controls remain clear and usable on desktop and mobile screens.
+
 ## 1.21.0 - 2026-07-31
 
 ### Changed
