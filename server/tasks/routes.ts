@@ -1,6 +1,10 @@
 import { Router } from "express";
 import type { z } from "zod";
-import { taskInputSchema, taskUpdateInputSchema } from "../../shared/schemas.js";
+import {
+  taskInputSchema,
+  taskStatusUpdateInputSchema,
+  taskUpdateInputSchema,
+} from "../../shared/schemas.js";
 import type { TaskDto, TaskStatus } from "../../shared/types.js";
 import { getAuditEvents, recordAuditEvent } from "../audit/auditLog.js";
 import { resolveBlockerClearedAt } from "../blockers.js";
@@ -408,6 +412,64 @@ export function taskRoutes(
           req.user?.teamId ?? 0,
         ),
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/:publicId/status", (req, res, next) => {
+    try {
+      const input = parseBody(req, taskStatusUpdateInputSchema);
+      const task = withTransaction(db, () => {
+        const userId = req.user?.id ?? 0;
+        const teamId = req.user?.teamId ?? 0;
+        const before = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          teamId,
+        );
+
+        if (before.status === input.status) return before;
+
+        const result = db
+          .prepare(
+            `UPDATE tasks
+             SET status = ?,
+                 status_changed_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE public_id = ?
+             AND team_id = ?
+             AND ${visibleTaskCondition()}
+             AND archived_at IS NULL`,
+          )
+          .run(input.status, req.params.publicId, teamId, userId);
+        if (result.changes === 0) throw notFound("Task not found");
+
+        const updated = getTaskByPublicId(
+          db,
+          config,
+          req.params.publicId,
+          userId,
+          teamId,
+        );
+        recordAuditEvent(db, {
+          entityType: "task",
+          entityPublicId: updated.publicId,
+          action: "status_changed",
+          userId: req.user?.id ?? null,
+          summary: `Changed task status from ${before.status} to ${updated.status}`,
+          changes: {
+            before: { status: before.status },
+            after: { status: updated.status },
+          },
+        });
+
+        return updated;
+      });
+
+      res.json({ task });
     } catch (error) {
       next(error);
     }

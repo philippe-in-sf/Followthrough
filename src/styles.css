@@ -3302,10 +3302,18 @@ button:disabled {
   color: #5b6475;
 }
 
+.task-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-width: 0;
+  background: #ffffff;
+}
+
 .task-summary-button {
   display: grid;
-  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1fr) auto;
-  grid-template-areas: "title meta status";
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1fr);
+  grid-template-areas: "title meta";
   align-items: center;
   gap: 14px;
   width: 100%;
@@ -3373,10 +3381,48 @@ button:disabled {
 }
 
 .task-summary-status {
-  grid-area: status;
-  display: flex;
-  justify-self: end;
-  align-self: start;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 148px;
+  padding: 8px 14px 8px 0;
+}
+
+.task-summary-status-control {
+  display: grid;
+  gap: 4px;
+}
+
+.task-summary-status-control > span:first-child {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.task-summary-status select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #c8d0dc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1d2433;
+  cursor: pointer;
+  padding: 7px 30px 7px 9px;
+  font-weight: 700;
+}
+
+.task-summary-status select:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.task-status-error {
+  max-width: 180px;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  line-height: 1.25;
 }
 
 .task-summary-meta .status-badge,
@@ -4890,12 +4936,27 @@ button:disabled {
   }
 
   .task-summary-button {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "title status"
-      "meta meta";
+      "title"
+      "meta";
     align-items: stretch;
     gap: 8px 10px;
+  }
+
+  .task-summary-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-summary-status {
+    min-width: 0;
+    padding: 0 14px 12px 39px;
+  }
+
+  .task-summary-status-control {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
   }
 
   .task-summary-meta {
@@ -5435,7 +5496,8 @@ button:disabled {
 .app-shell[data-skin] .markdown-editor-shell,
 .app-shell[data-skin] .filter-bar select,
 .app-shell[data-skin] .global-search input,
-.app-shell[data-skin] .admin-user-table select {
+.app-shell[data-skin] .admin-user-table select,
+.app-shell[data-skin] .task-summary-status select {
   border-color: var(--skin-field-border);
   background: var(--skin-surface);
   color: var(--skin-text);
@@ -5691,6 +5753,18 @@ button:disabled {
 .app-shell[data-skin] .task-expanded-content {
   background: var(--skin-surface);
   color: var(--skin-text);
+}
+
+.app-shell[data-skin] .task-summary-row {
+  background: var(--skin-surface);
+}
+
+.app-shell[data-skin] .task-summary-status-control > span:first-child {
+  color: var(--skin-muted);
+}
+
+.app-shell[data-skin] .task-status-error {
+  color: var(--skin-danger-inline);
 }
 
 .app-shell[data-skin] .meeting-summary-button:hover,

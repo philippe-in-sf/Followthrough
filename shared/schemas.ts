@@ -70,6 +70,10 @@ export const taskUpdateInputSchema = taskInputSchema.extend({
   blockersCleared: z.boolean().optional(),
 });
 
+export const taskStatusUpdateInputSchema = z.object({
+  status: taskStatusSchema,
+});
+
 export const decisionFollowUpTaskInputSchema = z.object({
   description: z.string().trim().min(1),
   blockers: z.string().trim().default(""),
