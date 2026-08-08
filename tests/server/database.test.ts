@@ -41,6 +41,30 @@ describe("database migrations", () => {
     expect(row).toEqual({ name: "tasks" });
   });
 
+  it("adds the reversible project workspace without rewriting meeting notes", () => {
+    const db = createTestDatabase();
+    dbs.push(db);
+    migrateDatabase(db);
+
+    const tables = db
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'table' AND name IN ('projects', 'meeting_projects', 'meeting_note_blocks')
+         ORDER BY name`,
+      )
+      .all() as Array<{ name: string }>;
+    expect(tables.map((table) => table.name)).toEqual([
+      "meeting_note_blocks",
+      "meeting_projects",
+      "projects",
+    ]);
+
+    const meetingColumns = db.prepare("PRAGMA table_info(meetings)").all() as Array<{ name: string }>;
+    expect(meetingColumns.map((column) => column.name)).toContain("time_precision");
+    const preferenceColumns = db.prepare("PRAGMA table_info(user_preferences)").all() as Array<{ name: string }>;
+    expect(preferenceColumns.map((column) => column.name)).toContain("workspace_organization");
+  });
+
   it("can run repeatedly without applying duplicate migrations", () => {
     const db = createTestDatabase();
     dbs.push(db);

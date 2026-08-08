@@ -12,6 +12,10 @@ export type AlertState = "dueSoon" | "overdue";
 export type AuditEntityType = "task" | "meeting" | "decision" | "person";
 export type UserRole = "owner" | "admin" | "member";
 export type DashboardOrganization = "workflow" | "entity";
+export type WorkspaceOrganization = "classic" | "projects";
+export type MeetingTimePrecision = "date" | "datetime";
+export type ProjectStatus = "active" | "on_hold" | "completed";
+export type ProjectNoteType = "note" | "decision" | "question" | "action";
 
 export type TeamDto = {
   id: number;
@@ -162,6 +166,7 @@ export type MeetingDto = {
   publicId: string;
   title: string;
   startsAt: string;
+  timePrecision: MeetingTimePrecision;
   meetingType: MeetingType;
   seriesPublicId: string | null;
   summary: string;
@@ -171,6 +176,8 @@ export type MeetingDto = {
   links: MeetingLinkDto[];
   attendees: PersonDto[];
   tasks: TaskDto[];
+  projects: ProjectSummaryDto[];
+  projectNotes: ProjectNoteDto[];
   private: boolean;
   archived: boolean;
 };
@@ -181,7 +188,9 @@ export type MeetingNoteDto = {
   publicId: string;
   title: string;
   startsAt: string;
+  timePrecision: MeetingTimePrecision;
   notes: string;
+  projectNotes: ProjectNoteDto[];
   matchReasons: MeetingNoteMatchReason[];
   attendees: PersonDto[];
 };
@@ -197,6 +206,7 @@ export type CalendarImportEventDto = {
   id: string;
   title: string;
   startsAt: string;
+  timePrecision: MeetingTimePrecision;
   summary: string;
   notes: string;
   attendeeNames: string;
@@ -218,9 +228,64 @@ export type UserPreferencesDto = {
   workCalendarUrl: string | null;
   weeklyDigestEnabled: boolean;
   dashboardOrganization: DashboardOrganization;
+  workspaceOrganization: WorkspaceOrganization;
+  projectsEnabled: boolean;
   googleCalendarConfigured: boolean;
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;
+};
+
+export type ProjectSummaryDto = {
+  publicId: string;
+  name: string;
+  status: ProjectStatus;
+};
+
+export type ProjectMeetingDto = {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  timePrecision: MeetingTimePrecision;
+};
+
+export type ProjectNoteDto = {
+  publicId: string;
+  body: string;
+  noteType: ProjectNoteType;
+  sortOrder: number;
+  projects: ProjectSummaryDto[];
+  meeting: ProjectMeetingDto;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectDto = ProjectSummaryDto & {
+  description: string;
+  archived: boolean;
+  meetingCount: number;
+  noteCount: number;
+  taskCount: number;
+  decisionCount: number;
+};
+
+export type ProjectTaskDto = {
+  publicId: string;
+  description: string;
+  status: TaskStatus;
+  dueDate: string | null;
+};
+
+export type ProjectDecisionDto = {
+  publicId: string;
+  decisionText: string;
+  decisionDate: string;
+};
+
+export type ProjectDetailDto = ProjectDto & {
+  meetings: ProjectMeetingDto[];
+  notes: ProjectNoteDto[];
+  tasks: ProjectTaskDto[];
+  decisions: ProjectDecisionDto[];
 };
 
 export type MeetingSeriesDto = {

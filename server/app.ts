@@ -18,6 +18,7 @@ import { notesRoutes } from "./notes/routes.js";
 import { notificationRoutes } from "./notifications/routes.js";
 import { peopleRoutes } from "./people/routes.js";
 import { preferenceRoutes } from "./preferences/routes.js";
+import { projectRoutes } from "./projects/routes.js";
 import { renderPrivacyPolicyHtml } from "./privacy.js";
 import { searchRoutes } from "./search/routes.js";
 import {
@@ -100,6 +101,7 @@ export function createApp(deps: AppDependencies = {}) {
   protectedApi.use(requireAuth(db, config));
   protectedApi.use(blockImpersonatedWrites);
   const meetings = meetingRoutes(db, config);
+  const projects = projectRoutes(db, config);
   protectedApi.use("/admin", requireAdmin, adminRoutes(db, config, emailSender));
   protectedApi.use("/calendar-feed", calendarFeedRoutes(db, config));
   protectedApi.use("/dashboard", dashboardRoutes(db, config));
@@ -108,9 +110,11 @@ export function createApp(deps: AppDependencies = {}) {
   protectedApi.use("/me", notesRoutes(db));
   protectedApi.use("/me", preferenceRoutes(db, config));
   protectedApi.use("/meetings", meetings.meetingsRouter);
+  protectedApi.use("/meetings", projects.meetingProjectsRouter);
   protectedApi.use("/meeting-series", meetings.seriesRouter);
   protectedApi.use("/notifications", notificationRoutes(db));
   protectedApi.use("/people", peopleRoutes(db));
+  protectedApi.use("/projects", projects.projectsRouter);
   protectedApi.use("/search", searchRoutes(db));
   protectedApi.use("/tasks", taskRoutes(db, config, emailSender));
   app.use("/api", protectedApi);

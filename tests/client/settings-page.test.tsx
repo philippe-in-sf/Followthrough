@@ -41,6 +41,37 @@ afterEach(() => {
 });
 
 describe("SettingsPage", () => {
+  it("offers a reversible Classic or Projects workspace switch", async () => {
+    const onWorkspaceOrganizationChange = vi.fn().mockResolvedValue(undefined);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          workCalendarUrl: null,
+          weeklyDigestEnabled: false,
+          dashboardOrganization: "workflow",
+          workspaceOrganization: "classic",
+          projectsEnabled: true,
+          googleCalendarConfigured: false,
+          googleCalendarConnected: false,
+          googleCalendarEmail: null,
+        }),
+      } as Response),
+    ) as typeof fetch;
+
+    renderSettings({
+      projectsEnabled: true,
+      workspaceOrganization: "classic",
+      onWorkspaceOrganizationChange,
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Projects" }));
+    expect(onWorkspaceOrganizationChange).toHaveBeenCalledWith("projects");
+    expect(await screen.findByText("Project-centered workspace enabled.")).toBeInTheDocument();
+    expect(screen.getByText(/does not migrate, delete, or rewrite/i)).toBeInTheDocument();
+  });
+
   it("submits a password update", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/api/me/preferences") {

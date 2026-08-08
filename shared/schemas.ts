@@ -5,6 +5,9 @@ import { taskStatuses } from "./types.js";
 export const taskStatusSchema = z.enum(taskStatuses);
 export const taskReminderModeSchema = z.enum(["automatic", "manual"]);
 export const meetingLinkTypeSchema = z.enum(["agenda", "work", "reference", "other"]);
+export const meetingTimePrecisionSchema = z.enum(["date", "datetime"]);
+export const projectStatusSchema = z.enum(["active", "on_hold", "completed"]);
+export const projectNoteTypeSchema = z.enum(["note", "decision", "question", "action"]);
 
 export const publicIdSchema = z.string().regex(/^[A-Z][0-9]{3,}$/);
 
@@ -61,6 +64,7 @@ export const taskInputSchema = z.object({
   seriesPublicId: publicIdSchema.optional().nullable(),
   reminderMode: taskReminderModeSchema.default("manual"),
   dependencyPublicIds: z.array(publicIdSchema).default([]),
+  projectPublicIds: z.array(publicIdSchema).optional(),
   private: z.boolean().default(false),
 });
 
@@ -93,6 +97,7 @@ export const meetingLinkInputSchema = z.object({
 export const meetingInputSchema = z.object({
   title: z.string().trim().min(1),
   startsAt: z.string().datetime(),
+  timePrecision: meetingTimePrecisionSchema.default("datetime"),
   meetingType: z.enum(["single", "recurring"]),
   seriesPublicId: publicIdSchema.optional().nullable(),
   summary: z.string().trim().default(""),
@@ -102,6 +107,7 @@ export const meetingInputSchema = z.object({
   links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
   taskPublicIds: z.array(publicIdSchema).default([]),
+  projectPublicIds: z.array(publicIdSchema).default([]),
   private: z.boolean().default(false),
 });
 
@@ -110,6 +116,8 @@ export const meetingUpdateInputSchema = meetingInputSchema.extend({
   blockersCleared: z.boolean().optional(),
   notes: z.string().optional(),
   links: z.array(meetingLinkInputSchema).optional(),
+  projectPublicIds: z.array(publicIdSchema).optional(),
+  timePrecision: meetingTimePrecisionSchema.optional(),
 });
 
 export const meetingSeriesInputSchema = z.object({
@@ -118,11 +126,24 @@ export const meetingSeriesInputSchema = z.object({
   active: z.boolean().default(true),
 });
 
+export const projectInputSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().default(""),
+  status: projectStatusSchema.default("active"),
+});
+
+export const projectNoteInputSchema = z.object({
+  body: z.string().trim().min(1),
+  noteType: projectNoteTypeSchema.default("note"),
+  projectPublicIds: z.array(publicIdSchema).default([]),
+});
+
 export const decisionInputSchema = z.object({
   decisionText: z.string().trim().min(1),
   decisionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   context: z.string().trim().default(""),
   meetingPublicId: publicIdSchema.optional().nullable(),
   supersededByDecisionPublicId: publicIdSchema.optional().nullable(),
+  projectPublicIds: z.array(publicIdSchema).optional(),
   followUpTask: decisionFollowUpTaskInputSchema.optional().nullable(),
 });

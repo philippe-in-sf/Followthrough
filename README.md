@@ -64,6 +64,7 @@ SESSION_TTL_DAYS=14
 SESSION_IDLE_TIMEOUT_MINUTES=1440
 DUE_SOON_DAYS=7
 APP_BASE_URL=http://localhost:3000
+PROJECTS_ENABLED=true
 VITE_WORK_CALENDAR_URL=
 TASK_REMINDER_EMAIL_FROM=
 TASK_REMINDER_AUTO_ENABLED=false
@@ -84,6 +85,8 @@ CALENDAR_FEED_ENCRYPTION_PREVIOUS_KEYS=
 ```
 
 `DUE_SOON_DAYS` controls the in-app due-soon alert window. With the default value, open tasks due in the next 7 days appear in Due soon.
+
+Projects are available by default but remain an opt-in workspace choice for each user. Set `PROJECTS_ENABLED=false` to hide the project APIs and navigation without deleting project data. Before a long-term rollback, run `npm run projects:flatten-notes` to copy normalized project notes into their source meetings' general notes; stable markers make repeated runs safe.
 
 Sessions have a fixed maximum lifetime set by `SESSION_TTL_DAYS` and also expire after `SESSION_IDLE_TIMEOUT_MINUTES` without activity. Login, password changes, role changes, team changes, and entering or leaving impersonation rotate or revoke the affected session tokens.
 

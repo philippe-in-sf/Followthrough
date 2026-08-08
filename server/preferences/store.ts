@@ -1,4 +1,4 @@
-import type { DashboardOrganization } from "../../shared/types.js";
+import type { DashboardOrganization, WorkspaceOrganization } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
 
 export class InvalidWorkCalendarUrlError extends Error {
@@ -12,6 +12,7 @@ export type UserPreferences = {
   workCalendarUrl: string | null;
   weeklyDigestEnabled: boolean;
   dashboardOrganization: DashboardOrganization;
+  workspaceOrganization: WorkspaceOrganization;
 };
 
 type UserPreferencesRow = {
@@ -19,6 +20,7 @@ type UserPreferencesRow = {
   work_calendar_url: string;
   weekly_digest_enabled: number;
   dashboard_organization: DashboardOrganization;
+  workspace_organization: WorkspaceOrganization;
 };
 
 export function parseWorkCalendarUrl(value: string | null) {
@@ -43,7 +45,8 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
   const row = db
     .prepare(
       `
-        SELECT user_id, work_calendar_url, weekly_digest_enabled, dashboard_organization
+        SELECT user_id, work_calendar_url, weekly_digest_enabled, dashboard_organization,
+               workspace_organization
         FROM user_preferences
         WHERE user_id = ?
       `,
@@ -55,6 +58,7 @@ export function getUserPreferences(db: AppDatabase, userId: number): UserPrefere
     workCalendarUrl: row?.work_calendar_url ? row.work_calendar_url : null,
     weeklyDigestEnabled: row?.weekly_digest_enabled === 1,
     dashboardOrganization: row?.dashboard_organization ?? "workflow",
+    workspaceOrganization: row?.workspace_organization ?? "classic",
   };
 }
 
@@ -65,6 +69,7 @@ export function upsertUserPreferences(
     workCalendarUrl: string | null;
     weeklyDigestEnabled: boolean;
     dashboardOrganization: DashboardOrganization;
+    workspaceOrganization: WorkspaceOrganization;
   },
 ): UserPreferences {
   const workCalendarUrl = parseWorkCalendarUrl(input.workCalendarUrl);
@@ -76,12 +81,14 @@ export function upsertUserPreferences(
         work_calendar_url,
         weekly_digest_enabled,
         dashboard_organization,
+        workspace_organization,
         updated_at
-      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET
         work_calendar_url = excluded.work_calendar_url,
         weekly_digest_enabled = excluded.weekly_digest_enabled,
         dashboard_organization = excluded.dashboard_organization,
+        workspace_organization = excluded.workspace_organization,
         updated_at = CURRENT_TIMESTAMP
     `,
   ).run(
@@ -89,6 +96,7 @@ export function upsertUserPreferences(
     workCalendarUrl ?? "",
     input.weeklyDigestEnabled ? 1 : 0,
     input.dashboardOrganization,
+    input.workspaceOrganization,
   );
 
   return getUserPreferences(db, input.userId);

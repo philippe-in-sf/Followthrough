@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { toApiDateTime, toDateTimeInputValue } from "../../src/features/meetings/dateTime";
+import {
+  toApiDateTime,
+  toApiMeetingDateTime,
+  toDateTimeInputValue,
+  toMeetingInputValue,
+} from "../../src/features/meetings/dateTime";
 
 const originalTimeZone = process.env.TZ;
 
@@ -16,5 +21,12 @@ describe("meeting date time conversion", () => {
 
     expect(inputValue).toBe("2026-06-29T12:00");
     expect(toApiDateTime(inputValue)).toBe(apiValue);
+  });
+
+  it("stores a date-only meeting without pretending midnight is meaningful", () => {
+    expect(toApiMeetingDateTime("2026-08-08", "date")).toBe(
+      "2026-08-08T12:00:00.000Z",
+    );
+    expect(toMeetingInputValue("2026-08-08T12:00:00.000Z", "date")).toBe("2026-08-08");
   });
 });

@@ -123,6 +123,7 @@ describe("iCalendar feed import", () => {
         id: `planning-1:${planningStart.toISOString()}`,
         title: "Project planning",
         startsAt: planningStart.toISOString(),
+        timePrecision: "datetime",
         summary: "Conference Room 2",
         notes: "Agenda and owners https://meet.google.com/abc-defg-hij",
         attendeeNames: "Morgan Lane, taylor@example.com",

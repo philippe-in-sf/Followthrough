@@ -84,6 +84,7 @@ function mapGoogleEvent(event: GoogleCalendarEvent): GoogleCalendarImportEventDt
     id: event.id ?? startsAt,
     title: event.summary?.trim() || "Untitled Google Calendar event",
     startsAt,
+    timePrecision: event.start?.dateTime ? "datetime" : "date",
     summary: event.location?.trim() ?? "",
     notes: event.description ?? "",
     attendeeNames,

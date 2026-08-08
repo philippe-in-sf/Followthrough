@@ -11,11 +11,12 @@ import { DecisionsPage } from "./features/decisions/DecisionsPage";
 import { MeetingsPage } from "./features/meetings/MeetingsPage";
 import { MeetingNotesPage } from "./features/notes/MeetingNotesPage";
 import { PeoplePage } from "./features/people/PeoplePage";
+import { ProjectsPage } from "./features/projects/ProjectsPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { useTaskAssignmentNotifications } from "./notifications";
 import { appVersion } from "./version";
-import type { DashboardOrganization, UserPreferencesDto } from "../shared/types";
+import type { DashboardOrganization, UserPreferencesDto, WorkspaceOrganization } from "../shared/types";
 import type { TeamDto } from "../shared/types";
 
 type FocusableSection = Extract<AppSection, "Tasks" | "Meetings" | "Decisions" | "People">;
@@ -61,6 +62,9 @@ function renderSection({
   onWorkCalendarUrlChange,
   dashboardOrganization,
   onDashboardOrganizationChange,
+  projectsEnabled,
+  workspaceOrganization,
+  onWorkspaceOrganizationChange,
   googleCalendarConfigured,
   googleCalendarConnected,
   googleCalendarEmail,
@@ -80,6 +84,9 @@ function renderSection({
   onWorkCalendarUrlChange: (workCalendarUrl: string | null) => void;
   dashboardOrganization: DashboardOrganization;
   onDashboardOrganizationChange: (organization: DashboardOrganization) => Promise<void>;
+  projectsEnabled: boolean;
+  workspaceOrganization: WorkspaceOrganization;
+  onWorkspaceOrganizationChange: (organization: WorkspaceOrganization) => Promise<void>;
   googleCalendarConfigured: boolean;
   googleCalendarConnected: boolean;
   googleCalendarEmail: string | null;
@@ -100,6 +107,12 @@ function renderSection({
           onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
+    case "Projects":
+      return projectsEnabled && workspaceOrganization === "projects" ? (
+        <ProjectsPage
+          onOpenMeeting={(publicId) => onRecordReferenceOpen({ type: "meeting", publicId })}
+        />
+      ) : null;
     case "Tasks":
       return (
         <TasksPage
@@ -117,6 +130,7 @@ function renderSection({
           onSeriesFocusHandled={onRecordFocusHandled}
           googleCalendarConfigured={googleCalendarConfigured}
           googleCalendarConnected={googleCalendarConnected}
+          projectsEnabled={projectsEnabled && workspaceOrganization === "projects"}
           onRecordReferenceOpen={onRecordReferenceOpen}
         />
       );
@@ -154,6 +168,9 @@ function renderSection({
           googleCalendarEmail={googleCalendarEmail}
           onGoogleCalendarConnectionChange={onGoogleCalendarConnectionChange}
           onLeaveTeam={onLeaveTeam}
+          projectsEnabled={projectsEnabled}
+          workspaceOrganization={workspaceOrganization}
+          onWorkspaceOrganizationChange={onWorkspaceOrganizationChange}
         />
       );
     case "Admin":
@@ -174,6 +191,8 @@ export function App() {
       workCalendarUrl: fallbackWorkCalendarUrl,
       weeklyDigestEnabled: false,
       dashboardOrganization: "workflow",
+      workspaceOrganization: "classic",
+      projectsEnabled: false,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -192,6 +211,9 @@ export function App() {
         ...nextPreferences,
         workCalendarUrl: nextPreferences.workCalendarUrl ?? fallbackWorkCalendarUrl,
         dashboardOrganization: nextPreferences.dashboardOrganization ?? "workflow",
+        workspaceOrganization: nextPreferences.projectsEnabled
+          ? nextPreferences.workspaceOrganization ?? "classic"
+          : "classic",
       });
     } catch {
       setPreferences(fallbackPreferences);
@@ -298,6 +320,26 @@ export function App() {
     [fallbackWorkCalendarUrl, loadPreferences],
   );
 
+  const setWorkspaceOrganization = useCallback(
+    async (workspaceOrganization: WorkspaceOrganization) => {
+      setPreferences((current) => ({ ...current, workspaceOrganization }));
+      if (workspaceOrganization === "classic") {
+        setSection((current) => (current === "Projects" ? "Dashboard" : current));
+      }
+      try {
+        const nextPreferences = await api.preferences.update({ workspaceOrganization });
+        setPreferences({
+          ...nextPreferences,
+          workCalendarUrl: nextPreferences.workCalendarUrl ?? fallbackWorkCalendarUrl,
+        });
+      } catch (error) {
+        await loadPreferences();
+        throw error;
+      }
+    },
+    [fallbackWorkCalendarUrl, loadPreferences],
+  );
+
   const setTeam = useCallback((team: TeamDto) => {
     setUser((current) => (current ? { ...current, team } : current));
   }, []);
@@ -358,6 +400,8 @@ export function App() {
       onStopImpersonation={stopImpersonation}
       version={appVersion}
       workCalendarUrl={calendarShortcutUrl}
+      projectsEnabled={preferences.projectsEnabled}
+      workspaceOrganization={preferences.workspaceOrganization}
     >
       {renderSection({
         section,
@@ -369,6 +413,9 @@ export function App() {
         onWorkCalendarUrlChange: setWorkCalendarUrl,
         dashboardOrganization: preferences.dashboardOrganization,
         onDashboardOrganizationChange: setDashboardOrganization,
+        projectsEnabled: preferences.projectsEnabled,
+        workspaceOrganization: preferences.workspaceOrganization,
+        onWorkspaceOrganizationChange: setWorkspaceOrganization,
         googleCalendarConfigured: preferences.googleCalendarConfigured,
         googleCalendarConnected: preferences.googleCalendarConnected,
         googleCalendarEmail: preferences.googleCalendarEmail,

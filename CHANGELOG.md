@@ -10,6 +10,20 @@ All notable changes to Followthrough are tracked here. This file was created aft
 - Consider adding richer archive filters once real archived volume makes the shape obvious.
 - Keep improving meeting capture so dense operational screens stay usable under real-world attendee and task counts.
 
+## 1.22.0 - 2026-08-08
+
+### Added
+
+- Added an opt-in Projects workspace that brings meetings, project-specific notes, tasks, and decisions together without removing the classic workspace.
+- Added many-to-many project links for meetings, structured project note blocks, project APIs, exports, and a reversible note-flattening tool.
+- Added an architecture record documenting the staged rollout, compatibility guarantees, and rollback paths for the project-centered model.
+
+### Changed
+
+- Made meeting time optional while keeping the meeting date required; calendar imports retain exact-time and all-day precision.
+- Let tasks and decisions inherit project context from linked meetings while still allowing explicit project assignment.
+- Added per-user Classic and Projects workspace modes plus a deployment-level project feature switch for a low-risk rollout.
+
 ## 1.21.1 - 2026-08-03
 
 ### Added
