@@ -273,6 +273,7 @@ describe("google calendar import", () => {
         id: "calendar-event-1",
         title: "Project planning",
         startsAt: "2026-06-22T20:00:00.000Z",
+        timePrecision: "datetime",
         summary: "Conference Room 2",
         notes: "Agenda: sequencing and owners",
         attendeeNames: "Morgan Lane, taylor@example.com",

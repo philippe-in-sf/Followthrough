@@ -22,6 +22,7 @@ export { default as Download } from "lucide-react/dist/esm/icons/download.mjs";
 export { default as ExternalLink } from "lucide-react/dist/esm/icons/external-link.mjs";
 export { default as Eye } from "lucide-react/dist/esm/icons/eye.mjs";
 export { default as FileText } from "lucide-react/dist/esm/icons/file-text.mjs";
+export { default as FolderKanban } from "lucide-react/dist/esm/icons/folder-kanban.mjs";
 export { default as Gauge } from "lucide-react/dist/esm/icons/gauge.mjs";
 export { default as Heading2 } from "lucide-react/dist/esm/icons/heading-2.mjs";
 export { default as HelpCircle } from "lucide-react/dist/esm/icons/circle-help.mjs";

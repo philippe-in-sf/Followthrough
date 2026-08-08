@@ -16,6 +16,7 @@ import { nextPublicId, withTransaction } from "../db/ids.js";
 import { badRequest, notFound } from "../errors.js";
 import { recordTaskAssignmentNotification } from "../notifications/assignmentNotifications.js";
 import { parseBody } from "../validation.js";
+import { inheritedProjectPublicIds, replaceTaskProjects } from "../projects/store.js";
 import { sendManualTaskReminder } from "./reminders.js";
 import { getTaskDependencyMap, mapTaskRow, mapTaskRows, taskSelect, type TaskRow } from "./taskRows.js";
 
@@ -272,6 +273,18 @@ export function createTaskRecord(
     );
   const taskId = Number(result.lastInsertRowid);
   replaceVisibleTaskDependencies(db, taskId, dependencyTaskIds, userId, teamId);
+  if (config.projectsEnabled !== false) {
+    replaceTaskProjects(
+      db,
+      taskId,
+      input.projectPublicIds ??
+        inheritedProjectPublicIds(db, {
+          meetingId: relations.originMeetingId,
+          decisionId: relations.originDecisionId,
+        }),
+      teamId,
+    );
+  }
 
   if (relations.originMeetingId) {
     db.prepare("INSERT OR IGNORE INTO meeting_tasks (meeting_id, task_id) VALUES (?, ?)").run(
@@ -593,6 +606,14 @@ export function taskRoutes(
           userId,
           req.user?.teamId ?? 0,
         );
+        if (config.projectsEnabled !== false && input.projectPublicIds !== undefined) {
+          replaceTaskProjects(
+            db,
+            existing.id,
+            input.projectPublicIds,
+            req.user?.teamId ?? 0,
+          );
+        }
 
         const updated = getTaskByPublicId(
           db,

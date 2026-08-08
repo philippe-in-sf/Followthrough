@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { MeetingNoteDto, MeetingNoteMatchReason, PersonDto } from "../../shared/types.js";
 import type { AppDatabase } from "../db/database.js";
 import { badRequest } from "../errors.js";
+import { getMeetingProjectNotes } from "../projects/store.js";
 
 type MeetingNoteRange = "day" | "week" | "month" | "custom";
 
@@ -10,6 +11,7 @@ type MeetingNoteRow = {
   public_id: string;
   title: string;
   starts_at: string;
+  time_precision: "date" | "datetime";
   notes: string;
   created_by_user_id: number | null;
   creator_match: number;
@@ -70,6 +72,8 @@ function resolveWindow(query: Record<string, unknown>) {
       range,
       startsAt: startDate.toISOString(),
       endsAt: addDays(endDate, 1).toISOString(),
+      startsOn: String(query.startDate),
+      endsOn: String(query.endDate),
     };
   }
 
@@ -80,6 +84,8 @@ function resolveWindow(query: Record<string, unknown>) {
     range,
     startsAt: startsAt.toISOString(),
     endsAt: now.toISOString(),
+    startsOn: startsAt.toISOString().slice(0, 10),
+    endsOn: now.toISOString().slice(0, 10),
   };
 }
 
@@ -119,7 +125,9 @@ function toMeetingNote(db: AppDatabase, row: MeetingNoteRow): MeetingNoteDto {
     publicId: row.public_id,
     title: row.title,
     startsAt: row.starts_at,
+    timePrecision: row.time_precision,
     notes: row.notes,
+    projectNotes: getMeetingProjectNotes(db, row.id),
     matchReasons,
     attendees: getAttendees(db, row.id),
   };
@@ -137,6 +145,7 @@ export function notesRoutes(db: AppDatabase) {
       const rows = db
         .prepare(
           `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
+                  meetings.time_precision,
                   meetings.notes, meetings.created_by_user_id,
                   CASE WHEN meetings.created_by_user_id = ? THEN 1 ELSE 0 END AS creator_match,
                   CASE WHEN EXISTS (
@@ -151,9 +160,22 @@ export function notesRoutes(db: AppDatabase) {
            FROM meetings
            WHERE meetings.team_id = ?
            AND meetings.archived_at IS NULL
-           AND trim(meetings.notes) <> ''
-           AND meetings.starts_at >= ?
-           AND meetings.starts_at < ?
+           AND (
+             trim(meetings.notes) <> ''
+             OR EXISTS (
+               SELECT 1 FROM meeting_note_blocks
+               WHERE meeting_note_blocks.meeting_id = meetings.id
+             )
+           )
+           AND (
+             (meetings.time_precision = 'date'
+               AND substr(meetings.starts_at, 1, 10) >= ?
+               AND substr(meetings.starts_at, 1, 10) <= ?)
+             OR
+             (meetings.time_precision = 'datetime'
+               AND meetings.starts_at >= ?
+               AND meetings.starts_at < ?)
+           )
            AND (meetings.private = 0 OR meetings.created_by_user_id = ?)
            AND (
              meetings.created_by_user_id = ?
@@ -173,6 +195,8 @@ export function notesRoutes(db: AppDatabase) {
           user.id,
           user.email,
           user.teamId,
+          window.startsOn,
+          window.endsOn,
           window.startsAt,
           window.endsAt,
           user.id,

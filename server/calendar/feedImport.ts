@@ -262,6 +262,8 @@ export function parseCalendarFeedEvents(
         id,
         title,
         startsAt,
+        timePrecision:
+          event.datetype === "date" || instance.start.dateOnly === true ? "date" : "datetime",
         summary,
         notes,
         attendeeNames,

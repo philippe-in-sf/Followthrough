@@ -58,6 +58,8 @@ describe("user preferences", () => {
       workCalendarUrl: null,
       weeklyDigestEnabled: false,
       dashboardOrganization: "workflow",
+      workspaceOrganization: "classic",
+      projectsEnabled: true,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -96,6 +98,8 @@ describe("user preferences", () => {
       workCalendarUrl: null,
       weeklyDigestEnabled: false,
       dashboardOrganization: "workflow",
+      workspaceOrganization: "classic",
+      projectsEnabled: true,
       googleCalendarConfigured: true,
       googleCalendarConnected: true,
       googleCalendarEmail: "editor@gmail.com",
@@ -131,6 +135,8 @@ describe("user preferences", () => {
       workCalendarUrl: null,
       weeklyDigestEnabled: false,
       dashboardOrganization: "workflow",
+      workspaceOrganization: "classic",
+      projectsEnabled: true,
       googleCalendarConfigured: false,
       googleCalendarConnected: false,
       googleCalendarEmail: null,
@@ -188,6 +194,26 @@ describe("user preferences", () => {
 
     const saved = await request(app).get("/api/me/preferences").set("Cookie", cookie);
     expect(saved.body.dashboardOrganization).toBe("entity");
+  });
+
+  it("switches between classic and project-centered workspaces without changing other preferences", async () => {
+    const { app, cookie } = await setup();
+
+    const response = await request(app)
+      .put("/api/me/preferences")
+      .set("Cookie", cookie)
+      .send({ workspaceOrganization: "projects" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.workspaceOrganization).toBe("projects");
+    expect(response.body.dashboardOrganization).toBe("workflow");
+    expect(response.body.projectsEnabled).toBe(true);
+
+    const restored = await request(app)
+      .put("/api/me/preferences")
+      .set("Cookie", cookie)
+      .send({ workspaceOrganization: "classic" });
+    expect(restored.body.workspaceOrganization).toBe("classic");
   });
 
   it("preserves weekly digest opt-in when saving only the calendar shortcut", async () => {

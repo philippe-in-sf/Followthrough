@@ -18,6 +18,11 @@ import { badRequest, notFound } from "../errors.js";
 import { mapTaskRows, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
 import {
+  getMeetingProjectNotes,
+  getMeetingProjects,
+  replaceMeetingProjects,
+} from "../projects/store.js";
+import {
   buildAttendeeTaskAgendaNotes,
   getOpenAttendeeTasks,
   linkOpenAttendeeTasksToMeeting,
@@ -40,6 +45,7 @@ type MeetingRow = {
   public_id: string;
   title: string;
   starts_at: string;
+  time_precision: "date" | "datetime";
   meeting_type: "single" | "recurring";
   series_public_id: string | null;
   summary: string;
@@ -70,6 +76,7 @@ type PersonRow = {
 const occurrenceSchema = z.object({
   title: z.string().trim().optional().or(z.literal("")),
   startsAt: z.string().datetime(),
+  timePrecision: z.enum(["date", "datetime"]).default("datetime"),
   summary: z.string().trim().default(""),
   blockers: z.string().trim().default(""),
   blockersCleared: z.boolean().default(false),
@@ -77,6 +84,7 @@ const occurrenceSchema = z.object({
   links: z.array(meetingLinkInputSchema).default([]),
   attendeePublicIds: z.array(publicIdSchema).default([]),
   taskPublicIds: z.array(publicIdSchema).default([]),
+  projectPublicIds: z.array(publicIdSchema).default([]),
   private: z.boolean().default(false),
 });
 
@@ -180,6 +188,7 @@ function getMeetingRow(
   const row = db
     .prepare(
       `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
+              meetings.time_precision,
               meetings.meeting_type, meeting_series.public_id AS series_public_id,
               meetings.summary, meetings.blockers, meetings.blockers_cleared_at,
               meetings.notes, meetings.private,
@@ -250,6 +259,7 @@ function toMeeting(
     publicId: row.public_id,
     title: row.title,
     startsAt: row.starts_at,
+    timePrecision: row.time_precision,
     meetingType: row.meeting_type,
     seriesPublicId: row.series_public_id,
     summary: row.summary,
@@ -259,6 +269,8 @@ function toMeeting(
     links: getMeetingLinks(db, row.id),
     attendees: getAttendees(db, row.id),
     tasks: getMeetingTasks(db, config, row.id, userId),
+    projects: config.projectsEnabled !== false ? getMeetingProjects(db, row.id) : [],
+    projectNotes: config.projectsEnabled !== false ? getMeetingProjectNotes(db, row.id) : [],
     private: row.private === 1,
     archived: row.archived_at !== null,
   };
@@ -374,12 +386,13 @@ function createMeeting(
     });
     db.prepare(
       `INSERT INTO meetings
-       (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (public_id, title, starts_at, time_precision, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       publicId,
       input.title,
       input.startsAt,
+      input.timePrecision,
       input.meetingType,
       series?.id ?? null,
       input.summary,
@@ -402,6 +415,9 @@ function createMeeting(
       teamId,
     );
     replaceStructuredMeetingLinks(db, meetingRow.id, links);
+    if (config.projectsEnabled !== false) {
+      replaceMeetingProjects(db, meetingRow.id, input.projectPublicIds, teamId);
+    }
 
     const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);
     recordAuditEvent(db, {
@@ -528,12 +544,13 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         });
         db.prepare(
           `INSERT INTO meetings
-           (public_id, title, starts_at, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
-           VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (public_id, title, starts_at, time_precision, meeting_type, series_id, summary, blockers, blockers_cleared_at, notes, private, created_by_user_id, team_id)
+           VALUES (?, ?, ?, ?, 'recurring', ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
           publicId,
           input.title || series.title,
           input.startsAt,
+          input.timePrecision,
           series.id,
           input.summary,
           input.blockers,
@@ -555,6 +572,9 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           teamId,
         );
         replaceStructuredMeetingLinks(db, row.id, links);
+        if (config.projectsEnabled !== false) {
+          replaceMeetingProjects(db, row.id, input.projectPublicIds, teamId);
+        }
         linkOpenSeriesTasksToMeeting(db, series.id, row.id, userId);
         linkOpenAttendeeTasksToMeeting(db, row.id, attendeeTasks);
         const meeting = toMeeting(db, config, getMeetingRow(db, publicId, userId, teamId), userId);
@@ -584,6 +604,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
     const rows = db
       .prepare(
         `SELECT meetings.id, meetings.public_id, meetings.title, meetings.starts_at,
+                meetings.time_precision,
                 meetings.meeting_type, meeting_series.public_id AS series_public_id,
                 meetings.summary, meetings.blockers, meetings.blockers_cleared_at,
                 meetings.notes, meetings.private,
@@ -672,7 +693,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         const links = input.links ?? getMeetingLinks(db, existing.id);
         db.prepare(
           `UPDATE meetings
-           SET title = ?, starts_at = ?, meeting_type = ?, series_id = ?,
+           SET title = ?, starts_at = ?, time_precision = ?, meeting_type = ?, series_id = ?,
                summary = ?, blockers = ?, blockers_cleared_at = ?,
                notes = ?, private = ?, created_by_user_id = ?,
                updated_at = CURRENT_TIMESTAMP
@@ -680,6 +701,7 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
         ).run(
           input.title,
           input.startsAt,
+          input.timePrecision ?? existing.time_precision,
           input.meetingType,
           series?.id ?? null,
           input.summary,
@@ -701,6 +723,9 @@ export function meetingRoutes(db: AppDatabase, config: AppConfig) {
           teamId,
         );
         replaceStructuredMeetingLinks(db, existing.id, links);
+        if (config.projectsEnabled !== false && input.projectPublicIds !== undefined) {
+          replaceMeetingProjects(db, existing.id, input.projectPublicIds, teamId);
+        }
 
         const updated = toMeeting(
           db,

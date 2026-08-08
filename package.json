@@ -1,6 +1,6 @@
 {
   "name": "followthrough",
-  "version": "1.21.1",
+  "version": "1.22.0",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -18,6 +18,7 @@
     "backup:decrypt": "node scripts/run-server-script.mjs server/db/decryptBackup.ts dist/server/db/decryptBackup.js",
     "invite:create": "node scripts/run-server-script.mjs server/auth/createInviteCode.ts dist/server/auth/createInviteCode.js",
     "user:create": "node scripts/run-server-script.mjs server/auth/createUser.ts dist/server/auth/createUser.js",
+    "projects:flatten-notes": "node scripts/run-server-script.mjs server/projects/flattenNotes.ts dist/server/projects/flattenNotes.js",
     "version:patch": "npm version patch --no-git-tag-version",
     "deploy": "bash deploy/deploy.sh",
     "deploy:install-systemd": "bash deploy/install-systemd.sh"

@@ -10,10 +10,15 @@ import { badRequest, notFound } from "../errors.js";
 import { createTaskRecord } from "../tasks/routes.js";
 import { mapTaskRows, taskSelect, type TaskRow } from "../tasks/taskRows.js";
 import { parseBody } from "../validation.js";
+import {
+  inheritedProjectPublicIds,
+  replaceDecisionProjects,
+} from "../projects/store.js";
 
 type DecisionInput = z.infer<typeof decisionInputSchema>;
 
 type DecisionRow = {
+  id: number;
   public_id: string;
   decision_text: string;
   decision_date: string;
@@ -65,7 +70,7 @@ function toDecision(
 
 function decisionSelect() {
   return `
-    SELECT decisions.public_id, decisions.decision_text, decisions.decision_date,
+    SELECT decisions.id, decisions.public_id, decisions.decision_text, decisions.decision_date,
            decisions.context, meetings.public_id AS meeting_public_id,
            superseding_decisions.public_id AS superseded_by_decision_public_id,
            decisions.archived_at
@@ -200,7 +205,7 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           input.supersededByDecisionPublicId,
         );
         const publicId = nextPublicId(db, "D");
-        db.prepare(
+        const inserted = db.prepare(
           `INSERT INTO decisions
            (public_id, decision_text, decision_date, context, meeting_id, superseded_by_decision_id, team_id)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -213,6 +218,14 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           supersededByDecisionId,
           teamId,
         );
+        if (config.projectsEnabled !== false) {
+          replaceDecisionProjects(
+            db,
+            Number(inserted.lastInsertRowid),
+            input.projectPublicIds ?? inheritedProjectPublicIds(db, { meetingId }),
+            teamId,
+          );
+        }
         createFollowUpTaskFromDecision(
           db,
           config,
@@ -280,6 +293,12 @@ export function decisionRoutes(db: AppDatabase, config: AppConfig) {
           );
 
         if (result.changes === 0) throw notFound("Decision not found");
+        if (config.projectsEnabled !== false && input.projectPublicIds !== undefined) {
+          const row = db
+            .prepare("SELECT id FROM decisions WHERE public_id = ? AND team_id = ?")
+            .get(req.params.publicId, teamId) as { id: number };
+          replaceDecisionProjects(db, row.id, input.projectPublicIds, teamId);
+        }
         createFollowUpTaskFromDecision(
           db,
           config,

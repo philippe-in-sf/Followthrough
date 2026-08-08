@@ -34,6 +34,7 @@ export type AppConfig = {
   googleOAuthTokenEncryptionPreviousKeys: string[];
   calendarFeedEncryptionKey: string;
   calendarFeedEncryptionPreviousKeys: string[];
+  projectsEnabled?: boolean;
 };
 
 function commaSeparatedValues(value: string | undefined) {
@@ -88,5 +89,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       env.CALENDAR_FEED_ENCRYPTION_PREVIOUS_KEYS ??
         env.GOOGLE_OAUTH_TOKEN_ENCRYPTION_PREVIOUS_KEYS,
     ),
+    projectsEnabled: env.PROJECTS_ENABLED !== "false",
   };
 }

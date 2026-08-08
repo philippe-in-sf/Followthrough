@@ -24,6 +24,8 @@ export function AppShell({
   notificationStatus,
   version,
   workCalendarUrl = loadClientConfig().workCalendarUrl,
+  projectsEnabled = false,
+  workspaceOrganization = "classic",
   children,
 }: {
   user: User;
@@ -35,6 +37,8 @@ export function AppShell({
   notificationStatus: "unsupported" | "disabled" | "enabled";
   version: string;
   workCalendarUrl?: string | null;
+  projectsEnabled?: boolean;
+  workspaceOrganization?: "classic" | "projects";
   children: ReactNode;
 }) {
   const [skin, setSkin] = useState(readStoredAppSkin);
@@ -53,6 +57,8 @@ export function AppShell({
         isAdmin={user.role === "admin" || user.role === "owner"}
         teamName={user.team.name}
         teamLogoUrl={user.team.logoUrl}
+        projectsEnabled={projectsEnabled}
+        workspaceOrganization={workspaceOrganization}
       />
       <ContextRail section={section} />
       <div className="workspace">

@@ -10,6 +10,8 @@ export function IconRail({
   isAdmin,
   teamName,
   teamLogoUrl,
+  projectsEnabled,
+  workspaceOrganization,
 }: {
   section: AppSection;
   onSectionChange: (section: AppSection) => void;
@@ -18,6 +20,8 @@ export function IconRail({
   isAdmin: boolean;
   teamName: string;
   teamLogoUrl?: string | null;
+  projectsEnabled?: boolean;
+  workspaceOrganization?: "classic" | "projects";
 }) {
   return (
     <aside className="icon-rail" aria-label="Followthrough">
@@ -25,7 +29,7 @@ export function IconRail({
         <BrandMark logoUrl={teamLogoUrl} teamName={teamName} />
       </div>
       <nav className="icon-rail-nav" aria-label="Primary sections" data-tour-id="primary-navigation">
-        {visibleSectionOrder(isAdmin).map(({ section: item, icon: Icon }) => (
+        {visibleSectionOrder(isAdmin, projectsEnabled, workspaceOrganization).map(({ section: item, icon: Icon }) => (
           <button
             aria-current={item === section ? "page" : undefined}
             aria-label={item}

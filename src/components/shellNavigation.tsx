@@ -3,6 +3,7 @@ import {
   CalendarDays,
   FileText,
   LayoutDashboard,
+  FolderKanban,
   ListTodo,
   Settings,
   SlidersHorizontal,
@@ -12,6 +13,7 @@ import {
 
 export const navItems = [
   "Dashboard",
+  "Projects",
   "Tasks",
   "Meetings",
   "Notes",
@@ -43,6 +45,16 @@ export const sectionNavigation: Record<AppSection, SectionNavigation> = {
       { label: "Due soon" },
       { label: "Open by person" },
       { label: "Recent meetings" },
+    ],
+  },
+  Projects: {
+    icon: FolderKanban,
+    description: "Collect notes, meetings, tasks, and decisions around ongoing work.",
+    contextRows: [
+      { label: "Active projects" },
+      { label: "Project notes" },
+      { label: "Linked meetings" },
+      { label: "Needs classification" },
     ],
   },
   Tasks: {
@@ -98,6 +110,14 @@ export const sectionOrder = navItems.map((section) => ({
   ...sectionNavigation[section],
 }));
 
-export function visibleSectionOrder(isAdmin: boolean) {
-  return sectionOrder.filter((item) => item.section !== "Admin" || isAdmin);
+export function visibleSectionOrder(
+  isAdmin: boolean,
+  projectsEnabled = false,
+  workspaceOrganization: "classic" | "projects" = "classic",
+) {
+  return sectionOrder.filter(
+    (item) =>
+      (item.section !== "Admin" || isAdmin) &&
+      (item.section !== "Projects" || (projectsEnabled && workspaceOrganization === "projects")),
+  );
 }

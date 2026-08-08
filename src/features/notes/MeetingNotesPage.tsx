@@ -29,13 +29,15 @@ function defaultCustomStart() {
   return toDateInputValue(date);
 }
 
-function formatMeetingDate(value: string) {
+function formatMeetingDate(value: string, precision: MeetingNoteDto["timePrecision"]) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return new Intl.DateTimeFormat(
+    undefined,
+    precision === "date"
+      ? { dateStyle: "medium" }
+      : { dateStyle: "medium", timeStyle: "short" },
+  ).format(date);
 }
 
 function matchLabel(note: MeetingNoteDto) {
@@ -176,7 +178,7 @@ export function MeetingNotesPage({ onOpenMeeting, onRecordReferenceOpen }: Meeti
                     </button>
                   </header>
                   <div className="note-result-meta">
-                    <span>{formatMeetingDate(note.startsAt)}</span>
+                    <span>{formatMeetingDate(note.startsAt, note.timePrecision)}</span>
                     <span>{matchLabel(note)}</span>
                   </div>
                   {note.attendees.length > 0 ? (
@@ -184,7 +186,19 @@ export function MeetingNotesPage({ onOpenMeeting, onRecordReferenceOpen }: Meeti
                       {note.attendees.map((attendee) => attendee.name).join(", ")}
                     </p>
                   ) : null}
-                  <RichNoteText text={note.notes} onRecordOpen={onRecordReferenceOpen} />
+                  {note.notes.trim() ? (
+                    <RichNoteText text={note.notes} onRecordOpen={onRecordReferenceOpen} />
+                  ) : null}
+                  {(note.projectNotes ?? []).map((projectNote) => (
+                    <section className="note-result-project-note" key={projectNote.publicId}>
+                      <small>
+                        {projectNote.noteType} · {projectNote.projects.length
+                          ? projectNote.projects.map((project) => project.name).join(", ")
+                          : "Unassigned"}
+                      </small>
+                      <RichNoteText text={projectNote.body} onRecordOpen={onRecordReferenceOpen} />
+                    </section>
+                  ))}
                 </article>
               ))}
             </section>

@@ -1,7 +1,8 @@
-import { CalendarPlus, KeyRound, Mail, Save, Trash2, UserMinus } from "lucide-react";
+import { CalendarPlus, FolderKanban, KeyRound, Mail, Save, Trash2, UserMinus } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, api } from "../../api/client";
 import type { User } from "../../api/types";
+import type { WorkspaceOrganization } from "../../../shared/types";
 import { FormField } from "../../components/FormField";
 
 function errorMessage(error: unknown) {
@@ -17,6 +18,9 @@ export function SettingsPage({
   googleCalendarEmail,
   onGoogleCalendarConnectionChange,
   onLeaveTeam,
+  projectsEnabled = false,
+  workspaceOrganization = "classic",
+  onWorkspaceOrganizationChange = async () => {},
 }: {
   user: User;
   workCalendarUrl: string | null;
@@ -26,6 +30,9 @@ export function SettingsPage({
   googleCalendarEmail: string | null;
   onGoogleCalendarConnectionChange: (connected: boolean, email: string | null) => void;
   onLeaveTeam: () => Promise<void>;
+  projectsEnabled?: boolean;
+  workspaceOrganization?: WorkspaceOrganization;
+  onWorkspaceOrganizationChange?: (organization: WorkspaceOrganization) => Promise<void>;
 }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -54,6 +61,9 @@ export function SettingsPage({
   const [calendarFeedSaving, setCalendarFeedSaving] = useState(false);
   const [calendarFeedError, setCalendarFeedError] = useState("");
   const [calendarFeedStatus, setCalendarFeedStatus] = useState("");
+  const [workspaceSaving, setWorkspaceSaving] = useState(false);
+  const [workspaceStatus, setWorkspaceStatus] = useState("");
+  const [workspaceError, setWorkspaceError] = useState("");
 
   useEffect(() => {
     setWorkCalendarInput(workCalendarUrl ?? "");
@@ -251,6 +261,24 @@ export function SettingsPage({
     }
   }
 
+  async function changeWorkspaceOrganization(organization: WorkspaceOrganization) {
+    setWorkspaceSaving(true);
+    setWorkspaceStatus("");
+    setWorkspaceError("");
+    try {
+      await onWorkspaceOrganizationChange(organization);
+      setWorkspaceStatus(
+        organization === "projects"
+          ? "Project-centered workspace enabled."
+          : "Classic workspace restored.",
+      );
+    } catch (error) {
+      setWorkspaceError(errorMessage(error));
+    } finally {
+      setWorkspaceSaving(false);
+    }
+  }
+
   return (
     <main className="page settings-page">
       <section className="page-header">
@@ -328,6 +356,43 @@ export function SettingsPage({
           {digestError ? <p className="form-error">{digestError}</p> : null}
           {digestStatus ? <p className="form-status">{digestStatus}</p> : null}
         </section>
+
+        {projectsEnabled ? (
+          <section className="settings-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Workspace organization</h2>
+                <p>Switch between the established record views and the project-centered workspace.</p>
+              </div>
+              <FolderKanban aria-hidden="true" size={20} />
+            </div>
+            <div className="segmented-control" aria-label="Workspace organization">
+              <button
+                aria-pressed={workspaceOrganization === "classic"}
+                className={workspaceOrganization === "classic" ? "active" : ""}
+                disabled={workspaceSaving}
+                type="button"
+                onClick={() => void changeWorkspaceOrganization("classic")}
+              >
+                Classic
+              </button>
+              <button
+                aria-pressed={workspaceOrganization === "projects"}
+                className={workspaceOrganization === "projects" ? "active" : ""}
+                disabled={workspaceSaving}
+                type="button"
+                onClick={() => void changeWorkspaceOrganization("projects")}
+              >
+                Projects
+              </button>
+            </div>
+            <p className="settings-panel-copy">
+              Switching views does not migrate, delete, or rewrite existing meeting notes.
+            </p>
+            {workspaceError ? <p className="form-error">{workspaceError}</p> : null}
+            {workspaceStatus ? <p className="form-status">{workspaceStatus}</p> : null}
+          </section>
+        ) : null}
 
         <form
           className="settings-panel calendar-settings-panel"

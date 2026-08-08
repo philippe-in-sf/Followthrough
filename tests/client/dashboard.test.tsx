@@ -12,7 +12,7 @@ import type {
   TaskDto,
 } from "../../shared/types";
 import { App } from "../../src/App";
-import { toApiDateTime, toDateTimeInputValue } from "../../src/features/meetings/dateTime";
+import { toApiMeetingDateTime, toDateTimeInputValue } from "../../src/features/meetings/dateTime";
 
 const originalFetch = globalThis.fetch;
 
@@ -160,6 +160,7 @@ function setupAppFetch(
       publicId: "M010",
       title: "Leadership sync",
       startsAt: "2026-06-09T15:00:00.000Z",
+      timePrecision: "datetime",
       meetingType: "recurring",
       seriesPublicId: "S001",
       summary: "Launch readiness",
@@ -176,6 +177,8 @@ function setupAppFetch(
       ],
       attendees: [avery],
       tasks: [tasks[1]],
+      projects: [],
+      projectNotes: [],
       private: false,
       archived: false,
     },
@@ -300,6 +303,7 @@ function setupAppFetch(
             id: "gcal-1",
             title: "Imported planning sync",
             startsAt: "2099-08-03T15:00:00.000Z",
+            timePrecision: "datetime",
             summary: "Imported agenda",
             notes: "Imported private notes",
             links: [
@@ -635,6 +639,7 @@ function setupAppFetch(
         publicId: "M011",
         title: body.title,
         startsAt: body.startsAt,
+        timePrecision: body.timePrecision ?? "datetime",
         meetingType: "recurring",
         seriesPublicId: "S001",
         summary: body.summary,
@@ -646,6 +651,8 @@ function setupAppFetch(
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [tasks[1]],
+        projects: [],
+        projectNotes: [],
         private: body.private ?? false,
         archived: false,
       };
@@ -669,6 +676,7 @@ function setupAppFetch(
         publicId: "M100",
         title: body.title,
         startsAt: body.startsAt,
+        timePrecision: body.timePrecision ?? "datetime",
         meetingType: body.meetingType,
         seriesPublicId: body.seriesPublicId,
         summary: body.summary,
@@ -680,6 +688,8 @@ function setupAppFetch(
           .map((publicId: string) => people.find((person) => person.publicId === publicId))
           .filter(Boolean) as PersonDto[],
         tasks: [],
+        projects: [],
+        projectNotes: [],
         private: body.private ?? false,
         archived: false,
       };
@@ -1351,7 +1361,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Quick customer check-in");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-01T11:30");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-01");
     await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee, Taylor Park");
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
@@ -1367,7 +1377,8 @@ describe("dashboard and workspace flows", () => {
     expect(body).toEqual(
       expect.objectContaining({
         title: "Quick customer check-in",
-        startsAt: toApiDateTime("2099-08-01T11:30"),
+        startsAt: toApiMeetingDateTime("2099-08-01", "date"),
+        timePrecision: "date",
         meetingType: "single",
         seriesPublicId: null,
         summary: "",
@@ -1396,7 +1407,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "CM Leadership");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2026-07-06T09:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2026-07-06");
     await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee");
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
@@ -1520,7 +1531,7 @@ describe("dashboard and workspace flows", () => {
     expect(screen.getByLabelText("Avery")).toBeChecked();
     await userEvent.clear(screen.getByLabelText("Meeting title"));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Project sync follow-up");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16T09:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-06-16");
     const meetingTaskOptions = screen.getByRole("group", { name: "Meeting tasks" });
     const meetingTaskLabels = within(meetingTaskOptions)
       .getAllByRole("checkbox")
@@ -1555,6 +1566,7 @@ describe("dashboard and workspace flows", () => {
           publicId: "M009",
           title: "Leadership sync kickoff",
           startsAt: "2026-06-02T15:00:00.000Z",
+          timePrecision: "datetime",
           meetingType: "recurring",
           seriesPublicId: "S001",
           summary: "Kickoff readiness",
@@ -1564,6 +1576,8 @@ describe("dashboard and workspace flows", () => {
           links: [],
           attendees: [avery],
           tasks: [],
+          projects: [],
+          projectNotes: [],
           private: false,
           archived: false,
         },
@@ -1604,7 +1618,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Customer standup kickoff");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-07-01T10:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-07-01");
     await userEvent.type(
       screen.getByLabelText("Ongoing meeting / series"),
       "Customer standup",
@@ -1625,7 +1639,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Launch work session");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02");
 
     await userEvent.click(screen.getByLabelText("Avery"));
     await userEvent.type(screen.getByLabelText("Quick-add attendees"), "Morgan Lee");
@@ -1647,7 +1661,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Reset clarity check");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02");
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -1663,7 +1677,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Fast submit check");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02T14:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-02");
     expect(screen.getByText("More details").closest("details")).not.toHaveAttribute("open");
     await userEvent.click(screen.getByRole("button", { name: "Add meeting" }));
 
@@ -1681,7 +1695,7 @@ describe("dashboard and workspace flows", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Meetings" }));
     await userEvent.type(screen.getByLabelText("Meeting title"), "Temporary meeting");
-    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-03T09:00");
+    await userEvent.type(screen.getByLabelText("Meeting start"), "2099-08-03");
     await userEvent.click(screen.getByRole("button", { name: "Import from Google Calendar" }));
     await userEvent.type(screen.getByLabelText("Which Google Calendar meeting?"), "planning");
     await userEvent.click(screen.getByRole("button", { name: "Find meetings" }));

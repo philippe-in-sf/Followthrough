@@ -19,6 +19,8 @@ import type {
   MeetingLinkType,
   MeetingSeriesDto,
   PersonDto,
+  ProjectDto,
+  ProjectNoteType,
   TaskDto,
 } from "../../../shared/types";
 import { parsePersonNameList, personNameKey } from "../../../shared/personName";
@@ -33,12 +35,13 @@ import { MarkdownNotesEditor, RichNoteText } from "../../components/RichNotes";
 import { StatusBadge } from "../../components/StatusBadge";
 import { comparePublicRecordNumber } from "../../recordSort";
 import { scrollRecordIntoView } from "../../recordFocus";
-import { toApiDateTime, toDateTimeInputValue } from "./dateTime";
+import { toApiMeetingDateTime, toDateTimeInputValue, toMeetingInputValue } from "./dateTime";
 
 type MeetingFormState = {
   publicId: string;
   title: string;
   startsAt: string;
+  timePrecision: "date" | "datetime";
   recurrenceMode: RecurrenceMode;
   existingSeriesPublicId: string;
   newSeriesTitle: string;
@@ -49,6 +52,7 @@ type MeetingFormState = {
   attendeePublicIds: string[];
   attendeeNames: string;
   taskPublicIds: string[];
+  projectPublicIds: string[];
   private: boolean;
 };
 
@@ -101,6 +105,7 @@ const emptyMeetingForm: MeetingFormState = {
   publicId: "",
   title: "",
   startsAt: "",
+  timePrecision: "date",
   recurrenceMode: "single",
   existingSeriesPublicId: "",
   newSeriesTitle: "",
@@ -111,6 +116,7 @@ const emptyMeetingForm: MeetingFormState = {
   attendeePublicIds: [],
   attendeeNames: "",
   taskPublicIds: [],
+  projectPublicIds: [],
   private: false,
 };
 
@@ -156,6 +162,26 @@ function attendeeSummary(meeting: MeetingDto) {
   return meeting.attendees.length > 0
     ? meeting.attendees.map((attendee) => attendee.name).join(", ")
     : "No attendees";
+}
+
+function formatMeetingSchedule(meeting: Pick<MeetingDto, "startsAt" | "timePrecision">) {
+  const date = new Date(meeting.startsAt);
+  return new Intl.DateTimeFormat(
+    undefined,
+    meeting.timePrecision === "date"
+      ? { dateStyle: "medium" }
+      : { dateStyle: "medium", timeStyle: "short" },
+  ).format(date);
+}
+
+function isUpcomingMeeting(meeting: MeetingDto, now = new Date()) {
+  if (meeting.timePrecision === "datetime") return new Date(meeting.startsAt).getTime() >= now.getTime();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+  return meeting.startsAt.slice(0, 10) >= today;
 }
 
 function taskOptionLabel(task: TaskDto) {
@@ -460,6 +486,7 @@ export function MeetingsPage({
   onSeriesFocusHandled,
   googleCalendarConfigured = false,
   googleCalendarConnected = false,
+  projectsEnabled = false,
   onRecordReferenceOpen,
 }: {
   focusSeriesPublicId?: string | null;
@@ -468,12 +495,14 @@ export function MeetingsPage({
   onSeriesFocusHandled?: () => void;
   googleCalendarConfigured?: boolean;
   googleCalendarConnected?: boolean;
+  projectsEnabled?: boolean;
   onRecordReferenceOpen?: (target: RecordReferenceTarget) => void;
 }) {
   const [meetings, setMeetings] = useState<MeetingDto[]>([]);
   const [series, setSeries] = useState<MeetingSeriesDto[]>([]);
   const [people, setPeople] = useState<PersonDto[]>([]);
   const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [projects, setProjects] = useState<ProjectDto[]>([]);
   const [meetingArchiveView, setMeetingArchiveView] = useState<MeetingArchiveView>("active");
   const [meetingForm, setMeetingForm] = useState<MeetingFormState>(emptyMeetingForm);
   const [meetingFormError, setMeetingFormError] = useState("");
@@ -511,6 +540,11 @@ export function MeetingsPage({
   const [notesSaveStatus, setNotesSaveStatus] = useState("");
   const [linkDrafts, setLinkDrafts] = useState<MeetingLinkFormState[]>([]);
   const [newLinkForm, setNewLinkForm] = useState<MeetingLinkFormState>(emptyMeetingLinkForm);
+  const [projectNoteBody, setProjectNoteBody] = useState("");
+  const [projectNoteType, setProjectNoteType] = useState<ProjectNoteType>("note");
+  const [projectNotePublicIds, setProjectNotePublicIds] = useState<string[]>([]);
+  const [projectNoteSaving, setProjectNoteSaving] = useState(false);
+  const [projectNoteError, setProjectNoteError] = useState("");
   const meetingLoadRequestId = useRef(0);
 
   function updateMeetingForm(
@@ -542,15 +576,15 @@ export function MeetingsPage({
         : [];
     }
 
-    const now = Date.now();
+    const now = new Date();
     const blocked = meetings
       .filter((meeting) => hasActiveBlockers(meeting))
       .sort((left, right) => new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime());
     const upcoming = meetings
-      .filter((meeting) => !hasActiveBlockers(meeting) && new Date(meeting.startsAt).getTime() >= now)
+      .filter((meeting) => !hasActiveBlockers(meeting) && isUpcomingMeeting(meeting, now))
       .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
     const past = meetings
-      .filter((meeting) => !hasActiveBlockers(meeting) && new Date(meeting.startsAt).getTime() < now)
+      .filter((meeting) => !hasActiveBlockers(meeting) && !isUpcomingMeeting(meeting, now))
       .sort((left, right) => new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime());
 
     const lanes: MeetingLane[] = [
@@ -636,11 +670,12 @@ export function MeetingsPage({
   async function load() {
     const requestId = meetingLoadRequestId.current + 1;
     meetingLoadRequestId.current = requestId;
-    const [meetingResult, seriesResult, peopleResult, taskResult] = await Promise.all([
+    const [meetingResult, seriesResult, peopleResult, taskResult, projectResult] = await Promise.all([
       api.meetings.list(meetingQuery),
       api.series.list(),
       api.people.list(),
       api.tasks.list(),
+      projectsEnabled ? api.projects.list() : Promise.resolve({ projects: [] }),
     ]);
     const auditEntries = await Promise.all(
       meetingResult.meetings.map(async (meeting) => {
@@ -655,12 +690,13 @@ export function MeetingsPage({
     setSeries([...seriesResult.series]);
     setPeople([...peopleResult.people]);
     setTasks([...taskResult.tasks]);
+    setProjects([...projectResult.projects]);
     setMeetingAudits(Object.fromEntries(auditEntries));
   }
 
   useEffect(() => {
     void load();
-  }, [meetingQuery]);
+  }, [meetingQuery, projectsEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -713,7 +749,7 @@ export function MeetingsPage({
 
   function validateMeetingBasics() {
     if (!meetingForm.title.trim()) return "Enter a meeting title before continuing.";
-    if (!meetingForm.startsAt.trim()) return "Enter a meeting start before continuing.";
+    if (!meetingForm.startsAt.trim()) return "Enter a meeting date before continuing.";
     if (meetingForm.recurrenceMode === "existing" && !meetingForm.existingSeriesPublicId) {
       return "Choose a recurring meeting before continuing.";
     }
@@ -780,6 +816,7 @@ export function MeetingsPage({
       recurrenceMode: "existing",
       existingSeriesPublicId: item.publicId,
       attendeePublicIds: latestMeeting?.attendees.map((attendee) => attendee.publicId) ?? [],
+      projectPublicIds: (latestMeeting?.projects ?? []).map((project) => project.publicId),
     });
     setMeetingFormError("");
     setMeetingFormStatus(`Creating the next ${item.title} meeting.`);
@@ -806,7 +843,8 @@ export function MeetingsPage({
     );
     const sharedMeetingFields = {
       title: form.title,
-      startsAt: toApiDateTime(form.startsAt),
+      startsAt: toApiMeetingDateTime(form.startsAt, form.timePrecision),
+      timePrecision: form.timePrecision,
       summary: includeDetails ? form.summary : "",
       blockers: includeDetails ? form.blockers : "",
       blockersCleared: includeDetails ? form.blockersCleared : false,
@@ -814,6 +852,7 @@ export function MeetingsPage({
       links: includeDetails ? calendarDetails?.links ?? [] : [],
       attendeePublicIds,
       taskPublicIds: includeTasks ? form.taskPublicIds : [],
+      projectPublicIds: form.projectPublicIds,
       private: includeDetails ? form.private : false,
     };
 
@@ -893,6 +932,7 @@ export function MeetingsPage({
   }
 
   function applyCalendarEvent(event: CalendarImportEventDto) {
+    const eventTimePrecision = event.timePrecision ?? "datetime";
     const attendeeNames = [meetingForm.attendeeNames, event.attendeeNames]
       .map((value) => value.trim())
       .filter(Boolean)
@@ -901,7 +941,8 @@ export function MeetingsPage({
     updateMeetingForm((current) => ({
       ...current,
       title: event.title,
-      startsAt: toDateTimeInputValue(event.startsAt),
+      startsAt: toMeetingInputValue(event.startsAt, eventTimePrecision),
+      timePrecision: eventTimePrecision,
       recurrenceMode: "single",
       existingSeriesPublicId: "",
       newSeriesTitle: "",
@@ -927,7 +968,8 @@ export function MeetingsPage({
     setMeetingEditForm({
       publicId: meeting.publicId,
       title: meeting.title,
-      startsAt: toDateTimeInputValue(meeting.startsAt),
+      startsAt: toMeetingInputValue(meeting.startsAt, meeting.timePrecision),
+      timePrecision: meeting.timePrecision,
       recurrenceMode: meeting.meetingType === "recurring" ? "existing" : "single",
       existingSeriesPublicId: meeting.seriesPublicId ?? "",
       newSeriesTitle: "",
@@ -938,6 +980,7 @@ export function MeetingsPage({
       attendeePublicIds: meeting.attendees.map((attendee) => attendee.publicId),
       attendeeNames: "",
       taskPublicIds: meeting.tasks.map((task) => task.publicId),
+      projectPublicIds: (meeting.projects ?? []).map((project) => project.publicId),
       private: meeting.private,
     });
   }
@@ -982,7 +1025,8 @@ export function MeetingsPage({
     );
     await api.meetings.update(meeting.publicId, {
       title: meetingEditForm.title,
-      startsAt: toApiDateTime(meetingEditForm.startsAt),
+      startsAt: toApiMeetingDateTime(meetingEditForm.startsAt, meetingEditForm.timePrecision),
+      timePrecision: meetingEditForm.timePrecision,
       meetingType: meetingEditForm.recurrenceMode === "existing" ? "recurring" : "single",
       seriesPublicId:
         meetingEditForm.recurrenceMode === "existing"
@@ -993,6 +1037,7 @@ export function MeetingsPage({
       blockersCleared: meetingEditForm.blockersCleared,
       attendeePublicIds,
       taskPublicIds: meetingEditForm.taskPublicIds,
+      projectPublicIds: meetingEditForm.projectPublicIds,
       private: meetingEditForm.private,
     });
     setEditingMeetingPublicId(null);
@@ -1079,6 +1124,10 @@ export function MeetingsPage({
     setNotesSaveStatus("");
     setLinkDrafts(meeting.links.map(toMeetingLinkForm));
     setNewLinkForm(emptyMeetingLinkForm);
+    setProjectNoteBody("");
+    setProjectNoteType("note");
+    setProjectNotePublicIds((meeting.projects ?? []).slice(0, 1).map((project) => project.publicId));
+    setProjectNoteError("");
   }
 
   function openSeriesNotes(seriesPublicId: string) {
@@ -1101,6 +1150,10 @@ export function MeetingsPage({
     setNotesSaveStatus("");
     setLinkDrafts([]);
     setNewLinkForm(emptyMeetingLinkForm);
+    setProjectNoteBody("");
+    setProjectNoteType("note");
+    setProjectNotePublicIds([]);
+    setProjectNoteError("");
   }
 
   function updateLinkDraft(index: number, changes: Partial<MeetingLinkFormState>) {
@@ -1155,6 +1208,31 @@ export function MeetingsPage({
     } finally {
       setNotesSaving(false);
     }
+  }
+
+  async function submitProjectNote(event: FormEvent<HTMLFormElement>, meeting: MeetingDto) {
+    event.preventDefault();
+    if (!projectNoteBody.trim()) return;
+    setProjectNoteSaving(true);
+    setProjectNoteError("");
+    try {
+      await api.meetings.createProjectNote(meeting.publicId, {
+        body: projectNoteBody,
+        noteType: projectNoteType,
+        projectPublicIds: projectNotePublicIds,
+      });
+      setProjectNoteBody("");
+      await load();
+    } catch (error) {
+      setProjectNoteError(error instanceof Error ? error.message : "Project note could not be saved.");
+    } finally {
+      setProjectNoteSaving(false);
+    }
+  }
+
+  async function deleteProjectNote(meeting: MeetingDto, notePublicId: string) {
+    await api.meetings.deleteProjectNote(meeting.publicId, notePublicId);
+    await load();
   }
 
   if (activeSeriesNotes) {
@@ -1222,7 +1300,7 @@ export function MeetingsPage({
                           </h3>
                           <span>
                             <LinkedText text={meeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
-                            {new Date(meeting.startsAt).toLocaleString()}
+                            {formatMeetingSchedule(meeting)}
                           </span>
                         </div>
                         <div className="series-note-badges">
@@ -1274,7 +1352,7 @@ export function MeetingsPage({
               </h2>
               <p>
                 <LinkedText text={activeNotesMeeting.publicId} onRecordOpen={onRecordReferenceOpen} /> ·{" "}
-                {new Date(activeNotesMeeting.startsAt).toLocaleString()}
+                {formatMeetingSchedule(activeNotesMeeting)}
               </p>
             </div>
           </div>
@@ -1301,6 +1379,9 @@ export function MeetingsPage({
           >
             <div className="meeting-notes-meta">
               <StatusBadge label={activeNotesMeeting.meetingType} />
+              {(activeNotesMeeting.projects ?? []).map((project) => (
+                <StatusBadge key={project.publicId} label={project.name} tone="neutral" />
+              ))}
               {activeNotesMeeting.seriesPublicId ? (
                 <span>Series {activeNotesMeeting.seriesPublicId}</span>
               ) : null}
@@ -1372,6 +1453,69 @@ export function MeetingsPage({
           </form>
 
           <aside className="meeting-notes-sidepanel">
+            {projectsEnabled ? (
+              <section className="notes-panel project-note-panel" aria-label="Project notes">
+                <header className="notes-panel-header">
+                  <div>
+                    <h3>Project notes</h3>
+                    <small>Capture a focused note without replacing general notes.</small>
+                  </div>
+                  <span className="lane-count">{countLabel((activeNotesMeeting.projectNotes ?? []).length, "note")}</span>
+                </header>
+                <form className="project-note-form" onSubmit={(event) => submitProjectNote(event, activeNotesMeeting)}>
+                  <FormField label="Note type">
+                    <select value={projectNoteType} onChange={(event) => setProjectNoteType(event.target.value as ProjectNoteType)}>
+                      <option value="note">Note</option>
+                      <option value="decision">Decision</option>
+                      <option value="question">Question</option>
+                      <option value="action">Action</option>
+                    </select>
+                  </FormField>
+                  <CheckboxGroup
+                    legend="Assign to projects"
+                    options={projects.map((project) => ({ publicId: project.publicId, label: project.name }))}
+                    selected={projectNotePublicIds}
+                    onChange={setProjectNotePublicIds}
+                  />
+                  <FormField label="Project note">
+                    <textarea
+                      aria-keyshortcuts="Control+Enter Meta+Enter"
+                      value={projectNoteBody}
+                      onChange={(event) => setProjectNoteBody(event.target.value)}
+                      onKeyDown={(event) => {
+                        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                          event.preventDefault();
+                          event.currentTarget.form?.requestSubmit();
+                        }
+                      }}
+                      placeholder="Capture a note, decision, question, or action"
+                    />
+                  </FormField>
+                  {projectNoteError ? <p className="form-error" role="alert">{projectNoteError}</p> : null}
+                  <button className="primary-button icon-text-button" disabled={projectNoteSaving || !projectNoteBody.trim()} type="submit">
+                    <Plus aria-hidden="true" size={16} />
+                    {projectNoteSaving ? "Saving" : "Add project note"}
+                  </button>
+                  <small className="form-help">Use Ctrl/Command + Enter to save. Leaving projects empty keeps the note unassigned.</small>
+                </form>
+                {(activeNotesMeeting.projectNotes ?? []).length ? (
+                  <div className="meeting-project-note-list">
+                    {(activeNotesMeeting.projectNotes ?? []).map((note) => (
+                      <article className="meeting-project-note" key={note.publicId}>
+                        <header>
+                          <span>{note.noteType}</span>
+                          <span>{note.projects.length ? note.projects.map((project) => project.name).join(", ") : "Unassigned"}</span>
+                          <button className="icon-button" aria-label={`Delete project note ${note.publicId}`} type="button" onClick={() => void deleteProjectNote(activeNotesMeeting, note.publicId)}>
+                            <Trash2 aria-hidden="true" size={15} />
+                          </button>
+                        </header>
+                        <RichNoteText text={note.body} onRecordOpen={onRecordReferenceOpen} />
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
             <section className="notes-panel" aria-label="Structured meeting links">
               <header className="notes-panel-header">
                 <h3>Links</h3>
@@ -1716,12 +1860,27 @@ export function MeetingsPage({
           <FormField label="Meeting start">
             <input
               id="meeting-start"
-              type="datetime-local"
+              type={meetingForm.timePrecision === "datetime" ? "datetime-local" : "date"}
               value={meetingForm.startsAt}
               onChange={(event) => updateMeetingForm({ startsAt: event.target.value })}
               required
             />
           </FormField>
+          <label className="checkbox-line meeting-time-toggle">
+            <input
+              type="checkbox"
+              checked={meetingForm.timePrecision === "datetime"}
+              onChange={(event) =>
+                updateMeetingForm({
+                  timePrecision: event.target.checked ? "datetime" : "date",
+                  startsAt: event.target.checked
+                    ? `${meetingForm.startsAt.slice(0, 10)}T09:00`
+                    : meetingForm.startsAt.slice(0, 10),
+                })
+              }
+            />
+            <span>Include a specific time</span>
+          </label>
           <FormField label="Ongoing meeting / series (optional)">
             <input
               aria-label="Ongoing meeting / series"
@@ -1777,6 +1936,21 @@ export function MeetingsPage({
             />
           </div>
         </details>
+
+        {projectsEnabled ? (
+          <details className="meeting-create-section" open>
+            <summary>
+              <span>Projects</span>
+              <small>{countLabel(meetingForm.projectPublicIds.length, "project")}</small>
+            </summary>
+            <CheckboxGroup
+              legend="Projects discussed"
+              options={projects.map((project) => ({ publicId: project.publicId, label: project.name }))}
+              selected={meetingForm.projectPublicIds}
+              onChange={(projectPublicIds) => updateMeetingForm({ projectPublicIds })}
+            />
+          </details>
+        ) : null}
 
         <details className="meeting-create-section">
           <summary>
@@ -2053,7 +2227,7 @@ export function MeetingsPage({
                             <StatusBadge label="Blocker cleared" tone="good" />
                           ) : null}
                           <span className="meeting-summary-date">
-                            {new Date(meeting.startsAt).toLocaleString()}
+                            {formatMeetingSchedule(meeting)}
                           </span>
                           <span className="meeting-summary-counts">
                             {countLabel(meeting.attendees.length, "attendee")}
@@ -2061,6 +2235,11 @@ export function MeetingsPage({
                           <span className="meeting-summary-counts">
                             {countLabel(meeting.tasks.length, "task")}
                           </span>
+                          {(meeting.projects ?? []).length ? (
+                            <span className="meeting-summary-counts">
+                              {countLabel((meeting.projects ?? []).length, "project")}
+                            </span>
+                          ) : null}
                           <span className="meeting-summary-text">{meetingSummaryText}</span>
                         </span>
                       </button>
@@ -2069,7 +2248,7 @@ export function MeetingsPage({
                           <div className="meeting-detail-grid">
                             <section className="meeting-detail-section">
                               <h4>Details</h4>
-                              <p>{new Date(meeting.startsAt).toLocaleString()}</p>
+                              <p>{formatMeetingSchedule(meeting)}</p>
                               <p>{meeting.meetingType}</p>
                               <div className="meeting-detail-badges">
                                 <StatusBadge label={meeting.meetingType} />
@@ -2079,6 +2258,20 @@ export function MeetingsPage({
                                 {meeting.archived ? <StatusBadge label="Archived" /> : null}
                               </div>
                             </section>
+                            {projectsEnabled ? (
+                              <section className="meeting-detail-section">
+                                <h4>Projects</h4>
+                                {(meeting.projects ?? []).length ? (
+                                  <div className="meeting-detail-badges">
+                                    {(meeting.projects ?? []).map((project) => (
+                                      <StatusBadge key={project.publicId} label={project.name} tone="neutral" />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="muted meeting-empty-detail">No projects</p>
+                                )}
+                              </section>
+                            ) : null}
                             <section className="meeting-detail-section">
                               <h4>Summary</h4>
                               <p>
@@ -2157,9 +2350,9 @@ export function MeetingsPage({
                                     required
                                   />
                                 </FormField>
-                                <FormField label={`Meeting start for ${meeting.publicId}`}>
+                                <FormField label={`Meeting date for ${meeting.publicId}`}>
                                   <input
-                                    type="datetime-local"
+                                    type={meetingEditForm.timePrecision === "datetime" ? "datetime-local" : "date"}
                                     value={meetingEditForm.startsAt}
                                     onChange={(event) =>
                                       setMeetingEditForm({
@@ -2170,6 +2363,22 @@ export function MeetingsPage({
                                     required
                                   />
                                 </FormField>
+                                <label className="checkbox-line meeting-time-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={meetingEditForm.timePrecision === "datetime"}
+                                    onChange={(event) =>
+                                      setMeetingEditForm({
+                                        ...meetingEditForm,
+                                        timePrecision: event.target.checked ? "datetime" : "date",
+                                        startsAt: event.target.checked
+                                          ? `${meetingEditForm.startsAt.slice(0, 10)}T09:00`
+                                          : meetingEditForm.startsAt.slice(0, 10),
+                                      })
+                                    }
+                                  />
+                                  <span>Include a specific time</span>
+                                </label>
                                 <FormField label={`Meeting type for ${meeting.publicId}`}>
                                   <select
                                     value={meetingEditForm.recurrenceMode}
@@ -2238,6 +2447,16 @@ export function MeetingsPage({
                                 </FormField>
                               </div>
                               <div className="meeting-edit-selection-grid">
+                                {projectsEnabled ? (
+                                  <CheckboxGroup
+                                    legend="Projects discussed"
+                                    options={projects.map((project) => ({ publicId: project.publicId, label: project.name }))}
+                                    selected={meetingEditForm.projectPublicIds}
+                                    onChange={(projectPublicIds) =>
+                                      setMeetingEditForm({ ...meetingEditForm, projectPublicIds })
+                                    }
+                                  />
+                                ) : null}
                                 <CheckboxGroup
                                   legend={`Meeting tasks for ${meeting.publicId}`}
                                   options={taskPicklistOptions.map((task) => ({

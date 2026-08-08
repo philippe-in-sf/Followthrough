@@ -14,6 +14,11 @@ import type {
   PersonDto,
   PersonMergeResultDto,
   PersonRelatedRecordsDto,
+  ProjectDetailDto,
+  ProjectDto,
+  ProjectNoteDto,
+  ProjectNoteType,
+  ProjectStatus,
   TaskAssignmentNotificationDto,
   TaskDto,
   TaskReminderMode,
@@ -127,6 +132,7 @@ type TaskInput = {
   seriesPublicId?: string | null;
   reminderMode?: TaskReminderMode;
   dependencyPublicIds?: string[];
+  projectPublicIds?: string[];
   private?: boolean;
 };
 
@@ -143,6 +149,7 @@ export type TaskReminderResponse = {
 type MeetingInput = {
   title: string;
   startsAt: string;
+  timePrecision?: MeetingDto["timePrecision"];
   meetingType: MeetingType;
   seriesPublicId?: string | null;
   summary: string;
@@ -152,6 +159,7 @@ type MeetingInput = {
   links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   taskPublicIds: string[];
+  projectPublicIds?: string[];
   private?: boolean;
 };
 
@@ -185,6 +193,7 @@ type MeetingSeriesInput = {
 type OccurrenceInput = {
   title?: string;
   startsAt: string;
+  timePrecision?: MeetingDto["timePrecision"];
   summary: string;
   blockers?: string;
   blockersCleared?: boolean;
@@ -192,6 +201,7 @@ type OccurrenceInput = {
   links?: MeetingLinkInput[];
   attendeePublicIds: string[];
   taskPublicIds?: string[];
+  projectPublicIds?: string[];
   private?: boolean;
 };
 
@@ -201,6 +211,7 @@ type DecisionInput = {
   context: string;
   meetingPublicId?: string | null;
   supersededByDecisionPublicId?: string | null;
+  projectPublicIds?: string[];
   followUpTask?: {
     description: string;
     blockers?: string;
@@ -270,6 +281,7 @@ export const api = {
       workCalendarUrl?: string | null;
       weeklyDigestEnabled?: boolean;
       dashboardOrganization?: UserPreferencesDto["dashboardOrganization"];
+      workspaceOrganization?: UserPreferencesDto["workspaceOrganization"];
     }) =>
       request<UserPreferencesDto>("/api/me/preferences", {
         method: "PUT",
@@ -283,6 +295,33 @@ export const api = {
       if (query.endDate) params.set("endDate", query.endDate);
       return request<MeetingNotesResponse>(`/api/me/meeting-notes?${params}`);
     },
+  },
+  projects: {
+    list: (archived = false) =>
+      request<{ projects: ProjectDto[] }>(`/api/projects${archived ? "?archived=true" : ""}`),
+    get: (publicId: string) =>
+      request<{ project: ProjectDetailDto }>(`/api/projects/${publicId}`),
+    create: (body: { name: string; description?: string; status?: ProjectStatus }) =>
+      request<{ project: ProjectDto }>("/api/projects", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (
+      publicId: string,
+      body: { name: string; description?: string; status?: ProjectStatus },
+    ) =>
+      request<{ project: ProjectDto }>(`/api/projects/${publicId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    archive: (publicId: string) =>
+      request<void>(`/api/projects/${publicId}/archive`, { method: "POST" }),
+    restore: (publicId: string) =>
+      request<{ project: ProjectDto }>(`/api/projects/${publicId}/restore`, {
+        method: "POST",
+      }),
+    exportMarkdown: () => requestText("/api/projects/export?format=markdown"),
+    exportJson: () => requestText("/api/projects/export"),
   },
   admin: {
     team: () => request<{ team: TeamDto }>("/api/admin/team"),
@@ -403,6 +442,22 @@ export const api = {
       request<{ meeting: MeetingDto }>(`/api/meetings/${publicId}/restore`, { method: "POST" }),
     audit: (publicId: string) =>
       request<{ auditEvents: AuditLogDto[] }>(`/api/meetings/${publicId}/audit`),
+    createProjectNote: (
+      publicId: string,
+      body: {
+        body: string;
+        noteType?: ProjectNoteType;
+        projectPublicIds?: string[];
+      },
+    ) =>
+      request<{ note: ProjectNoteDto }>(`/api/meetings/${publicId}/project-notes`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deleteProjectNote: (meetingPublicId: string, notePublicId: string) =>
+      request<void>(`/api/meetings/${meetingPublicId}/project-notes/${notePublicId}`, {
+        method: "DELETE",
+      }),
   },
   googleCalendar: {
     searchEvents: (query: string) =>
